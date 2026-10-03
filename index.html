@@ -14,11 +14,11 @@
   html, body { margin:0; padding:0; background:var(--bg); color:var(--ink);
     font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size:14px; }
   body { padding:12px; }
-  .app { max-width:1100px; margin:0 auto; }
+  .app { max-width:1200px; margin:0 auto; }
   header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
   h1 { font-size:18px; letter-spacing:2px; margin:0; color:var(--accent); }
   main { display:flex; gap:12px; align-items:flex-start; }
-  canvas#game { display:block; width:100%; max-width:480px; aspect-ratio:16/9;
+  canvas#game { display:block; width:100%; max-width:960px; aspect-ratio:16/9;
     image-rendering:pixelated; background:#000; border:2px solid var(--border); }
   #panel { flex:1 1 260px; min-width:220px; background:var(--panel);
     border:2px solid var(--border); padding:10px; }
@@ -41,6 +41,12 @@
   #validation { color:var(--danger); margin:6px 0 0; font-size:13px; }
   #live { position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
     overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  /* Stack strictly below 900px so the panel sits beside the 2x canvas at exactly 900px. */
+  @media (max-width: 899.98px) {
+    main { flex-direction: column; }
+    canvas#game { max-width: 100%; }
+    #panel { width: 100%; }
+  }
 </style>
 </head>
 <body>
