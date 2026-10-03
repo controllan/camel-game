@@ -1884,3 +1884,20 @@ Review-driven deviations from this plan's original code/numbers. Evidence: commi
 | 5 | `tests/app.spec.js` | 6 tests — console errors + network; responsive `<900px` stacking (`800×600`); a11y attributes; `1024×768` side-by-side with no overflow; canvas upscales responsively up to 2× with 16:9 and no horizontal scrollbar (`1920×1000` / `1440×900` / `400×800`); real keyboard reachability + visible focus outline. |
 
 **Superseded counts.** Stale full-suite expectations in Tasks 1–5 ("expect 8/15/20/25 passed") are replaced by current counts: unit 13, controls 16, render 19, goal 18, app 6 → 72 total. Per-task cumulative expectations: T1 13, T2 29, T3 48, T4 66, T5 72.
+
+### v2 upgrade (post-approval)
+
+User-requested v2, shipped but uncommitted. Evidence: current `index.html`, `tests/`, `docs/art/`, `docs/reference/`.
+
+| Area | v1 | v2 (shipped) |
+|---|---|---|
+| Canvas buffer | `480×270` | `512×288` |
+| Camel sprite | `32×20`, palette-swapped per lane | `34×24` brown camel (`#c9803a` body, `#8a5220` shade, `#e0a45f` highlight, `#1a1208` outline) + lane-colored robe rider + light-blue numbered saddle blanket (3×5 digit) |
+| Walk anim | 2 frames / `600 ms` | 1 standing + 4 walk frames, `320 ms`/frame (`1280 ms` cycle), runs `1400 ms` after last score change |
+| Score glide | `300 ms` | `900 ms` cubic ease-out (slower Volksfest amble) |
+| Terrain | flat lanes | shared dune profile `terrainHeightAt(x)` (`1.2·sin(2πx/160)+0.8·sin(2πx/130+1.7)`, clamp ±2 px); dune-ribbon lanes; camel y, goal pole, milestone flags ride the terrain |
+| Names | auto `Camel {n}` | per-lane editable `Team` field (`maxlength 16`), default `Team {n}`, session-only, not translated, `textContent`-sanitized; drives lane header, winner banner, `aria-live` |
+| i18n | `winnerBanner` `Camel {n} wins!`; `camelName` `Camel {n}` | `winnerBanner` `{name} wins!` / `{name} gewinnt!`; new `teamLabel` `Team`; `camelName` `Team {n}` |
+| Layout scale | `max-width` cap | fills wrapper `min(availW/512, availH/288)`, cap `4`, nearest-integer snap within `8%` if it fits; no lower clamp (only `SCALE_EPSILON=0.05`), so the canvas is never larger than its wrapper; page never scrolls |
+| Docs | — | `docs/art/camel-sprite.md`, `docs/reference/camel-pixel-art.png`, `docs/reference/real-life-camel-race.jpg` added |
+| Tests | 72 | 91+ (`pnpm test`) |

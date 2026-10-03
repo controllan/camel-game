@@ -11,6 +11,7 @@ Deliverable: one file `index.html` at repo root
 Single-page camel race game, similar to German Volksfest game "Kamel Derby".
 Player sets money/points per camel, race to a goal score.
 Open `index.html` directly. Play offline.
+Each lane carries a user-editable team name (added by user request).
 
 ## Scope
 
@@ -34,7 +35,6 @@ Explicitly out of scope:
 - multiplayer
 - betting/odds
 - CI pipelines
-- user-editable camel names
 
 ## UX Decisions
 
@@ -48,6 +48,7 @@ All confirmed by user.
 | New race | resets scores, re-enables controls, keeps config (camel count, goal, language). |
 | Language | EN and DE, both complete. Toggle in header. Default EN. Session-only — resets on reload. |
 | Language toggle UI | one control showing both labels `EN` and `DE`; current language highlighted |
+| Team names | per-lane editable `Team` text field, max 16 chars, default `Team 1…8`; session-only, not translated; added by user request |
 
 ## Architecture
 
@@ -59,7 +60,7 @@ flowchart TD
   UI -->|"calls mutators"| CORE["window.GameCore<br/>pure logic + state"]
   CORE -->|"state + derived window"| UI
   UI -->|"read state each frame"| RAF["requestAnimationFrame loop<br/>delta-time"]
-  RAF -->|"draw"| CANVAS["canvas 480×270 buffer<br/>imageSmoothingEnabled=false"]
+  RAF -->|"draw"| CANVAS["canvas 512×288 buffer<br/>imageSmoothingEnabled=false"]
   CORE -.->|"computeCameraWindow /<br/>mapScoreToScreenX"| RAF
   CORE -->|"state"| DOM
   RAF -->|"winner event"| LIVE["aria-live=polite region"]
@@ -98,7 +99,7 @@ Global state:
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | stable per camel |
-| `name` | string | auto-generated, localized, not user-editable |
+| `name` | string | user-editable team name; default `Team {n}` in both languages; session-only; not translated; sanitized via `textContent` |
 | `color` | string | hex from 8-color palette, by lane index |
 | `score` | integer | non-negative, the world position |
 | `lane` | integer | 0-based lane index |
@@ -118,6 +119,7 @@ Required functions (at least):
 |---|---|
 | `addScore(camelId, n)` | add `n` to camel score |
 | `setScore(camelId, n)` | set exact score |
+| `setCamelName(camelId, name)` | set team name; trims; rejects empty or >16 chars, state unchanged |
 | `setCamelCount(n)` | rebuild lanes, bounds 2–8 |
 | `setGoal(scoreOrNull)` | `setGoal(n)` → goal mode with goal `n`; `setGoal(null)` → infinite mode |
 | `resetRace()` | scores→0, raceOver→false, winner→null, confetti cleared, controls re-enabled; config untouched |
@@ -170,10 +172,10 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 
 | Item | Value |
 |---|---|
-| Internal resolution | exactly 480×270 buffer pixels |
+| Internal resolution | exactly 512×288 buffer pixels |
 | Smoothing | `ctx.imageSmoothingEnabled = false`; CSS `image-rendering: pixelated` |
-| Display size | scales up responsively; integer scale preferred (e.g. ×2/×3); never distorted; keep 16:9 |
-| Camel sprite size | 24×16 buffer px at CONSTANT screen size, regardless of zoom |
+| Display size | fills its wrapper: `scale = min(availW/512, availH/288)`, capped at 4, snapped to the nearest integer when within 8% and it fits, else fractional; never larger than the wrapper; never distorted; keep 16:9 |
+| Camel sprite size | 34×24 buffer px at CONSTANT screen size, regardless of zoom |
 | Position | only horizontal SCREEN POSITION comes from camera mapping |
 | Lanes | one lane per camel, stacked vertically, fixed lane row height; each lane draws its own track band, camel, and DOM controls in side panel keyed by color |
 
@@ -183,7 +185,9 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 - Decorations placed with a seeded PRNG (fixed seed) → world stable across frames; drawn through camera mapping; may repeat/tile.
 - Finish line: checkered, pole + flag at goal position (goal mode only).
 - Milestone flags every 50 points, each with a 6px monospace numeric label drawn inside buffer. Required (not optional).
-- Camel sprite 24×16, two humps, palette-swapped body color per camel, fixed outline/eye colors, 2-frame leg walk cycle.
+- Camel sprite 34×24: brown dromedary (`#c9803a` body, `#8a5220` shade, `#e0a45f` highlight, `#1a1208` outline) with a lane-colored robe rider (white turban, skin tone) and a numbered light-blue saddle blanket (3×5 pixel digit). 1 standing + 4 walk frames. Details: [`../art/camel-sprite.md`](../art/camel-sprite.md).
+- Lanes are undulating sand dune ribbons (`#c9a25a` top, `#a8813f` shade, `#6e4f2a` edge, `#523a1e` rim); camels, the goal pole, and milestone flags stand on the shared dune profile `GameCore.terrainHeightAt(x)` (`1.2·sin(2πx/160)+0.8·sin(2πx/130+1.7)`, clamped ±2 px).
+- User art references (not loaded at runtime): [`../reference/camel-pixel-art.png`](../reference/camel-pixel-art.png), [`../reference/real-life-camel-race.jpg`](../reference/real-life-camel-race.jpg).
 - Idle camel bob: NOT required. Do not add.
 - Confetti: small pixel squares, per-particle velocity/gravity, spawned from winner position, cleared on New race. Renderer-owned; core only exposes winner + reset.
 
@@ -203,8 +207,9 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 ## Movement & Animation
 
 - Score change → camel target screen x from new score.
-- Visual x eases/lerps toward target over ~300 ms (no jump teleports).
-- Walk animation 600 ms (2-frame leg cycle) after any score change, including decreases (walk left).
+- Visual x eases/lerps toward target over 900 ms (cubic ease-out, no jump teleports).
+- Walk animation continues 1400 ms after the last score change, including decreases (walk left): 1 standing + 4 walk frames at 320 ms/frame (1280 ms gait cycle); `now < animUntil` selects a walk frame, else standing.
+- Camel y follows the dune profile `GameCore.terrainHeightAt(score)`; camels ride the terrain.
 - Idle = standing frame.
 - `requestAnimationFrame` loop, delta-time based. No artificial fixed sleeps.
 - Ties never overlap visually — each camel has its own lane.
@@ -242,7 +247,7 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 ┌──────────────────────────────────────────────┐
 │ KAMEL DERBY  [EN|DE]                         │
 ├───────────────────────────────┬──────────────┤
-│  canvas 480×270, upscaled     │ ⚙ camels 2-8 │
+│  canvas 512×288, fills        │ ⚙ camels 2-8 │
 │  lane1 ▓▓▓▓🐪 ─────────── 🏁  │ goal [200] ☐∞│
 │  lane2 ▓▓🐪  ──────────── 🏁  │ [+1][+5][+10]│
 │  lane3 ▓▓▓▓▓🐪 ────────── 🏁  │ score [__] 𐄂 │
@@ -263,9 +268,10 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 | Infinite | checkbox `∞` | off default | mutually exclusive with goal input |
 | Per-camel `+1/+5/+10` | buttons | — | one set per lane |
 | Exact score | number input + set button | integers ≥ 0 | invalid rejected + show validation hint, score unchanged |
+| Team name | text input per lane | max 16 chars; default `Team {n}` | live-updates lane header, winner banner, `aria-live`; session-only; not translated; sanitized via `textContent` |
 | New race | button | — | resets per [New race](#new-race) |
 
-Camel names auto-generated and localized (see i18n table). Re-localized when language toggles. Not user-editable.
+Team names are user-editable per lane (added by user request). Default `Team 1…8` in both languages; the core trims the input, and empty or >16-char input is rejected with state unchanged. Names are session-only, not translated, and rendered with `textContent`.
 
 ## i18n String Table
 
@@ -283,12 +289,13 @@ Complete. Both languages. Switch every visible UI string. No mixed-language UI.
 | `scoreLabel` | Score | Punktzahl |
 | `setButton` | Set | Setzen |
 | `newRace` | New race | Neues Rennen |
-| `winnerBanner` | Camel {n} wins! | Kamel {n} gewinnt! |
+| `winnerBanner` | {name} wins! | {name} gewinnt! |
+| `teamLabel` | Team | Team |
 | `languageToggle` | EN / DE | EN / DE |
 | `validationHint` | Enter a whole number ≥ 0. | Bitte eine ganze Zahl ≥ 0 eingeben. |
-| `camelName` | Camel {n} | Kamel {n} |
+| `camelName` | Team {n} | Team {n} |
 
-`{n}` = 1-based camel index. `camelName` used for EN `Camel 1..8`, DE `Kamel 1..8`.
+`{n}` = 1-based camel index. `camelName` is the default team name `Team {n}` in both languages; `{name}` in `winnerBanner` is the camel's team name.
 
 ## Accessibility
 
@@ -301,9 +308,11 @@ Complete. Both languages. Switch every visible UI string. No mixed-language UI.
 
 ## Responsiveness
 
+- App fills the viewport; the page never scrolls (either axis). Only the control panel scrolls internally.
+- Canvas scale fills its wrapper: `scale = min(availW/512, availH/288)`, capped at 4, snapped to the nearest integer when within 8% and it fits, else fractional; never larger than the wrapper.
 - Works at 1024×768 and up.
 - Narrow viewports (<900px): side panel stacks below canvas.
-- Canvas never overflows viewport horizontally. No horizontal page scrollbar.
+- Canvas never overflows the viewport. No page scrollbar on either axis.
 
 ## Testing Strategy
 
@@ -348,10 +357,10 @@ Specify a short repo README (do NOT create now — doc phase):
 ## Acceptance Criteria
 
 1. `index.html` exists, opens from `file://`, no external network requests, no build step.
-2. All visuals pixel art (canvas buffer 480×270 upscaled nearest-neighbor) plus pixel-styled DOM controls.
+2. All visuals pixel art (canvas buffer 512×288 upscaled nearest-neighbor) plus pixel-styled DOM controls.
 3. Camel count adjustable 2–8; default 4.
 4. Goal score settable (default 200, range 1–10000); infinite mode available and mutually exclusive with goal.
-5. Per-camel independent `+1/+5/+10` buttons and exact-score set; increases move that camel right proportionally; decreases move it left.
+5. Per-camel independent `+1/+5/+10` buttons, exact-score set, and an editable `Team` name (max 16 chars) that updates the lane header, winner banner, and `aria-live`; increases move that camel right proportionally; decreases move it left.
 6. First camel reaching goal ends race with winner banner + confetti; inputs disabled; New race resets scores with config intact.
 7. Infinite mode: no winner, no finish line, camels keep moving right indefinitely.
 8. At every moment all camel sprites are horizontally inside the canvas, verified with extreme score spreads and in infinite mode; auto-fit window never zooms below `MIN_WINDOW` or hides a camel.
@@ -362,7 +371,7 @@ Specify a short repo README (do NOT create now — doc phase):
 
 | Risk | Mitigation / trade-off |
 |---|---|
-| Auto-fit vs. constant sprite size: extreme spread compresses background but sprites stay 24×16 | Accept compression; camel screen x clamped to edge + safety margin |
+| Auto-fit vs. constant sprite size: extreme spread compresses background but sprites stay 34×24 | Accept compression; camel screen x clamped to edge + safety margin |
 | `file://` + Playwright | Tests must load from `file://`; no HTTP server allowed |
 | Seeded PRNG decorations + camera mapping | Fixed seed → stable world; may tile/repeat |
 | Lerp easing vs. determinism | Delta-time loop, no fixed sleeps; tests await UI state, not clocks |
