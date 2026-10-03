@@ -305,6 +305,7 @@ window.GameCore = (function () {
     frameWindow: null,
     finishVisible: false,
     goalScreenX: null,
+    decorDrawn: 0,
   };
 
   function laneHeight(n) { return (LANE_BOTTOM - HORIZON_Y) / n; }
@@ -514,10 +515,295 @@ window.GameCore = (function () {
   hideValidation();
   syncDom(core.getState());
 
-  // Task 3 replaces this stub.
-  function updateRuntime(s, dt, now) { /* Task 3 */ }
-  // Task 3 replaces this stub.
-  function drawScene(s, win, now) { /* Task 3 */ }
+  // ---------- art ----------
+  const COL = {
+    outline: '#1a1208',
+    eye: '#0a0a0a',
+    pole: '#d8d8d8',
+    checkerLight: '#f0f0f0',
+    checkerDark: '#1a1a1a',
+    flag: '#e8c83a',
+  };
+  const SKY_BANDS = ['#1a1030', '#241640', '#2e1c4a'];
+  const PALM_PAL = { body: '#6b4a2a', shade: '#4a3320', grass: '#2f6b3a' };
+  const CACTUS_PAL = { body: '#2f6b3a', shade: '#24502d', grass: '#2f6b3a' };
+  const ROCK_PAL = { body: '#6b5570', shade: '#4a3a50', grass: '#4a3a50' };
+
+  const SEED = 1337;
+  const DECOR_SPACING = 90;
+  // Above this camera span the window covers too many decoration cells to draw
+  // cheaply (scores are unbounded), so world decor is dropped; the cheap sky and
+  // dune bands still render. 1500 points draws ~18 decorations per frame.
+  const DECOR_MAX_SPAN = 1500;
+
+  // Camel 24x16. Legend: . transparent, O outline, B body(palette-swap),
+  // D body-shade, E eye.
+  const CAMEL = [
+    [ // frame 0: standing
+      '........................',
+      '....OOO...OOO...........',
+      '...OBBBO.OBBBO...OOOO...',
+      '..OBBBBBOBBBBBO.OBEBO...',
+      '..OBBBBBBBBBBBBOBBBBO...',
+      '..OBBBBBBBBBBBBBBBBBO...',
+      '..OBBBBBBBBBBBBBBO......',
+      '..OBBBBBBBBBBBOO........',
+      '..OBBBBBBBBBBBO.........',
+      '..OOOOOOOOOOOOO.........',
+      '..OBO.OBO..OBO.OBO......',
+      '..OBO.OBO..OBO.OBO......',
+      '..OBO.OBO..OBO.OBO......',
+      '..OOO.OOO..OOO.OOO......',
+      '........................',
+      '........................',
+    ],
+    [ // frame 1: walk A
+      '........................',
+      '....OOO...OOO...........',
+      '...OBBBO.OBBBO...OOOO...',
+      '..OBBBBBOBBBBBO.OBEBO...',
+      '..OBBBBBBBBBBBBOBBBBO...',
+      '..OBBBBBBBBBBBBBBBBBO...',
+      '..OBBBBBBBBBBBBBBO......',
+      '..OBBBBBBBBBBBOO........',
+      '..OBBBBBBBBBBBO.........',
+      '..OOOOOOOOOOOOO.........',
+      '.OBO..OBO...OBO.OBO.....',
+      '..OBO.OBO..OBO..OBO.....',
+      '..OBO.OBO..OBO..OBO.....',
+      '..OOO.OOO..OOO..OOO.....',
+      '........................',
+      '........................',
+    ],
+    [ // frame 2: walk B
+      '........................',
+      '....OOO...OOO...........',
+      '...OBBBO.OBBBO...OOOO...',
+      '..OBBBBBOBBBBBO.OBEBO...',
+      '..OBBBBBBBBBBBBOBBBBO...',
+      '..OBBBBBBBBBBBBBBBBBO...',
+      '..OBBBBBBBBBBBBBBO......',
+      '..OBBBBBBBBBBBOO........',
+      '..OBBBBBBBBBBBO.........',
+      '..OOOOOOOOOOOOO.........',
+      '...OBO.OBO..OBO.OBO.....',
+      '..OBO.OBO..OBO..OBO.....',
+      '..OBO.OBO..OBO..OBO.....',
+      '..OOO.OOO..OOO..OOO.....',
+      '........................',
+      '........................',
+    ],
+  ];
+
+  // Palm 16x20. Legend adds: G frond, B trunk.
+  const PALM = [
+    '....OO......OO..',
+    '..OOGGOO..OOGGO.',
+    '.OGGOGGOOOGGOGO.',
+    'OGOGGGGGGGGOGGGO',
+    '.OGGGGGGGGGGOO..',
+    '..OGGGGOOOO.....',
+    '....OOO.........',
+    '.....OO.........',
+    '.....OO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '....OBO.........',
+    '...OBBBO........',
+    '...OOOOO........',
+  ];
+
+  // Cactus 12x16. Legend: O outline, B body.
+  const CACTUS = [
+    '...OO.......',
+    '..OBO.......',
+    '..OBO.......',
+    '..OBO..OO...',
+    'OBOBO..OBO..',
+    'OBOBOOOOBO..',
+    'OBOBO..OBO..',
+    '.OOO...OBO..',
+    '...OBO.OBO..',
+    '...OBO.OO...',
+    '...OBO......',
+    '...OBO......',
+    '...OBO......',
+    '...OBO......',
+    '...OBO......',
+    '...OOO......',
+  ];
+
+  // Rock 12x8. Legend: O outline, B body.
+  const ROCK = [
+    '...OOOO.....',
+    '..OBBBBOO...',
+    '.OBBBBBBBO..',
+    'OBBBBBBBBBO.',
+    'OBBBBBBBBBBO',
+    'OBBBBBBBBBO.',
+    '.OOOOOOOOO..',
+    '............',
+  ];
+
+  function drawSprite(rows, x, y, palette) {
+    const ox = Math.round(x);
+    const oy = Math.round(y);
+    for (let ry = 0; ry < rows.length; ry++) {
+      const row = rows[ry];
+      for (let rx = 0; rx < row.length; rx++) {
+        const ch = row[rx];
+        let color = null;
+        if (ch === 'O') color = COL.outline;
+        else if (ch === 'B') color = palette.body;
+        else if (ch === 'D') color = palette.shade;
+        else if (ch === 'G') color = palette.grass;
+        else if (ch === 'E') color = COL.eye;
+        else if (ch === 'P') color = COL.pole;
+        else if (ch === 'C') color = COL.checkerLight;
+        else if (ch === 'K') color = COL.checkerDark;
+        else if (ch === 'F') color = COL.flag;
+        if (color) {
+          ctx.fillStyle = color;
+          ctx.fillRect(ox + rx, oy + ry, 1, 1);
+        }
+      }
+    }
+  }
+
+  function hash2(a, b) {
+    let h = (a * 374761393 + b * 668265263) | 0;
+    h = (h ^ (h >>> 13)) | 0;
+    h = Math.imul(h, 1274126177);
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
+  function mulberry32(seed) {
+    let a = seed | 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function drawSky() {
+    const bandH = Math.ceil(HORIZON_Y / SKY_BANDS.length);
+    for (let i = 0; i < SKY_BANDS.length; i++) {
+      ctx.fillStyle = SKY_BANDS[i];
+      ctx.fillRect(0, i * bandH, CANVAS_W, bandH);
+    }
+  }
+
+  function drawSun() {
+    const cx = 408, cy = 30, r = 13;
+    for (let dy = -r; dy <= r; dy++) {
+      const span = Math.floor(Math.sqrt(r * r - dy * dy));
+      ctx.fillStyle = (Math.abs(dy) > r - 3) ? '#f0c060' : '#e8a03a';
+      ctx.fillRect(cx - span, cy + dy, span * 2 + 1, 1);
+    }
+  }
+
+  function drawDuneBand(baseY, offset, color) {
+    ctx.fillStyle = color;
+    for (let x = 0; x < CANVAS_W; x++) {
+      const tt = (x + offset) * 0.05;
+      const h = 6 + Math.round(Math.sin(tt) * 4 + Math.sin(tt * 0.5) * 2);
+      const top = baseY - h;
+      ctx.fillRect(x, top, 1, HORIZON_Y - top + 2);
+    }
+  }
+
+  function drawDunes(win) {
+    drawDuneBand(HORIZON_Y - 18, (win.min * 0.3) % 120, '#3a2a4a');
+    drawDuneBand(HORIZON_Y - 6, (win.min * 0.6) % 90, '#4a3550');
+  }
+
+  function drawDecor(win) {
+    // Zoomed out past DECOR_MAX_SPAN the window spans too many decoration cells
+    // to draw cheaply; skip world decor (sky/dunes stay, they are cheap bands).
+    if ((win.max - win.min) > DECOR_MAX_SPAN) { runtime.decorDrawn = 0; return; }
+    // Cull in world space: mapX clamps to [0,CANVAS_W], so an on-screen cull would
+    // leave off-window decorations piled at the edges. Margin keeps sprites that
+    // straddle the window edge.
+    const margin = (win.max - win.min) * (16 / CANVAS_W);
+    const startK = Math.floor((win.min - DECOR_SPACING) / DECOR_SPACING);
+    const endK = Math.ceil((win.max + DECOR_SPACING) / DECOR_SPACING);
+    let drawn = 0;
+    for (let k = startK; k <= endK; k++) {
+      const rng = mulberry32(hash2(SEED, k));
+      const roll = rng();
+      const point = k * DECOR_SPACING + Math.floor(rng() * 40 - 20);
+      if (point < win.min - margin || point > win.max + margin) continue;
+      const cx = mapX(point, win);
+      if (roll < 0.34) { drawSprite(PALM, cx - PALM[0].length / 2, HORIZON_Y - 20, PALM_PAL); drawn++; }
+      else if (roll < 0.67) { drawSprite(CACTUS, cx - CACTUS[0].length / 2, HORIZON_Y - 16, CACTUS_PAL); drawn++; }
+      else { drawSprite(ROCK, cx - ROCK[0].length / 2, HORIZON_Y - 8, ROCK_PAL); drawn++; }
+    }
+    runtime.decorDrawn = drawn;
+  }
+
+  function drawLanes(s) {
+    const n = s.camels.length;
+    const lh = laneHeight(n);
+    for (let i = 0; i < n; i++) {
+      ctx.fillStyle = (i % 2 === 0) ? '#241b33' : '#2b2140';
+      ctx.fillRect(0, Math.round(laneTopY(i, n)), CANVAS_W, Math.ceil(lh));
+      ctx.fillStyle = '#3a2d55';
+      ctx.fillRect(0, Math.round(laneBottomY(i, n)) - 1, CANVAS_W, 1);
+    }
+    // Paint the rows below the last lane so no transparent strip remains.
+    ctx.fillStyle = '#1a1226';
+    ctx.fillRect(0, LANE_BOTTOM, CANVAS_W, CANVAS_H - LANE_BOTTOM);
+  }
+
+  function drawCamels(s, win, now) {
+    const n = s.camels.length;
+    s.camels.forEach(function (c, i) {
+      const v = runtime.visualLeft[c.id];
+      const left = (v == null) ? camelTargetLeft(c.score, win) : v;
+      const frameIndex = (now < c.animUntil) ? (Math.floor(now / ANIM_FRAME_MS) % 2) + 1 : 0;
+      const pal = { body: c.color, grass: c.color };
+      drawSprite(CAMEL[frameIndex], left, camelTopY(i, n), pal);
+    });
+  }
+
+  function updateRuntime(s, dt, now) {
+    const win = runtime.frameWindow;
+    for (const c of s.camels) {
+      const target = camelTargetLeft(c.score, win);
+      let v = runtime.visualLeft[c.id];
+      if (v == null) {
+        runtime.visualLeft[c.id] = target;
+        continue;
+      }
+      const k = 1 - Math.exp(-dt / LERP_MS);
+      v += (target - v) * k;
+      if (Math.abs(target - v) < 0.5) v = target;
+      runtime.visualLeft[c.id] = v;
+    }
+    const ids = new Set(s.camels.map(function (c) { return c.id; }));
+    for (const id of Object.keys(runtime.visualLeft)) {
+      if (!ids.has(id)) delete runtime.visualLeft[id];
+    }
+    runtime.finishVisible = !s.infinite && s.goalScore != null;
+    runtime.goalScreenX = runtime.finishVisible ? mapX(s.goalScore, win) : null;
+  }
+
+  function drawScene(s, win, now) {
+    drawSky();
+    drawSun();
+    drawDunes(win);
+    drawDecor(win);
+    drawLanes(s);
+    drawCamels(s, win, now);
+  }
 
   let last = performance.now();
   function frame(now) {
@@ -559,7 +845,7 @@ window.GameCore = (function () {
       });
     },
     getScene: function () {
-      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX };
+      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn };
     },
   };
 
