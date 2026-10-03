@@ -1,17 +1,20 @@
-# Camel sprite v2 — 34×24 rider + numbered saddle blanket
+# Camel sprite v3 — 34×24 rider + numbered saddle blanket
 
 Procedural pixel art for the Kamel Derby racer. Facing **right**, one lane per camel.
 No image files: the matrices below drive the existing `drawSprite` pixel loop
 (extended legend — see [Legend](#legend-char--palette)).
 
+This is **Draft A refined** (the reference-faithful slim camel chosen from the drafts),
+promoted to the authoritative design. See [Selection](#selection).
+
 | Item | Value |
 |---|---|
-| Size | **34 × 24** buffer px (was 32×20) |
-| Frames | 1 standing + 4-frame walk: `contact → pass → mirrored contact → mirrored pass` |
+| Size | **34 × 24** buffer px (matrix); camel bounding box 29–32 × 23–24 |
+| Frames | 1 standing + 4-frame walk: `contact A → pass A → contact B → pass B` |
 | Feet | on the **bottom row** (row 23) in every frame |
 | Height budget | ≤ 24 px so it fits a ~26.7 px lane with ±2 px dune bobbing |
-| Preview | `/tmp/camel-sprite-preview-v2.png` (also written to `/tmp/camel-sprite-preview.png`) |
-| Status | v2, replaces the 32×20 design; implemented in `index.html` by frontend/go-wasm dev |
+| Previews | Generated locally during design (not committed): `camel-v3-frames.png`, `camel-v3-loop.png`, `camel-v3-vs-reference.png`, `camel-v3-dressed.png` |
+| Status | v3, replaces the v2 34×24 design; **dressed form is what the game renders** |
 
 Body is **brown** per the pixel-art reference. The **rider's robe** takes the lane
 color (palette-swap). The **saddle blanket** is light blue and carries a
@@ -32,26 +35,48 @@ Moved into the repo for future reference (not loaded at runtime — art stays pr
 - ![real life camel race](../reference/real-life-camel-race.png) — `../reference/real-life-camel-race.png`
   (Volksfest mechanical race: coloured riders, white/light-blue numbered blankets, undulating sand lanes).
 
+## Refinements over Draft A
+
+Draft A was slim and reference-faithful; v3 keeps that silhouette and fixes the areas
+where A still deviated from `camel-pixel-art.png` (side-by-side proof generated
+locally during design, not committed: `camel-v3-vs-reference.png`):
+
+- **Hump** — one taller, rounder single hump with a broad `H` crest (Draft A's was a
+  low bump); hump now reads as the dominant back feature.
+- **Saddle patch** — a `S` saddle patch sits on the back behind the hump crest
+  (visible in the **bare** form only; the dressed/rendered form's `L` blanket covers it).
+- **Neck** — 2 px-wide `H` fill rising more steeply to a taller head (was a thin
+  staircase).
+- **Head** — longer wedge muzzle, clearer `E` eye, single `H` fill.
+- **Legs** — still thin (1 px fill / 3 px with outline) but with a knee band; the
+  four legs are grouped into a rear and a front pair with a wide belly gap.
+- **Tail** — thin `S`/`O` line hanging from the rump to near the ground with a small
+  tuft (Draft A's was a short stub).
+
 ## At a glance
 
 ```
- r0                          ▄▄▄▄▄▄        ▄▄▄▄
- r1                         ██WWWW██     ██BB██      W turban · B body
- r2   rider head + turban   █WWWWWW█    ██BBHHBB█     H highlight
- r3                        █WWWWWW█    █BBBBBB██
- r4                        ██KKKKK█  ███BBBBEBB█      K skin · E eye
- r5   ──────────── rider ──██KKKKK███HHBBBBBBB█
- r6                     ███BBHH█RRRR█OOOBBBSSBBBOO   R robe (lane) · S shade
- r7                   ███BBHHBBRRRRRRRRBBSSOOO       L blanket
- r8   camel hump ▄▄  ███BHBBBBRRRRRRRRBBSSOO
- r9           ▄▄██▄▄ ███BLLLLLLBRRRRRRBSSOO
- r10        ▄███████▄██BBLLLLLLBRRRRRBSSOO
- r11      ▄▄████████████BLLLLLLBBBOOBBBBO
- r12     ▄██SSS███L████O ▀▀▀▀███  ████
-  ...   legs (near B · far S) down to hooves on row 23
+ r0                           ▄▄         ▄▄▄▄
+ r1                          ██W█        ████       W turban · B body
+ r2   rider turban            █WW█       ██████      H highlight
+ r3                          █WW█       ██E███       E eye
+ r4                          █K█       ████
+ r5        ───── rider ───── ███
+ r6                        ▄▄▄ RRR        ██
+ r7   camel hump ▄▄▄▄▄    ███ RRR      ███
+ r8            ▄▄██████▄  ████████   ████
+ r9   saddle  ▄████████████ LLLLLL H ███
+ r10       ▄███████████ ███ LLLLLL  ███
+ r11     ▄██ S S S ██████████ LLLLLL ███
+ r12   ▄█████████████████ ████ LLLLLL
+ r13  █████████████████████████
+ r14   ███████████████████████
+   ... legs (near B · far S) down to hooves on row 23
 ```
 
-(ASCII is illustrative; the authoritative art is the matrices below.)
+(ASCII is illustrative and shows the **bare** saddle patch; the authoritative art is
+the matrices below. In the dressed/rendered form the `L` blanket covers cols 9–15 /
+rows 9–14, so the `S S S` patch is fully occluded.)
 
 ## Palette
 
@@ -61,7 +86,7 @@ Fixed tones (tuned toward the reference pixel art). Contrast ratios are WCAG.
 |---|---|---|
 | `outline` | `#1a1208` | silhouette outline, hooves, rider boots |
 | `body` | `#c9803a` | camel body |
-| `shade` | `#8a5220` | far legs, belly band, haunch, throat, tail |
+| `shade` | `#8a5220` | far legs, belly band, haunch, throat, tail, saddle patch |
 | `highlight` | `#e0a45f` | hump crest, neck, head top |
 | `white` | `#f0ece0` | rider turban |
 | `skin` | `#d8a878` | rider face |
@@ -94,157 +119,304 @@ Every char resolves through the sprite's palette object (see
 | `L` | saddle blanket | `#bfe3ea` | no |
 | `E` | eye | `#0a0a0a` | no |
 
-> **Legend conflicts to handle.** In the current `drawSprite`, `H` = hoof and
-> `K` = checker-dark (used by `FINISH_FLAG`). v2 reuses those letters for
-> highlight/skin. Resolve by routing **all** legend chars through the passed
-> palette (each sprite supplies its own), instead of a global `COL` lookup — see
+> **Legend resolved (as implemented).** Every legend char routes through the
+> sprite's palette object via `CHAR_KEY`, so the letters that once collided in the
+> global `COL` lookup no longer clash: `H` = highlight, `K` = skin, and the
+> `FINISH_FLAG` checker-dark is `X` — see
 > [Implementer notes](#implementer-notes). The old `D`/`T` shade aliases are gone;
 > the tail is plain `S`.
 
 ## Matrices
 
-`const CAMEL = [ ... ]` — 5 frames, **24 rows × 34 chars** each.
+### Bare camel — `const CAMEL_BARE = [ ... ]` (5 frames, 24 rows × 34 chars)
+
+The outline is derived (a solid silhouette's outer 1 px ring becomes `O`), then baked
+into the matrix. Shown for design/reference and for the silhouette checks.
 
 ```
     [ // frame 0 — standing (idle)
-      '..............OOOOOO......OOOO....',
-      '.............OOWWWWOO....OOBBOO...',
-      '.............OWWWWWWO...OOBHHBOO..',
-      '.............OWWWWWWO...OBBBBBBOO.',
-      '.............OOKKKKKO.OOOBBBBEBBO.',
-      '.........OOOOOOKKKKKOOOHHBBBBBBBO.',
-      '........OOBHHBRRRRROOOBBBSSBBBOOO.',
-      '.......OOBHHBBRRRRRRRRBBSSOOOOO...',
-      '......OOBHBBBBRRRRRRRRBSSOO.......',
-      '.....OOBLLLLLLBRRRRRRBSSOO........',
-      '....OOBBLLLLLLBRRRRRBSSOO.........',
-      '..OOOBBBLLLLLLBBBOOBBBBO..........',
-      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
-      'OOSSSSBBLLLLLLBBBBBBBOO...........',
-      'OSOSSSBBLLLLLLBBBBBBBBO...........',
-      'OSOOSSSBLLLLLLBBBBBBBBO...........',
-      'OSOOOBSSSSSSSSSSSSSSSBO...........',
-      'OSSOOOOBOOOSOOOOBOOOSOO...........',
-      'OOOO..OBO.OSO..OBO.OSO............',
-      '......OBO.OSO..OBO.OSO............',
-      '......OBO.OSO..OBO.OSO............',
-      '......OBO.OSO..OBO.OSO............',
-      '......OBO.OSO..OBO.OSO............',
-      '......OOO.OOO..OOO.OOO............',
+      '...........................OO.....',
+      '..........................OOOOO...',
+      '.........................OOHHHOO..',
+      '.........................OOHEHHO..',
+      '..........................OHHHOOO.',
+      '.........................OOHHOO...',
+      '.........................OHHOO....',
+      '............OOOOO......OOOHOO.....',
+      '..........OOOHHHOO....OOHHOO......',
+      '.........OOHHHHHHOOOO.OHHOO.......',
+      '........OOBBBBBBBBBBOOOBOO........',
+      '......OOOBBBBBBBBBBBBBBBO.........',
+      '...OOOOBBBBBBBBBBBBBBBBBOO........',
+      '...O.OBBBBBBSSSSBBBBBBBBBO........',
+      '...O.OOOBBBBBBBBBBBBBBBBOO........',
+      '...O...OOBOOOBOOOOBOOOBOO.........',
+      '...O....OSO.OBO..OSO.OBO..........',
+      '...O....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OOO.OOO..OOO.OOO..........',
+    ],
+    [ // frame 1 — contact A (head +1 px, near-front foot forward / near-rear back)
+      '............................OO....',
+      '...........................OOOOO..',
+      '..........................OOHHHOO.',
+      '..........................OOHEHHO.',
+      '...........................OHHOOOO',
+      '.........................OOOHOO...',
+      '.........................OHHOO....',
+      '............OOOOO......OOOHOO.....',
+      '..........OOOHHHOO....OOHHOO......',
+      '.........OOHHHHHHOOOO.OHHOO.......',
+      '........OOBBBBBBBBBBOOOBOO........',
+      '......OOOBBBBBBBBBBBBBBBO.........',
+      '...OOOOBBBBBBBBBBBBBBBBBOO........',
+      '...O.OBBBBBBSSSSBBBBBBBBBO........',
+      '...O.OOOBBBBBBBBBBBBBBBBOO........',
+      '...O...OOBOOOBOOOOBOOOBOO.........',
+      '...O....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OOO.OOO..OOO.OOO..........',
+      '..OO.....OOOOO..OOO...OOO.........',
+      '.........OSBBO..OSO...OBO.........',
+      '.........OSBBO..OSO...OBO.........',
+      '.........OSBBO..OSO...OBO.........',
+      '.........OOOOO..OOO...OOO.........',
+    ],
+    [ // frame 2 — pass A (body bob +1 px, legs vertical, tail flicked left)
+      '..................................',
+      '...........................OO.....',
+      '..........................OOOOO...',
+      '.........................OOHHHOO..',
+      '.........................OOHEHHO..',
+      '..........................OHHHOOO.',
+      '.........................OOHHOO...',
+      '.........................OHHOO....',
+      '............OOOOO......OOOHOO.....',
+      '..........OOOHHHOO....OOHHOO......',
+      '.........OOHHHHHHOOOO.OHHOO.......',
+      '........OOBBBBBBBBBBOOOBOO........',
+      '...O..OOOBBBBBBBBBBBBBBBO.........',
+      '...OOOOBBBBBBBBBBBBBBBBBOO........',
+      '..OO.OBBBBBBSSSSBBBBBBBBBO........',
+      '..OO.OOOBBBBBBBBBBBBBBBBOO........',
+      '..OO...OOBOOOBOOOOBOOOBOO.........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OOO.OOO..OOO.OOO..........',
+    ],
+    [ // frame 3 — contact B (head −1 px, mirrored strides, near/far legs swapped)
+      '..........................OO......',
+      '.........................OOOOO....',
+      '........................OOHHHOO...',
+      '........................OOHEHHO...',
+      '.........................OHHHHOO..',
+      '.........................OHHHOO...',
+      '.........................OHHOO....',
+      '............OOOOO......OOOHOO.....',
+      '..........OOOHHHOO....OOHHOO......',
+      '.........OOHHHHHHOOOO.OHHOO.......',
+      '........OOBBBBBBBBBBOOOBOO........',
+      '......OOOBBBBBBBBBBBBBBBO.........',
+      '...OOOOBBBBBBBBBBBBBBBBBOO........',
+      '...O.OBBBBBBSSSSBBBBBBBBBO........',
+      '...O.OOOBBBBBBBBBBBBBBBBOO........',
+      '...O...OOBOOOBOOOOBOOOBOO.........',
+      '...O....OBO.OSO..OBO.OSO..........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '...OO...OOO.OOO..OOO.OOO..........',
+      '...OO..OOO...OOO..OOOOO...........',
+      '.......OBO...OSO..OBSSO...........',
+      '.......OBO...OSO..OBSSO...........',
+      '.......OBO...OSO..OBSSO...........',
+      '.......OOO...OOO..OOOOO...........',
+    ],
+    [ // frame 4 — pass B (body bob +1 px, near/far legs swapped vs frame 2, tail right)
+      '..................................',
+      '...........................OO.....',
+      '..........................OOOOO...',
+      '.........................OOHHHOO..',
+      '.........................OOHEHHO..',
+      '..........................OHHHOOO.',
+      '.........................OOHHOO...',
+      '.........................OHHOO....',
+      '............OOOOO......OOOHOO.....',
+      '..........OOOHHHOO....OOHHOO......',
+      '.........OOHHHHHHOOOO.OHHOO.......',
+      '........OOBBBBBBBBBBOOOBOO........',
+      '...O..OOOBBBBBBBBBBBBBBBO.........',
+      '...OOOOBBBBBBBBBBBBBBBBBOO........',
+      '...OSBBBBBBBSSSSBBBBBBBBBO........',
+      '...OOOOOBBBBBBBBBBBBBBBBOO........',
+      '...OO..OOBOOOBOOOOBOOOBOO.........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '........OBO.OSO..OBO.OSO..........',
+      '........OBO.OSO..OBO.OSO..........',
+      '........OBO.OSO..OBO.OSO..........',
+      '........OOO.OOO..OOO.OOO..........',
+    ],
+```
+
+### Dressed camel — `const CAMEL = [ ... ]` (5 frames, 24 rows × 34 chars)
+
+**This is what the game renders.** Identical body/legs to the bare set with the rider
+(`O/W/K/R`) and the flat `L` blanket overlaid; the digit is painted by code (see
+[Saddle blanket + number](#saddle-blanket--number)). Rider and blanket drift +1 px with
+the body on the bob frames.
+
+```
+    [ // frame 0 — standing (idle)
+      '...........................OO.....',
+      '..........OOOOOO..........OOOOO...',
+      '..........OWWWWO.........OOHHHOO..',
+      '..........OWWWWO.........OOHEHHO..',
+      '..........OWWKKO..........OHHHOOO.',
+      '..........OKKKKOO........OOHHOO...',
+      '..........ORRRRRO........OHHOO....',
+      '..........ORRRRRO......OOOHOO.....',
+      '..........ORRRRROO....OOHHOO......',
+      '.........OOLLLLLHOOOO.OHHOO.......',
+      '........OOLLLLLLBBBBOOOBOO........',
+      '......OOOLLLLLLLBBBBBBBBO.........',
+      '...OOOOBBLLLLLLLBBBBBBBBOO........',
+      '...O.OBBBLLLLLLLBBBBBBBBBO........',
+      '...O.OOOBLLLLLLLBBBBBBBBOO........',
+      '...O...OOBOOOBOOOOBOOOBOO.........',
+      '...O....OSO.OBO..OSO.OBO..........',
+      '...O....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OOO.OOO..OOO.OOO..........',
     ],
     [ // frame 1 — contact A
-      '..............OOOOOO.......OOOO...',
-      '.............OOWWWWOO.....OOBBOO..',
-      '.............OWWWWWWO....OOBHHBOO.',
-      '.............OWWWWWWO....OBBBBBBOO',
-      '.............OOKKKKKO.OOOOBBBBEBBO',
-      '.........OOOOOOKKKKKOOOHHBBBBBBBBO',
-      '........OOBHHBRRRRROOOBBBSSBBBBOOO',
-      '.......OOBHHBBRRRRRRRRBBSSOOOOOO..',
-      '......OOBHBBBBRRRRRRRRBSSOO.......',
-      '.....OOBLLLLLLBRRRRRRBSSOO........',
-      '....OOBBLLLLLLBRRRRRBSSOO.........',
-      '..OOOBBBLLLLLLBBBOOBBBBO..........',
-      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
-      'OOSSSSBBLLLLLLBBBBBBBOO...........',
-      'OSOSSSBBLLLLLLBBBBBBBBO...........',
-      'OSOOSSSBLLLLLLBBBBBBBBO...........',
-      'OSOOOBSSSSSSSSSSSSSSSBO...........',
-      'OSSOOOOBOOOSOOOOBOOOSOO...........',
-      'OOOO..OBO.OSO..OBO.OSO............',
-      '.....OOBO.OSOO.OBOOOSO............',
-      '.....OBOO.OOSO.OOBOSOO............',
-      '.....OBO...OSO..OBOSO.............',
-      '.....OBO...OSO..OBOSO.............',
-      '.....OOO...OOO..OOOOO.............',
+      '............................OO....',
+      '..........OOOOOO...........OOOOO..',
+      '..........OWWWWO..........OOHHHOO.',
+      '..........OWWWWO..........OOHEHHO.',
+      '..........OWWKKO...........OHHOOOO',
+      '..........OKKKKOO........OOOHOO...',
+      '..........ORRRRRO........OHHOO....',
+      '..........ORRRRRO......OOOHOO.....',
+      '..........ORRRRROO....OOHHOO......',
+      '.........OOLLLLLHOOOO.OHHOO.......',
+      '........OOLLLLLLBBBBOOOBOO........',
+      '......OOOLLLLLLLBBBBBBBBO.........',
+      '...OOOOBBLLLLLLLBBBBBBBBOO........',
+      '...O.OBBBLLLLLLLBBBBBBBBBO........',
+      '...O.OOOBLLLLLLLBBBBBBBBOO........',
+      '...O...OOBOOOBOOOOBOOOBOO.........',
+      '...O....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OOO.OOO..OOO.OOO..........',
+      '..OO.....OOOOO..OOO...OOO.........',
+      '.........OSBBO..OSO...OBO.........',
+      '.........OSBBO..OSO...OBO.........',
+      '.........OSBBO..OSO...OBO.........',
+      '.........OOOOO..OOO...OOO.........',
     ],
-    [ // frame 2 — pass A
+    [ // frame 2 — pass A (bob)
       '..................................',
-      '..............OOOOOO......OOOO....',
-      '.............OOWWWWOO....OOBBOO...',
-      '.............OWWWWWWO...OOBHHBOO..',
-      '.............OWWWWWWO...OBBBBBBOO.',
-      '.............OOKKKKKO.OOOBBBBEBBO.',
-      '.........OOOOOOKKKKKOOOHHBBBBBBBO.',
-      '........OOBHHBRRRRROOOBBBSSBBBOOO.',
-      '.......OOBHHBBRRRRRRRRBBSSOOOOO...',
-      '......OOBHBBBBRRRRRRRRBSSOO.......',
-      '.....OOBLLLLLLBRRRRRRBSSOO........',
-      '....OOBBLLLLLLBRRRRRBSSOO.........',
-      '..OOOBBBLLLLLLBBBOOBBBBO..........',
-      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
-      'OOSSSSBBLLLLLLBBBBBBBOO...........',
-      'OSSSSSBBLLLLLLBBBBBBBBO...........',
-      'OSSOSSSBLLLLLLBBBBBBBBO...........',
-      'OSSSOBSSSSSSSSSSSSSSSBO...........',
-      'OSSOOOOBOOOSOOOOBOOOSOO...........',
-      'OOOO..OBO.OSO..OBO.OSO............',
-      '......OBO.OSO..OBO.OSO............',
-      '......OBO.OSO..OBO.OSO............',
-      '......OBO.OSO..OBO.OSO............',
-      '......OOO.OOO..OOO.OOO............',
+      '...........................OO.....',
+      '..........OOOOOO..........OOOOO...',
+      '..........OWWWWO.........OOHHHOO..',
+      '..........OWWWWO.........OOHEHHO..',
+      '..........OWWKKO..........OHHHOOO.',
+      '..........OKKKKOO........OOHHOO...',
+      '..........ORRRRRO........OHHOO....',
+      '..........ORRRRRO......OOOHOO.....',
+      '..........ORRRRROO....OOHHOO......',
+      '.........OOLLLLLHOOOO.OHHOO.......',
+      '........OOLLLLLLBBBBOOOBOO........',
+      '...O..OOOLLLLLLLBBBBBBBBO.........',
+      '...OOOOBBLLLLLLLBBBBBBBBOO........',
+      '..OO.OBBBLLLLLLLBBBBBBBBBO........',
+      '..OO.OOOBLLLLLLLBBBBBBBBOO........',
+      '..OO...OOBOOOBOOOOBOOOBOO.........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '..OO....OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OSO.OBO..OSO.OBO..........',
+      '........OOO.OOO..OOO.OOO..........',
     ],
-    [ // frame 3 — contact B
-      '..............OOOOOO.....OOOO.....',
-      '.............OOWWWWOO...OOBBOO....',
-      '.............OWWWWWWO..OOBHHBOO...',
-      '.............OWWWWWWO..OBBBBBBOO..',
-      '.............OOKKKKKO.OOBBBBEBBO..',
-      '.........OOOOOOKKKKKOOOHHBBBBBBO..',
-      '........OOBHHBRRRRROOOBBBSSBBOOO..',
-      '.......OOBHHBBRRRRRRRRBBSSOOOO....',
-      '......OOBHBBBBRRRRRRRRBSSOO.......',
-      '.....OOBLLLLLLBRRRRRRBSSOO........',
-      '....OOBBLLLLLLBRRRRRBSSOO.........',
-      '..OOOBBBLLLLLLBBBOOBBBBO..........',
-      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
-      'OOSSSSBBLLLLLLBBBBBBBOO...........',
-      'OSOSSSBBLLLLLLBBBBBBBBO...........',
-      'OSOOSSSBLLLLLLBBBBBBBBO...........',
-      'OSOOOBSSSSSSSSSSSSSSSBO...........',
-      'OSSOOOOBOOOSOOOOBOOOSOO...........',
-      'OOOO..OBO.OSO..OBO.OSO............',
-      '......OBOOOSO.OOBO.OSOO...........',
-      '......OOBOSOO.OBOO.OOSO...........',
-      '.......OBOSO..OBO...OSO...........',
-      '.......OBOSO..OBO...OSO...........',
-      '.......OOOOO..OOO...OOO...........',
+    [ // frame 3 — contact B (near/far legs swapped)
+      '..........................OO......',
+      '..........OOOOOO.........OOOOO....',
+      '..........OWWWWO........OOHHHOO...',
+      '..........OWWWWO........OOHEHHO...',
+      '..........OWWKKO.........OHHHHOO..',
+      '..........OKKKKOO........OHHHOO...',
+      '..........ORRRRRO........OHHOO....',
+      '..........ORRRRRO......OOOHOO.....',
+      '..........ORRRRROO....OOHHOO......',
+      '.........OOLLLLLHOOOO.OHHOO.......',
+      '........OOLLLLLLBBBBOOOBOO........',
+      '......OOOLLLLLLLBBBBBBBBO.........',
+      '...OOOOBBLLLLLLLBBBBBBBBOO........',
+      '...O.OBBBLLLLLLLBBBBBBBBBO........',
+      '...O.OOOBLLLLLLLBBBBBBBBOO........',
+      '...O...OOBOOOBOOOOBOOOBOO.........',
+      '...O....OBO.OSO..OBO.OSO..........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '...OO...OOO.OOO..OOO.OOO..........',
+      '...OO..OOO...OOO..OOOOO...........',
+      '.......OBO...OSO..OBSSO...........',
+      '.......OBO...OSO..OBSSO...........',
+      '.......OBO...OSO..OBSSO...........',
+      '.......OOO...OOO..OOOOO...........',
     ],
-    [ // frame 4 — pass B (mirrored pass: near/far legs swapped vs frame 2, tail swayed back)
+    [ // frame 4 — pass B (bob, near/far legs swapped vs frame 2)
       '..................................',
-      '..............OOOOOO......OOOO....',
-      '.............OOWWWWOO....OOBBOO...',
-      '.............OWWWWWWO...OOBHHBOO..',
-      '.............OWWWWWWO...OBBBBBBOO.',
-      '.............OOKKKKKO.OOOBBBBEBBO.',
-      '.........OOOOOOKKKKKOOOHHBBBBBBBO.',
-      '........OOBHHBRRRRROOOBBBSSBBBOOO.',
-      '.......OOBHHBBRRRRRRRRBBSSOOOOO...',
-      '......OOBHBBBBRRRRRRRRBSSOO.......',
-      '.....OOBLLLLLLBRRRRRRBSSOO........',
-      '....OOBBLLLLLLBRRRRRBSSOO.........',
-      '..OOOBBBLLLLLLBBBOOBBBBO..........',
-      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
-      'OOSSSSBBLLLLLLBBBBBBBOO...........',
-      'OSOOSSBBLLLLLLBBBBBBBBO...........',
-      'OSOOOSSBLLLLLLBBBBBBBBO...........',
-      'OSOOOBSSSSSSSSSSSSSSSBO...........',
-      'OSSOOOOSOOOBOOOOSOOOBOO...........',
-      'OOOO..OSO.OBO..OSO.OBO............',
-      '......OSO.OBO..OSO.OBO............',
-      '......OSO.OBO..OSO.OBO............',
-      '......OSO.OBO..OSO.OBO............',
-      '......OOO.OOO..OOO.OOO............',
+      '...........................OO.....',
+      '..........OOOOOO..........OOOOO...',
+      '..........OWWWWO.........OOHHHOO..',
+      '..........OWWWWO.........OOHEHHO..',
+      '..........OWWKKO..........OHHHOOO.',
+      '..........OKKKKOO........OOHHOO...',
+      '..........ORRRRRO........OHHOO....',
+      '..........ORRRRRO......OOOHOO.....',
+      '..........ORRRRROO....OOHHOO......',
+      '.........OOLLLLLHOOOO.OHHOO.......',
+      '........OOLLLLLLBBBBOOOBOO........',
+      '...O..OOOLLLLLLLBBBBBBBBO.........',
+      '...OOOOBBLLLLLLLBBBBBBBBOO........',
+      '...OSBBBBLLLLLLLBBBBBBBBBO........',
+      '...OOOOOBLLLLLLLBBBBBBBBOO........',
+      '...OO..OOBOOOBOOOOBOOOBOO.........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '...OO...OBO.OSO..OBO.OSO..........',
+      '........OBO.OSO..OBO.OSO..........',
+      '........OBO.OSO..OBO.OSO..........',
+      '........OBO.OSO..OBO.OSO..........',
+      '........OOO.OOO..OOO.OOO..........',
     ],
 ```
 
 ## Silhouette / anatomy (per frame, shared)
 
-- Single broad **hump** (rows 6–11) with a lighter `H` crest.
-- Long **neck** curving up-right (rows 5–11), `S` along the throat, `H` along the top.
-- Wedge **head** (rows 1–6) with `H` forehead, **`E` eye**, fore-cast muzzle.
-- **Ear** nub above the head (row 1, `B`).
-- **Tail**: thin `S` line hanging from the rump with a small tuft (rows 12–17).
+- Single broad **hump** (rows 7–10) with a lighter `H` crest.
+- **Saddle patch**: `S` block on the back behind the hump crest (row 13, cols 12–15),
+  visible in the **bare** form only. In the dressed/rendered form the `L` blanket
+  (cols 9–15, rows 9–14) covers it entirely.
+- Long **neck** curving up-right (rows 5–10), 2 px `H` fill, `S`/`O` along the throat.
+- Wedge **head** (rows 0–5) with `H` forehead, a single `E` eye (row 3, col 28),
+  fore-cast muzzle.
+- **Ear** nub above the head (row 0, cols 27–28).
+- **Tail**: thin `S`/`O` line hanging from the rump (rows 12–19) with a small tuft.
 - **Legs**: near side `B`, far side `S`; hooves are the dark bottom outline (row 23).
 
 ## Gait & timing
@@ -257,9 +429,13 @@ contact A ──► pass A ──► contact B ──► pass B ──┐
 
 - Cycle = 4 walk frames × **320 ms** ≈ **1280 ms**; idle = frame 0, **no idle motion**.
 - Index while animating: `(Math.floor(now / 320) % 4) + 1`, else `0`.
-- **Contact** (1, 3): near-rear/near-front feet swing ±1 px, far legs opposite; head/neck sway `+1` px (frame 1) / `-1` px (frame 3).
-- **Pass** (2, 4): legs vertical under the body; whole upper body drops **1 px** (the bob); tail flicks out.
-- Only **legs, head/neck, tail and the 1 px bob** move. Hump, blanket, rider and body outline stay put → no silhouette jitter.
+- **Contact** (1, 3): near-front / near-rear feet stride ±1 px, far legs opposite;
+  head/neck sways `+1` px (frame 1) / `-1` px (frame 3); tail tuft swings.
+- **Pass** (2, 4): legs vertical under the body; whole upper body drops **1 px**
+  (the bob); near/far leg colours are swapped between the two pass poses (no duplicate
+  frames).
+- Only **legs, head/neck, tail and the 1 px bob** move. Hump, blanket, rider and body
+  outline stay put → no silhouette jitter.
 
 ```mermaid
 sequenceDiagram
@@ -274,24 +450,33 @@ sequenceDiagram
 
 ## Saddle blanket + number
 
-- **Blanket flat area** = cols **8–13** × rows **9–15** (6 wide × 7 tall) in the sprite, all `L`, drawn *before* legs/rider so nothing overwrites it. On bob frames it simply shifts 1 px down with the body.
-- **Digit** = 3 × 5 px, drawn by code **after** the sprite, anchored at sprite-relative
-  `(col 9, row 10)` → occupies cols 9–11, rows 10–14 (padding L1 R2 T1 B1). Colour `#123a44`.
-- Draw the camel's 1-based **lane index**; fall back to `0`/`9` if index > 8.
+- **Blanket area** = rows **9–14** × cols **9–15** (7 wide × 6 tall), drawn
+  *before* legs/rider so nothing overwrites it. On bob frames (2, 4) it shifts
+  **1 px down** with the body (rows 10–15).
+- **Digit** = 3 × 5 px, drawn by code **after** the sprite, anchored at
+  **sprite-local `(col 10, row 10)`** → occupies **cols 10–12, rows 10–14**
+  (padding L1 R3 T1 B0). On bob frames add +1 to the row. Colour `#123a44`.
+  Verified: the **digit area = cols 10–12 × rows 10–14 is flat `L` in all five
+  frames** (+1 row on the bob frames 2/4).
+- Draw the camel's 1-based **lane index**; fall back to `0` if index > 8.
 - `#` = digit pixel, `.` = transparent.
 
 ```
  1      2      3      4      5      6      7      8      9      0
-.#.    ###    ###    #.#    ###    ###    ###    ###    ###    ###
+.#.    ###    ###    #.#    ###    ###    ..#    ###    ###    ###
 ##.    ..#    ..#    #.#    #..    #..    ..#    #.#    #.#    #.#
 .#.    ###    ###    ###    ###    ###    ..#    ###    ###    #.#
 .#.    #..    ..#    ..#    ..#    #.#    ..#    #.#    ..#    #.#
 ###    ###    ###    ..#    ###    ###    ..#    ###    ###    ###
 ```
 
+(Glyphs match the in-repo `DIGIT_FONT` in `index.html` verbatim — e.g. `7` is the
+bare right column.)
+
 Readability (validated): `#123a44` on `blanket #bfe3ea` = **8.98** (≥ AA 4.5);
 light variant `#f0ece0` on `#123a44` = **10.37** for a dark-blanket fallback.
-Digits 1–8 are legible at 1× and 4× on the blanket colour (see preview section D/E).
+Digits 1–8 are legible at 1× and 4× on the blanket colour (see the locally generated,
+not committed `camel-v3-dressed.png`).
 
 ## Dune lane tokens (terrain feature, approved 1A)
 
@@ -337,12 +522,14 @@ along the ribbon bottom; clamp `h` to `[-2, +2]`.
 Only `R` changes per camel. `K`/`W`/`L`/`O`/`B`/`S`/`H`/`E` are fixed, so the
 silhouette, face, turban and blanket stay identical and every robe colour
 (ranging 3.89–11.25 contrast against the dark outline) reads clearly.
-Preview rows B and C prove red/blue/green robes and 1× readability on sand.
+The locally generated (not committed) `camel-v3-dressed.png` proves red/blue/green
+robes and digits 1–8 at 4×.
 
 ## Implementer notes
 
-- **Constants**: `SPRITE_W = 34`, `SPRITE_H = 24`, `ANIM_FRAME_MS = 320`; the walk
-  actually cycles at `1280 ms` when `ANIM_MS ≥ 1280`.
+- **Constants**: `SPRITE_W = 34`, `SPRITE_H = 24` (**unchanged** from v2),
+  `ANIM_FRAME_MS = 320`; the walk cycles at `1280 ms` when `ANIM_MS ≥ 1280`.
+  Only the **matrices** and the **digit anchor** change.
 - **`drawSprite` legend**: route *every* char through the sprite's palette object,
   e.g. `O→outline, B→body, S→shade, H→highlight, R→robe, W→white, K→skin, L→blanket, E→eye`
   (`.` skipped), with a fallback to the existing `COL` for the decoration sprites
@@ -361,44 +548,66 @@ Preview rows B and C prove red/blue/green robes and 1× readability on sand.
   24 px sprite (plus 1 px bob, ±2 px dunes) fits. If `laneHeight < 26`, clamp the offset:
   `off = Math.max(0, Math.min(2, Math.floor((laneHeight - SPRITE_H) / 2)))`.
 - **Where the number is drawn**: after `drawSprite(CAMEL[frame], left, top, CAMEL_PAL(c.color))`,
-  overlay the digit glyph at `(left + 9, top + 10)` in `#123a44`. One glyph per lane,
-  index = camel's 1-based lane number.
+  overlay the digit glyph at **`(left + 10, top + 10)`** (was `left+9, top+10`) in
+  `#123a44`, adding **+1 to the row on the bob frames (2, 4)** so the digit tracks the
+  blanket. One glyph per lane, index = camel's 1-based lane number.
 - **Tail/shade aliases**: the old `D`/`T` shade letters are unused; add `T`→`shade`
   only if keeping backward compatibility with old matrices.
-- `camelTargetLeft` clamp uses `SPRITE_W = 34` (update the `- 32` constant).
+- `camelTargetLeft` clamp uses `SPRITE_W = 34` (unchanged).
 
 ## Validation (run on the matrices above)
 
-Throwaway validator (`/tmp`), all frames pass:
+A throwaway Node validator was run on the matrices above (re-run from the code
+blocks; the script itself is not kept), **both forms of all frames pass**:
 
 | Check | frame 0 | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|---|
 | exact 24 rows × 34 chars | ✓ | ✓ | ✓ | ✓ | ✓ |
 | legend-only chars (`. O B S H R W K L E`) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | outline encloses body (no fill pixel 8-adjacent to `.`) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| no fill pixel on the canvas border | ✓ | ✓ | ✓ | ✓ | ✓ |
+| no stray pixels / no fill on the canvas border | ✓ | ✓ | ✓ | ✓ | ✓ |
 | single 4-connected blob (no isolated pixels) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | feet present on the bottom row (row 23) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| bounding box ≤ 34 × 24 | 33×24 | 34×24 | 33×23 | 32×24 | 33×23 |
-| distinct pose | ✓ | ✓ | ✓ | ✓ | ✓ |
+| bounding box ≤ 34 × 24 | 31×24 | 32×24 | 31×23 | 29×24 | 30×23 |
+| all 5 poses distinct | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-All **5 poses are distinct** (no frame is byte-identical to another). The two pass
-poses are the closest pair: **frame 2 vs frame 4 similarity 0.968** (< 0.98). Frame 4
-is the mirrored pass — its near (`B`) legs sit where frame 2's far (`S`) legs were
-(cols 7/16 → 11/20, and vice-versa) and its tail sways back; frames 0–14 stay
-byte-identical, so the locked body/rider/blanket silhouette remains stable.
+All **5 poses are distinct**. Frame similarity (fraction of identical pixels, bare
+set — 1.000 = identical):
+
+```
+              stand  cA     pA     cB     pB
+standing      1.000  0.895  0.852  0.880  0.816
+contactA      0.895  1.000  0.761  0.859  0.748
+passA         0.852  0.761  1.000  0.756  0.955
+contactB      0.880  0.859  0.756  1.000  0.767
+passB         0.816  0.748  0.955  0.767  1.000
+```
+
+Closest pair is **pass A vs pass B = 0.955** (< 0.98) — the two pass poses differ by
+the swapped near/far leg colours and the opposite tail flick. No pair reaches 0.98, so
+**no duplicate frames** (the previous v2 set had a duplicate pass pair; v3 does not).
+The 4 walk frames loop sensibly: `1→2→3→4→1` alternates contact/pass with the body
+bob on 2/4.
 
 Digit font: every glyph exactly 3 × 5, chars `#`/`.` only, all ten defined.
-Blanket: cols 8–13 × rows 9–15 are flat `L` on the standing/contact frames.
+Blanket: the digit area cols 10–12 × rows 10–14 is flat `L` on the standing/contact
+frames; on bob frames it shifts to rows 11–15.
 
 ## Acceptance criteria (Playwright-testable)
 
-1. **Sprite size** — for lane 0 with any score, the painted camel's bounding box is 34 px wide and ≤ 24 px tall.
+1. **Sprite size** — for lane 0 with any score, the painted camel's bounding box is ≤ 34 px wide and ≤ 24 px tall.
 2. **Feet on the lane** — the camel's lowest painted row equals `laneBottomY(0, n) - 2` (± dune `h`), i.e. the feet sit 2 px above the lane bottom.
 3. **Standing frame** — with no score change, `page.evaluate` sampling the lane returns frame 0 (the standing matrix); no idle motion between two rAF ticks.
 4. **Walk cycle** — after a score change, the frame index advances `1→2→3→4→1` at 320 ms steps and returns to 0 after `ANIM_MS`.
 5. **Palette-swap** — the saddle blanket pixels are `#bfe3ea` for every camel; the rider-robe pixels equal the camel's lane colour (`#e84a3a` for lane 0, `#3a6ae8` for lane 1, …).
-6. **Number** — the pixels at sprite-relative cols 9–11 / rows 10–14 match the 3×5 glyph for the camel's 1-based lane number, colour `#123a44`.
+6. **Number** — the pixels at sprite-relative **cols 10–12 / rows 10–14** (+1 row on the bob frames 2, 4) match the 3×5 glyph for the camel's 1-based lane number, colour `#123a44`.
 7. **Fixed tones** — body pixels are `#c9803a` and outline pixels `#1a1208` in every lane (i.e. `B`/`O` do not change with lane colour).
 8. **Dune profile** — sampling the crest line gives the same `h(x)` for every lane; `|h| ≤ 2` for all `x` in `[0, canvasWidth]`; two samples `x` and `x+1` differ by ≤ 1.
 9. **Readability** — with the camel drawn on `duneTop`, at least one outline pixel `#1a1208` remains adjacent to the camel in x for the silhouette to read (contrast 7.76).
+
+## Selection
+
+**Draft A** was chosen by the user from `docs/art/camel-drafts.md` on **2026-10-03**.
+The drafts doc was a transient exploration and has been deleted; this file is the
+authoritative, living spec. See [Refinements over Draft A](#refinements-over-draft-a)
+for the deltas applied when promoting A to v3.

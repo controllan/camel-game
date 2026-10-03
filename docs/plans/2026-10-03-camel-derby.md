@@ -1901,3 +1901,15 @@ User-requested v2, shipped but uncommitted. Evidence: current `index.html`, `tes
 | Layout scale | `max-width` cap | fills wrapper `min(availW/512, availH/288)`, cap `4`, nearest-integer snap within `8%` if it fits; no lower clamp (only `SCALE_EPSILON=0.05`), so the canvas is never larger than its wrapper; page never scrolls |
 | Docs | — | `docs/art/camel-sprite.md`, `docs/reference/camel-pixel-art.png`, `docs/reference/real-life-camel-race.png` added |
 | Tests | 72 | 91+ (`pnpm test`) |
+
+### v3 upgrade (post-review)
+
+Camel sprite v3 (Draft A refined), user-selected from `docs/art/camel-drafts.md`
+(deleted after selection); supersedes the v2 34×24 camel. Evidence:
+`docs/art/camel-sprite.md`, `index.html`, `tests/`.
+
+| Area | v2 | v3 (shipped) |
+|---|---|---|
+| Camel matrices | 34×24 v2 sprite | matrices `24×34` (rows × chars), drawn bbox ~31×24, 5 distinct poses (closest pair 0.955) |
+| Blanket digit | 3×5 digit on the blanket | anchor sprite-local `(col 10, row 10)` + 1-row bob offset on frames 2/4 |
+| Tests | 91+ | 96 → 98 (`pnpm test`) |
