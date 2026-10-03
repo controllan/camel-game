@@ -79,6 +79,7 @@ window.GameCore = (function () {
   'use strict';
   const PALETTE = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a'];
   const MIN_CAMELS = 2, MAX_CAMELS = 8;
+  const NAME_TEMPLATES = { en: 'Camel {n}', de: 'Kamel {n}' };
   const GOAL_MIN = 1, GOAL_MAX = 10000;
   const PAD = 20, MIN_WINDOW = 100, GOAL_SLACK = 80;
   const ANIM_MS = 600;
@@ -102,7 +103,8 @@ window.GameCore = (function () {
   function emit() { for (const fn of listeners) fn(getState()); }
 
   function camelName(index, language) {
-    return (language === 'de' ? 'Kamel ' : 'Camel ') + (index + 1);
+    const template = NAME_TEMPLATES[language] || NAME_TEMPLATES.en;
+    return template.replace('{n}', String(index + 1));
   }
 
   function makeCamel(index, score) {
@@ -265,6 +267,7 @@ window.GameCore = (function () {
 
   return {
     PALETTE: PALETTE,
+    NAME_TEMPLATES: NAME_TEMPLATES,
     MIN_CAMELS: MIN_CAMELS, MAX_CAMELS: MAX_CAMELS,
     GOAL_MIN: GOAL_MIN, GOAL_MAX: GOAL_MAX,
     PAD: PAD, MIN_WINDOW: MIN_WINDOW, GOAL_SLACK: GOAL_SLACK, ANIM_MS: ANIM_MS,
@@ -316,6 +319,200 @@ window.GameCore = (function () {
   function currentWindow(s) {
     return core.computeCameraWindow(s.camels.map(function (c) { return c.score; }), s.goalScore);
   }
+
+  // ---------- i18n ----------
+  const I18N = {
+    en: {
+      title: 'KAMEL DERBY',
+      camelCountLabel: 'Camels',
+      goalLabel: 'Goal',
+      infiniteLabel: '∞',
+      plus1: '+1', plus5: '+5', plus10: '+10',
+      scoreLabel: 'Score',
+      setButton: 'Set',
+      newRace: 'New race',
+      winnerBanner: 'Camel {n} wins!',
+      languageToggle: 'EN / DE',
+      validationHint: 'Enter a whole number ≥ 0.',
+      camelName: core.NAME_TEMPLATES.en,
+      canvasLabel: 'Camel race track. Camels race left to right to the goal.',
+    },
+    de: {
+      title: 'KAMEL DERBY',
+      camelCountLabel: 'Kamele',
+      goalLabel: 'Ziel',
+      infiniteLabel: '∞',
+      plus1: '+1', plus5: '+5', plus10: '+10',
+      scoreLabel: 'Punktzahl',
+      setButton: 'Setzen',
+      newRace: 'Neues Rennen',
+      winnerBanner: 'Kamel {n} gewinnt!',
+      languageToggle: 'EN / DE',
+      validationHint: 'Bitte eine ganze Zahl ≥ 0 eingeben.',
+      camelName: core.NAME_TEMPLATES.de,
+      canvasLabel: 'Kamelrennen. Kamele rennen von links nach rechts zum Ziel.',
+    },
+  };
+
+  function t(lang, key, vars) {
+    let str = I18N[lang][key];
+    if (vars) {
+      for (const k in vars) str = str.replace('{' + k + '}', String(vars[k]));
+    }
+    return str;
+  }
+
+  // ---------- UI controller ----------
+  const camelCountEl = document.getElementById('camelCount');
+  const goalEl = document.getElementById('goalScore');
+  const infiniteEl = document.getElementById('infinite');
+  const laneContainer = document.getElementById('laneControls');
+  const validationEl = document.getElementById('validation');
+  const liveEl = document.getElementById('live');
+  let lastGoal = 200;
+  let renderedCount = -1;
+
+  function showValidation() { validationEl.hidden = false; }
+  function hideValidation() { validationEl.hidden = true; }
+
+  function buildLane(index) {
+    const el = document.createElement('div');
+    el.className = 'lane';
+    el.dataset.index = String(index);
+
+    const name = document.createElement('span');
+    name.className = 'cname';
+    name.setAttribute('data-name', '');
+
+    const btns = document.createElement('div');
+    btns.className = 'btns';
+    for (const n of [1, 5, 10]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('data-action', 'add');
+      b.setAttribute('data-n', String(n));
+      btns.appendChild(b);
+    }
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    const label = document.createElement('label');
+    label.setAttribute('data-score-label', '');
+    label.setAttribute('for', 'exact-' + index);
+    const input = document.createElement('input');
+    input.id = 'exact-' + index;
+    input.type = 'number';
+    input.min = '0';
+    input.step = '1';
+    input.setAttribute('data-exact', '');
+    input.value = '0';
+    const set = document.createElement('button');
+    set.type = 'button';
+    set.setAttribute('data-action', 'set');
+    row.append(label, input, set);
+
+    el.append(name, btns, row);
+    return el;
+  }
+
+  function renderLanes(s) {
+    if (renderedCount !== s.camels.length) {
+      laneContainer.replaceChildren.apply(laneContainer, s.camels.map(function (c, i) { return buildLane(i); }));
+      renderedCount = s.camels.length;
+    }
+    const lanes = laneContainer.querySelectorAll('.lane');
+    s.camels.forEach(function (c, i) {
+      const el = lanes[i];
+      if (!el) return;
+      const name = el.querySelector('[data-name]');
+      name.textContent = c.name;
+      name.style.color = c.color;
+      el.querySelector('[data-action="add"][data-n="1"]').textContent = t(s.language, 'plus1');
+      el.querySelector('[data-action="add"][data-n="5"]').textContent = t(s.language, 'plus5');
+      el.querySelector('[data-action="add"][data-n="10"]').textContent = t(s.language, 'plus10');
+      el.querySelector('[data-score-label]').textContent = t(s.language, 'scoreLabel');
+      el.querySelector('[data-action="set"]').textContent = t(s.language, 'setButton');
+      el.querySelector('[data-exact]').value = String(c.score);
+      // Task 4 adds input lockout here.
+    });
+  }
+
+  function syncDom(s) {
+    document.getElementById('title').textContent = t(s.language, 'title');
+    document.getElementById('camelCountLabel').textContent = t(s.language, 'camelCountLabel');
+    document.getElementById('goalLabel').textContent = t(s.language, 'goalLabel');
+    document.getElementById('infiniteText').textContent = t(s.language, 'infiniteLabel');
+    document.getElementById('newRace').textContent = t(s.language, 'newRace');
+    document.getElementById('lang-en').setAttribute('aria-pressed', String(s.language === 'en'));
+    document.getElementById('lang-de').setAttribute('aria-pressed', String(s.language === 'de'));
+    canvas.setAttribute('aria-label', t(s.language, 'canvasLabel'));
+    validationEl.textContent = t(s.language, 'validationHint');
+
+    camelCountEl.value = String(s.camelCount);
+    infiniteEl.checked = s.infinite;
+    goalEl.disabled = s.infinite;
+    if (!s.infinite && s.goalScore != null) goalEl.value = String(s.goalScore);
+
+    renderLanes(s);
+    // Task 4 adds winner aria-live announcement here.
+  }
+
+  laneContainer.addEventListener('click', function (ev) {
+    const btn = ev.target.closest('[data-action]');
+    if (!btn) return;
+    const laneEl = btn.closest('.lane');
+    const idx = Number(laneEl.dataset.index);
+    const camel = core.getState().camels[idx];
+    if (!camel) return;
+    const action = btn.dataset.action;
+    if (action === 'add') {
+      if (core.addScore(camel.id, Number(btn.dataset.n))) hideValidation();
+    } else if (action === 'set') {
+      const raw = laneEl.querySelector('[data-exact]').value.trim();
+      if (/^\d+$/.test(raw)) {
+        if (core.setScore(camel.id, Number(raw))) hideValidation();
+      } else {
+        showValidation();
+      }
+    }
+  });
+
+  camelCountEl.addEventListener('change', function () {
+    const v = Number(camelCountEl.value);
+    if (Number.isFinite(v)) core.setCamelCount(Math.floor(v));
+    camelCountEl.value = String(core.getState().camelCount);
+  });
+
+  goalEl.addEventListener('change', function () {
+    const v = Number(goalEl.value);
+    if (Number.isInteger(v) && v >= GameCore.GOAL_MIN && v <= GameCore.GOAL_MAX) {
+      if (core.setGoal(v)) { lastGoal = v; hideValidation(); }
+    } else {
+      goalEl.value = String(core.getState().goalScore != null ? core.getState().goalScore : lastGoal);
+    }
+  });
+
+  infiniteEl.addEventListener('change', function () {
+    if (infiniteEl.checked) {
+      const g = core.getState().goalScore;
+      if (g != null) lastGoal = g;
+      core.setGoal(null);
+    } else {
+      core.setGoal(lastGoal);
+    }
+  });
+
+  document.getElementById('newRace').addEventListener('click', function () {
+    hideValidation();
+    core.resetRace();
+  });
+
+  document.getElementById('lang-en').addEventListener('click', function () { core.setLanguage('en'); });
+  document.getElementById('lang-de').addEventListener('click', function () { core.setLanguage('de'); });
+
+  core.subscribe(syncDom);
+  hideValidation();
+  syncDom(core.getState());
 
   // Task 3 replaces this stub.
   function updateRuntime(s, dt, now) { /* Task 3 */ }
