@@ -29,7 +29,7 @@ Moved into the repo for future reference (not loaded at runtime — art stays pr
 
 - ![camel pixel art](../reference/camel-pixel-art.png) — `../reference/camel-pixel-art.png`
   (brown dromedary, dark shading, black outline — the approved silhouette/colour source).
-- ![real life camel race](../reference/real-life-camel-race.jpg) — `../reference/real-life-camel-race.jpg`
+- ![real life camel race](../reference/real-life-camel-race.png) — `../reference/real-life-camel-race.png`
   (Volksfest mechanical race: coloured riders, white/light-blue numbered blankets, undulating sand lanes).
 
 ## At a glance
