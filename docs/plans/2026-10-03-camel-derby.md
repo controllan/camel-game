@@ -995,7 +995,7 @@ git commit -m "feat: add DOM controls and EN/DE i18n"
 
 **Interfaces:**
 - Consumes: Task 1 geometry + `runtime` + `GameDebug`; Task 2 `I18N`/`t`.
-- Produces: sprite matrices `CAMEL` (array of 3 frame row-arrays), `PALM`, `CACTUS`, `ROCK`; helpers `drawSprite(rows, x, y, palette)`, `darken(hex, factor)`, `mulberry32(seed)`, `hash2(a,b)`; constants `SEED=1337`, `DECOR_SPACING=90`, palette colors `COL`, `PALM_PAL`, `CACTUS_PAL`, `ROCK_PAL`, `SKY_BANDS`.
+- Produces: sprite matrices `CAMEL` (array of 3 frame row-arrays), `PALM`, `CACTUS`, `ROCK`; helpers `drawSprite(rows, x, y, palette)`, `mulberry32(seed)`, `hash2(a,b)`; constants `SEED=1337`, `DECOR_SPACING=90`, palette colors `COL`, `PALM_PAL`, `CACTUS_PAL`, `ROCK_PAL`, `SKY_BANDS`.
 
 - [ ] **Step 1: Write the failing E2E test `tests/render.spec.js`**
 
@@ -1220,14 +1220,6 @@ Insert this block immediately BEFORE the current `updateRuntime` stub, then REPL
     '............',
   ];
 
-  function darken(hex, factor) {
-    const n = parseInt(hex.slice(1), 16);
-    const r = Math.round(((n >> 16) & 255) * factor);
-    const g = Math.round(((n >> 8) & 255) * factor);
-    const b = Math.round((n & 255) * factor);
-    return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
-  }
-
   function drawSprite(rows, x, y, palette) {
     const ox = Math.round(x);
     const oy = Math.round(y);
@@ -1335,7 +1327,7 @@ Insert this block immediately BEFORE the current `updateRuntime` stub, then REPL
       const v = runtime.visualLeft[c.id];
       const left = (v == null) ? camelTargetLeft(c.score, win) : v;
       const frameIndex = (now < c.animUntil) ? (Math.floor(now / ANIM_FRAME_MS) % 2) + 1 : 0;
-      const pal = { body: c.color, shade: darken(c.color, 0.55), grass: c.color };
+      const pal = { body: c.color, grass: c.color };
       drawSprite(CAMEL[frameIndex], left, camelTopY(i, n), pal);
     });
   }
@@ -1851,7 +1843,7 @@ git commit -m "docs: add README and finalize responsive and a11y"
 
 **Placeholder scan:** no `TBD`/`TODO`/`fill in`/`similar to`. `/* Task 3 */` stubs are intentional, replaced verbatim in Task 3; the two `// Task 4 adds ... here.` markers are replaced verbatim in Task 4.
 
-**Type/name consistency:** `GameCore.getState` shape, `GameDebug.{getState,getCameraWindow,getCanvasSize,getCamelSpriteBounds,isSettled,getScene}`, `drawScene(s,win,now)`, `updateRuntime(s,dt,now)`, `t(lang,key,vars)`, `camelTargetLeft(score,win)`, `laneTopY/laneBottomY/laneHeight/camelTopY(i,n)`, `mapX(point,win)`, sprite names `CAMEL/PALM/CACTUS/ROCK/FINISH_FLAG/MILESTONE`, `mulberry32/hash2/drawSprite/darken` are identical across all tasks. Test selectors (`[data-action="add"]`, `[data-action="set"]`, `[data-exact]`, `[data-name]`, `[data-score-label]`, `.lane`, `#live`) match the markup and `buildLane` in Task 2.
+**Type/name consistency:** `GameCore.getState` shape, `GameDebug.{getState,getCameraWindow,getCanvasSize,getCamelSpriteBounds,isSettled,getScene}`, `drawScene(s,win,now)`, `updateRuntime(s,dt,now)`, `t(lang,key,vars)`, `camelTargetLeft(score,win)`, `laneTopY/laneBottomY/laneHeight/camelTopY(i,n)`, `mapX(point,win)`, sprite names `CAMEL/PALM/CACTUS/ROCK/FINISH_FLAG/MILESTONE`, `mulberry32/hash2/drawSprite` are identical across all tasks. Test selectors (`[data-action="add"]`, `[data-action="set"]`, `[data-exact]`, `[data-name]`, `[data-score-label]`, `.lane`, `#live`) match the markup and `buildLane` in Task 2.
 
 **Spec gaps found (do not block):** the spec's i18n table does not define a canvas `aria-label` string; plan adds key `canvasLabel` (EN + DE) as the only extension. All other strings copied verbatim.
 
