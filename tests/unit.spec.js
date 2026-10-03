@@ -202,6 +202,39 @@ test.describe('GameCore unit', () => {
     expect(r.missing).toBe(false);
   });
 
+  test('setCamelName strips control/bidi/zero-width chars, then applies trim/empty/16 rules', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      GameCore.setCamelCount(4);
+      const bidi = GameCore.setCamelName('camel-0', '\u202eTeam');
+      const afterBidi = GameCore.getState().camels[0].name;
+      const nul = GameCore.setCamelName('camel-0', 'A\u0000B');
+      const afterNul = GameCore.getState().camels[0].name;
+      const zwsp = GameCore.setCamelName('camel-0', 'Ze\u200bro');
+      const afterZwsp = GameCore.getState().camels[0].name;
+      // 17 visible chars after stripping the format char -> still rejected.
+      const tooLong = GameCore.setCamelName('camel-0', '\u202e' + 'x'.repeat(17));
+      const afterTooLong = GameCore.getState().camels[0].name;
+      // Only format chars -> strips to empty -> rejected, state untouched.
+      const onlyFmt = GameCore.setCamelName('camel-0', '\u202e\u200b');
+      const afterOnlyFmt = GameCore.getState().camels[0].name;
+      const max16 = GameCore.setCamelName('camel-0', '\u202e' + 'y'.repeat(16));
+      const afterMax16 = GameCore.getState().camels[0].name;
+      return { bidi, afterBidi, nul, afterNul, zwsp, afterZwsp, tooLong, afterTooLong, onlyFmt, afterOnlyFmt, max16, afterMax16 };
+    });
+    expect(r.bidi).toBe(true);
+    expect(r.afterBidi).toBe('Team');
+    expect(r.nul).toBe(true);
+    expect(r.afterNul).toBe('AB');
+    expect(r.zwsp).toBe(true);
+    expect(r.afterZwsp).toBe('Zero');
+    expect(r.tooLong).toBe(false);
+    expect(r.afterTooLong).toBe('Zero');
+    expect(r.onlyFmt).toBe(false);
+    expect(r.afterOnlyFmt).toBe('Zero');
+    expect(r.max16).toBe(true);
+    expect(r.afterMax16).toBe('y'.repeat(16));
+  });
+
   test('reaching the goal ends the race and locks scores', async ({ page }) => {
     const r = await page.evaluate(() => {
       GameCore.setCamelCount(4);

@@ -264,7 +264,10 @@ window.GameCore = (function () {
     const c = findCamel(camelId);
     if (!c) return false;
     if (typeof name !== 'string') return false;
-    const trimmed = name.trim();
+    const trimmedRaw = name.trim();
+    // Strip control chars, bidi overrides/isolates and zero-width chars
+    // (C0/C1 controls + Cf format chars) so names cannot spoof local display.
+    const trimmed = trimmedRaw.replace(/[\p{Cc}\p{Cf}]/gu, '');
     if (trimmed.length === 0 || trimmed.length > NAME_MAX) return false;
     c.name = trimmed;
     emit();
@@ -476,7 +479,7 @@ window.GameCore = (function () {
   function t(lang, key, vars) {
     let str = I18N[lang][key];
     if (vars) {
-      for (const k in vars) str = str.replace('{' + k + '}', String(vars[k]));
+      for (const k in vars) str = str.replace('{' + k + '}', () => String(vars[k]));
     }
     return str;
   }

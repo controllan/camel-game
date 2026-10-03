@@ -43,6 +43,27 @@ test.describe('Controls and i18n', () => {
     await expect(page.locator('#live')).toHaveText('Thunderbolt gewinnt!');
   });
 
+  test('winner banner/lane header substitute names literally ($-patterns, HTML)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); });
+    const lane0 = page.locator('.lane').nth(0);
+    const input = lane0.locator('[data-name-input]');
+
+    // `$&`/`$'` used to be interpreted by String.replace during templating.
+    await input.fill("$&$'");
+    expect(await page.evaluate(() => GameCore.getState().camels[0].name)).toBe("$&$'");
+    await expect(lane0.locator('[data-name]')).toHaveText("$&$'");
+
+    // `$100`/`<b>` must stay plain text (textContent only, no HTML injection).
+    await input.fill('$100 & <b>');
+    await expect(lane0.locator('[data-name]')).toHaveText('$100 & <b>');
+    await expect(lane0.locator('[data-name] b')).toHaveCount(0);
+
+    // Winning surfaces the literal name in the banner/aria-live text.
+    await lane0.locator('[data-exact]').fill('200');
+    await lane0.locator('[data-action="set"]').click();
+    await expect(page.locator('#live')).toHaveText('$100 & <b> wins!');
+  });
+
   test('+5 moves camel right and updates score display', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
