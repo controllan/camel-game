@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Dev-only Playwright test tooling
+test-results/
+playwright-report/
+.playwright/
+
+# Logs
+*.log
+
+# Secrets / env
+.env
+.env.*
+
+# OS junk
+.DS_Store
+
+# Editor dirs/junk
+.vscode/
+.idea/
+*.swp
+*~
