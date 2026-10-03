@@ -1850,3 +1850,37 @@ git commit -m "docs: add README and finalize responsive and a11y"
 ## Execution Handoff
 
 Present this plan; wait for approval. Then run the orchestrator loop per task: implement → verify (`pnpm exec playwright test tests/<file>.spec.js`, then `pnpm test`) → `code-reviewer` → `git-expert` commit. `git-expert` runs the commit commands; the implementer never commits.
+
+---
+
+## Implementation Deltas (post-review)
+
+Review-driven deviations from this plan's original code/numbers. Evidence: commits `a74c164` (T1), `1f70300` (T2), `1c82e67` + `d182c0a` (T3), `734537e` (T4); current code and tests.
+
+| Task | Planned | As implemented |
+|---|---|---|
+| 1 | `setGoal(n)` only set goal + `emit()` | `setGoal(n)` also calls `checkWinner()` so lowering the goal onto an already-winning camel ends the race immediately (`index.html` `setGoal`). |
+| 1 | `resetRace()` zeroed `score`, `raceOver`, `winnerId` | `resetRace()` also zeroes each camel's `animUntil` (walk animation stops). |
+| 1 | `trace: 'on-first-retry'` | `trace: 'retain-on-failure'` (`playwright.config.js`). |
+| 1 | Unit tests: 8 | `tests/unit.spec.js` — 13 tests. |
+| 2 | `syncDom` localized all strings except the validation hint | `syncDom` sets `validationEl.textContent = t(s.language, 'validationHint')`, so the hint localizes too. |
+| 2 | `I18N.camelName` hard-coded `'Camel {n}'` / `'Kamel {n}'` | `I18N.camelName` references `GameCore.NAME_TEMPLATES` (single source of truth). |
+| 2 | `buildLane` used `innerHTML` | `buildLane` builds nodes with `createElement`/`append` — no `innerHTML`. |
+| 2 | Controls tests: 7 | `tests/controls.spec.js` — 16 tests. |
+| 3 | `darken` helper for sprite shading | Removed (no `darken` in `index.html`). Already reflected in the Task 3 code block. |
+| 3 | `drawDecor` culled on screen x, no span bound | Added `DECOR_MAX_SPAN = 1500` bail (`if (win.max - win.min) > DECOR_MAX_SPAN return`) and world-space cull (`point` vs `win.min/max` + margin) so off-window decor does not pile at clamped edges. |
+| 3 | Bottom lane rows left unpainted | `drawLanes` fills `LANE_BOTTOM..CANVAS_H` so no transparent strip remains. |
+| 3 | Decor drawn at `mapX(point) - 8` | Each sprite centered by its own width (`cx - PALM[0].length / 2`, etc.). |
+| 3 | Promised render tests: 5 | `runtime.decorDrawn` added, reported by `GameDebug.getScene`; `tests/render.spec.js` — 19 tests (loop-generated cases included). |
+| 4 | `drawMilestones` no span guard | Adds the `DECOR_MAX_SPAN` guard, matching `drawDecor`. |
+| 4 | `drawFinish` always drew at clamped `goalScreenX` | Culls when `s.goalScore` is outside `win.min`/`win.max`, so the pole is not pinned clipped to an edge. |
+| 4 | Milestone label always drawn | Label skipped when the 50-point step is narrower than the label (margin = label width + 4); flag still drawn. |
+| 4 | `frame()` had no error handling | `frame()` wrapped in rate-limited `try/catch` (one `console.error` per occurrence); `finally` always re-schedules `requestAnimationFrame`. |
+| 4 | Shrinking below a won camel left `raceOver`/`winnerId` stale | `setCamelCount` voids the race when the winner's camel is removed and re-runs `checkWinner()`; missing-winner guards in `syncDom`/`updateRuntime`/`drawBanner` are defense-in-depth. |
+| 4 | Promised goal tests: 5 | `runtime.confettiDrawn` added, reported by `GameDebug.getScene`; `tests/goal.spec.js` — 18 tests. |
+| 5 | Canvas `max-width:480px`, `.app` `max-width:1100px`, no stacking media query in `index.html` | Canvas `max-width` raised 480px → 960px and `.app` 1100px → 1200px, so the 480×270 buffer upscales responsively instead of being capped at 1×; `@media (max-width: 899.98px)` stacks the panel below the canvas (`main` flex-column, canvas `max-width:100%`, `#panel` full width) — `<900px` stacking, no horizontal scrollbar. |
+| 5 | Integer-only upscale | "Integer scale preferred" approximated by the 960px (2×) cap: scaling between 1× and 2× is fractional on mid-size viewports; 2× is hit on wide viewports. |
+| 5 | README created | `README.md` at repo root (run / play / test). |
+| 5 | `tests/app.spec.js` | 6 tests — console errors + network; responsive `<900px` stacking (`800×600`); a11y attributes; `1024×768` side-by-side with no overflow; canvas upscales responsively up to 2× with 16:9 and no horizontal scrollbar (`1920×1000` / `1440×900` / `400×800`); real keyboard reachability + visible focus outline. |
+
+**Superseded counts.** Stale full-suite expectations in Tasks 1–5 ("expect 8/15/20/25 passed") are replaced by current counts: unit 13, controls 16, render 19, goal 18, app 6 → 72 total. Per-task cumulative expectations: T1 13, T2 29, T3 48, T4 66, T5 72.
