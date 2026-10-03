@@ -115,14 +115,91 @@ test.describe('GameCore unit', () => {
     const r = await page.evaluate(() => {
       const w = { min: 0, max: 100 };
       return [
-        GameCore.mapScoreToScreenX(0, w, 480),
-        GameCore.mapScoreToScreenX(50, w, 480),
-        GameCore.mapScoreToScreenX(100, w, 480),
-        GameCore.mapScoreToScreenX(-50, w, 480),
-        GameCore.mapScoreToScreenX(150, w, 480),
+        GameCore.mapScoreToScreenX(0, w, 512),
+        GameCore.mapScoreToScreenX(50, w, 512),
+        GameCore.mapScoreToScreenX(100, w, 512),
+        GameCore.mapScoreToScreenX(-50, w, 512),
+        GameCore.mapScoreToScreenX(150, w, 512),
+        GameCore.mapScoreToScreenX(50, w), // default buffer width is 512
       ];
     });
-    expect(r).toEqual([0, 240, 480, 0, 480]);
+    expect(r).toEqual([0, 256, 512, 0, 512, 256]);
+  });
+
+  test('terrainHeightAt is deterministic, bounded to ±2 and continuous', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      let min = Infinity, max = -Infinity, maxStep = 0;
+      for (let x = 0; x <= 512; x += 1) {
+        const h = GameCore.terrainHeightAt(x);
+        if (h < min) min = h;
+        if (h > max) max = h;
+        if (x > 0) maxStep = Math.max(maxStep, Math.abs(h - GameCore.terrainHeightAt(x - 1)));
+      }
+      // Non-finite input must not throw and resolves to h(0).
+      const nan = GameCore.terrainHeightAt(NaN);
+      // Fixed value vector computed from the documented field
+      // h(x)=1.2*sin(2*pi*x/160)+0.8*sin(2*pi*x/130+1.7). A constant (e.g.
+      // return 0) or a wrong phase/amplitude cannot satisfy these.
+      const vector = [0, 13, 40, 80, 160, 171].map((x) => [x, GameCore.terrainHeightAt(x)]);
+      return {
+        first: GameCore.terrainHeightAt(0),
+        repeat: GameCore.terrainHeightAt(0),
+        min, max, maxStep, nan, vector,
+      };
+    });
+    expect(r.first).toBe(r.repeat); // pure: same input -> same output, no randomness
+    expect(r.nan).toBe(r.first);
+    expect(r.min).toBeGreaterThanOrEqual(-2);
+    expect(r.max).toBeLessThanOrEqual(2);
+    expect(r.maxStep).toBeLessThanOrEqual(1); // small step continuity
+    const expected = [
+      [0, 0.7933], [13, 1.1676], [40, 0.8223],
+      [80, -0.5255], [160, -0.0067], [171, 0.0911],
+    ];
+    expect(r.vector.map((p) => p[0])).toEqual(expected.map((p) => p[0]));
+    r.vector.forEach(([, v], i) => expect(v).toBeCloseTo(expected[i][1], 4));
+  });
+
+  test('default lane names are Team 1..8 in both languages', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      GameCore.setCamelCount(8);
+      GameCore.resetRace();
+      const names = GameCore.getState().camels.map((c) => c.name);
+      GameCore.setLanguage('de');
+      const deNames = GameCore.getState().camels.map((c) => c.name);
+      return { names, deNames, tplEn: GameCore.camelName(0, 'en'), tplDe: GameCore.camelName(0, 'de') };
+    });
+    expect(r.names).toEqual(['Team 1', 'Team 2', 'Team 3', 'Team 4', 'Team 5', 'Team 6', 'Team 7', 'Team 8']);
+    expect(r.deNames).toEqual(r.names);
+    expect(r.tplEn).toBe('Team 1');
+    expect(r.tplDe).toBe('Team 1');
+  });
+
+  test('setCamelName trims, and rejects empty/over-16/missing without changing state', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      GameCore.setCamelCount(4);
+      const before = GameCore.getState().camels[0].name;
+      const trimmed = GameCore.setCamelName('camel-0', '  Lightning  ');
+      const afterTrim = GameCore.getState().camels[0].name;
+      const empty = GameCore.setCamelName('camel-0', '   ');
+      const emptyStr = GameCore.setCamelName('camel-0', '');
+      const tooLong = GameCore.setCamelName('camel-0', 'x'.repeat(17));
+      const stillLightning = GameCore.getState().camels[0].name;
+      const max16 = GameCore.setCamelName('camel-0', 'y'.repeat(16));
+      const finalName = GameCore.getState().camels[0].name;
+      const missing = GameCore.setCamelName('nope', 'x');
+      return { before, trimmed, afterTrim, empty, emptyStr, tooLong, stillLightning, max16, finalName, missing };
+    });
+    expect(r.before).toBe('Team 1');
+    expect(r.trimmed).toBe(true);
+    expect(r.afterTrim).toBe('Lightning');
+    expect(r.empty).toBe(false);
+    expect(r.emptyStr).toBe(false);
+    expect(r.tooLong).toBe(false);
+    expect(r.stillLightning).toBe('Lightning');
+    expect(r.max16).toBe(true);
+    expect(r.finalName).toBe('y'.repeat(16));
+    expect(r.missing).toBe(false);
   });
 
   test('reaching the goal ends the race and locks scores', async ({ page }) => {
@@ -206,9 +283,10 @@ test.describe('GameCore unit', () => {
     expect(r.camelCount).toBe(5);
   });
 
-  test('setLanguage de re-localizes names and rejects unsupported languages', async ({ page }) => {
+  test('setLanguage switches language, rejects unsupported codes and keeps names', async ({ page }) => {
     const r = await page.evaluate(() => {
       GameCore.setCamelCount(4);
+      GameCore.setCamelName('camel-0', 'Bolt');
       const ok = GameCore.setLanguage('de');
       const names = GameCore.getState().camels.map((c) => c.name);
       const bad = GameCore.setLanguage('fr');
@@ -216,10 +294,11 @@ test.describe('GameCore unit', () => {
       return { ok, names, bad, language: after.language, namesAfter: after.camels.map((c) => c.name) };
     });
     expect(r.ok).toBe(true);
-    expect(r.names).toEqual(['Kamel 1', 'Kamel 2', 'Kamel 3', 'Kamel 4']);
+    // Custom names and Team defaults are session-only and never translated.
+    expect(r.names).toEqual(['Bolt', 'Team 2', 'Team 3', 'Team 4']);
     expect(r.bad).toBe(false);
     expect(r.language).toBe('de');
-    expect(r.namesAfter).toEqual(['Kamel 1', 'Kamel 2', 'Kamel 3', 'Kamel 4']);
+    expect(r.namesAfter).toEqual(['Bolt', 'Team 2', 'Team 3', 'Team 4']);
   });
 
   test('subscribe notifies on score mutation and unsubscribe stops notifications', async ({ page }) => {

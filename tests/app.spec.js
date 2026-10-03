@@ -13,14 +13,17 @@ test.describe('App-level: errors, network, responsive, a11y', () => {
     expect(requests).toEqual([]);
   });
 
-  test('panel stacks below canvas under 900px and no horizontal scroll', async ({ page }) => {
+  test('panel stacks below canvas under 900px and the page never scrolls', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await gotoGame(page);
     const cb = await page.locator('#game').boundingBox();
     const pb = await page.locator('#panel').boundingBox();
     expect(pb.y).toBeGreaterThanOrEqual(cb.y + cb.height - 1);
-    const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
-    expect(noOverflow).toBe(true);
+    const noScroll = await page.evaluate(() => ({
+      h: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+      v: document.documentElement.scrollHeight <= document.documentElement.clientHeight + 1,
+    }));
+    expect(noScroll).toEqual({ h: true, v: true });
   });
 
   test('canvas has an accessible label and controls expose expected bounds', async ({ page }) => {
@@ -37,49 +40,90 @@ test.describe('App-level: errors, network, responsive, a11y', () => {
     await expect(page.locator('#live')).toHaveAttribute('aria-live', 'polite');
   });
 
-  test('1024x768 keeps panel beside the canvas with no horizontal scroll', async ({ page }) => {
+  test('1024x768 keeps the panel beside the canvas and the page never scrolls', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await gotoGame(page);
     const cb = await page.locator('#game').boundingBox();
     const pb = await page.locator('#panel').boundingBox();
-    expect(cb.width).toBeGreaterThan(480);
-    expect(cb.width).toBeLessThanOrEqual(960);
-    expect(pb.x).toBeGreaterThanOrEqual(cb.x + cb.width - 1);
-    expect(Math.abs(pb.y - cb.y)).toBeLessThanOrEqual(2);
-    const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
-    expect(noOverflow).toBe(true);
+    expect(pb.x).toBeGreaterThanOrEqual(cb.x + cb.width - 1); // panel right of canvas
+    expect(pb.y).toBeLessThanOrEqual(cb.y + 1); // same row: panel top at/above canvas top
+    const noScroll = await page.evaluate(() => ({
+      h: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+      v: document.documentElement.scrollHeight <= document.documentElement.clientHeight + 1,
+    }));
+    expect(noScroll).toEqual({ h: true, v: true });
   });
 
-  test('canvas upscales responsively up to 2x and keeps 16:9 with no horizontal scroll', async ({ page }) => {
-    await page.setViewportSize({ width: 1920, height: 1000 });
+  // One coherent rule: the canvas fills the binding dimension of its wrapper
+  // (width beside the panel, height once stacked), snapping to a crisp integer
+  // multiple only when the fit is already within 8% of it and still fits.
+  const FILL_VIEWPORTS = [
+    { width: 200, height: 400 },
+    { width: 280, height: 500 },
+    { width: 400, height: 800 },
+    { width: 480, height: 900 },
+    { width: 800, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 1280, height: 800 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+  ];
+  for (const vp of FILL_VIEWPORTS) {
+    test(`canvas fills its wrapper without overflow at ${vp.width}x${vp.height}`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await gotoGame(page);
+      const l = await page.evaluate(() => GameDebug.getCanvasLayout());
+      const cb = await page.locator('#game').boundingBox();
+      const fillW = (l.cssWidth + 4) / l.wrapperWidth;
+      const fillH = (l.cssHeight + 4) / l.wrapperHeight;
+      // Fills at least 85% of the binding dimension...
+      expect(Math.max(fillW, fillH)).toBeGreaterThanOrEqual(0.85);
+      // ...and never overflows the wrapper (2px border on each side), ratio stays 16:9.
+      expect(l.cssWidth + 4).toBeLessThanOrEqual(l.wrapperWidth);
+      expect(l.cssHeight + 4).toBeLessThanOrEqual(l.wrapperHeight);
+      expect(Math.abs(cb.width / cb.height - 16 / 9)).toBeLessThan(0.05);
+      const noScroll = await page.evaluate(() => ({
+        h: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+        v: document.documentElement.scrollHeight <= document.documentElement.clientHeight + 1,
+      }));
+      expect(noScroll).toEqual({ h: true, v: true });
+    });
+  }
+
+  test('1920x1080 scales the 512px buffer to at least 3x', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
     await gotoGame(page);
-    const capped = await page.locator('#game').boundingBox();
-    expect(capped.width).toBe(960);
-    expect(Math.abs(capped.width / capped.height - 16 / 9)).toBeLessThan(0.02);
-    expect(await page.evaluate(() =>
-      document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
-    )).toBe(true);
+    const l = await page.evaluate(() => GameDebug.getCanvasLayout());
+    // The binding dimension is width here (panel beside the canvas): the real
+    // fill snaps to a crisp 3x (3 * 512 = 1536px) without overflowing.
+    expect(l.bufferWidth).toBe(512);
+    expect(l.bufferHeight).toBe(288);
+    expect(l.cssWidth).toBeGreaterThanOrEqual(1536);
+  });
 
-    await page.setViewportSize({ width: 1440, height: 900 });
-    const wide = await page.locator('#game').boundingBox();
-    expect(wide.width).toBeGreaterThan(480);
-    expect(wide.width).toBeLessThanOrEqual(960);
-    expect(Math.abs(wide.width / wide.height - 16 / 9)).toBeLessThan(0.02);
-    expect(await page.evaluate(() =>
-      document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
-    )).toBe(true);
-
-    await page.setViewportSize({ width: 400, height: 800 });
-    const narrow = await page.locator('#game').boundingBox();
-    expect(narrow.width).toBeLessThanOrEqual(480);
-    expect(Math.abs(narrow.width / narrow.height - 16 / 9)).toBeLessThan(0.02);
+  test('8 camels scroll inside the panel while the page itself never scrolls', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await gotoGame(page);
+    await page.locator('#camelCount').fill('8');
+    await page.locator('#camelCount').blur();
+    await expect(page.locator('.lane')).toHaveCount(8);
+    const panel = await page.evaluate(() => {
+      const el = document.getElementById('panel');
+      return { scrollH: el.scrollHeight, clientH: el.clientHeight };
+    });
+    expect(panel.scrollH).toBeGreaterThan(panel.clientH);
+    const noScroll = await page.evaluate(() => ({
+      h: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+      v: document.documentElement.scrollHeight <= document.documentElement.clientHeight + 1,
+    }));
+    expect(noScroll).toEqual({ h: true, v: true });
   });
 
   test('every control is keyboard reachable and shows a visible focus outline', async ({ page }) => {
     await gotoGame(page);
     const seen = new Set();
     const outlineFailures = [];
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       await page.keyboard.press('Tab');
       const info = await page.evaluate(() => {
         const el = document.activeElement;

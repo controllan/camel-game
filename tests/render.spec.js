@@ -1,13 +1,16 @@
 const { test, expect } = require('@playwright/test');
 const { gotoGame } = require('./helpers');
 
+// Rider robe colour for lane index i = GameCore.PALETTE[i % 8] (see index.html).
+const LANE_ROBE = ['#e84a3a', '#3a6ae8'];
+
 // Count every distinct RGB color on the canvas. Used to prove that real art
 // (camel palette colors, sky/sun/dune/decor colors) is actually rasterised,
 // not merely that the canvas exists or that lane fills are non-black.
 async function pixelTally(page) {
   return page.evaluate(() => {
     const g = document.getElementById('game').getContext('2d');
-    const d = g.getImageData(0, 0, 480, 270).data;
+    const d = g.getImageData(0, 0, 512, 288).data;
     const tally = {};
     for (let i = 0; i < d.length; i += 4) {
       const h = '#' + [d[i], d[i + 1], d[i + 2]]
@@ -21,9 +24,9 @@ async function pixelTally(page) {
 test.describe('Renderer camera and bounds', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
-  test('canvas buffer is 480x270', async ({ page }) => {
+  test('canvas buffer is 512x288', async ({ page }) => {
     const size = await page.evaluate(() => GameDebug.getCanvasSize());
-    expect(size).toEqual({ width: 480, height: 270 });
+    expect(size).toEqual({ width: 512, height: 288 });
   });
 
   test('canvas uses nearest-neighbour scaling', async ({ page }) => {
@@ -55,8 +58,8 @@ test.describe('Renderer camera and bounds', () => {
     expect(bounds.length).toBe(4);
     for (const b of bounds) {
       expect(b.left).toBeGreaterThanOrEqual(0);
-      expect(b.right).toBeLessThanOrEqual(480);
-      expect(b.right - b.left).toBe(24);
+      expect(b.right).toBeLessThanOrEqual(512);
+      expect(b.right - b.left).toBe(34);
     }
   });
 
@@ -74,7 +77,7 @@ test.describe('Renderer camera and bounds', () => {
     const bounds = await page.evaluate(() => GameDebug.getCamelSpriteBounds());
     for (const b of bounds) {
       expect(b.left).toBeGreaterThanOrEqual(0);
-      expect(b.right).toBeLessThanOrEqual(480);
+      expect(b.right).toBeLessThanOrEqual(512);
     }
   });
 
@@ -95,17 +98,17 @@ test.describe('Renderer camera and bounds', () => {
         const during = await page.evaluate(() => GameDebug.getCamelSpriteBounds());
         for (const b of during) {
           expect(b.left).toBeGreaterThanOrEqual(0);
-          expect(b.right).toBeLessThanOrEqual(480);
+          expect(b.right).toBeLessThanOrEqual(512);
         }
 
         await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
         const after = await page.evaluate(() => GameDebug.getCamelSpriteBounds());
         for (const b of after) {
           expect(b.left).toBeGreaterThanOrEqual(0);
-          expect(b.right).toBeLessThanOrEqual(480);
-          expect(b.right - b.left).toBe(24);
+          expect(b.right).toBeLessThanOrEqual(512);
+          expect(b.right - b.left).toBe(34);
           expect(b.top).toBeGreaterThanOrEqual(0);
-          expect(b.bottom).toBeLessThanOrEqual(270);
+          expect(b.bottom).toBeLessThanOrEqual(288);
         }
       });
     }
@@ -125,13 +128,18 @@ test.describe('Renderer camera and bounds', () => {
       .toBeGreaterThan(0); // decor bodies
   });
 
-  test('camels render with per-lane palette colors', async ({ page }) => {
+  test('camels rasterise fixed body/shade plus per-lane robe and blanket colours', async ({ page }) => {
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     const tally = await pixelTally(page);
-    // Camel 1 body = PALETTE[0], Camel 2 body = PALETTE[1]. Each frame has ~99
-    // body pixels; both colors must appear and the scene must not be palette-flat.
-    expect(tally[LANE_BODY[0]] || 0).toBeGreaterThan(50);
-    expect(tally[LANE_BODY[1]] || 0).toBeGreaterThan(50);
+    // Body and shade are fixed brown tones shared by every camel (only the robe
+    // is palette-swapped); the saddle blanket is a fixed light blue with a dark
+    // digit drawn by code.
+    expect(tally['#c9803a'] || 0).toBeGreaterThan(150); // body across 4 camels
+    expect(tally['#8a5220'] || 0).toBeGreaterThan(0);   // fixed shade
+    expect(tally['#bfe3ea'] || 0).toBeGreaterThan(0);   // saddle blanket
+    expect(tally['#123a44'] || 0).toBeGreaterThan(0);   // blanket digit ink
+    expect(tally[LANE_ROBE[0]] || 0).toBeGreaterThan(0); // lane 0 robe
+    expect(tally[LANE_ROBE[1]] || 0).toBeGreaterThan(0); // lane 1 robe
   });
 
   test('visualLeft lerps toward the target instead of snapping', async ({ page }) => {
@@ -154,13 +162,43 @@ test.describe('Renderer camera and bounds', () => {
       }
       requestAnimationFrame(tick);
     }));
-    // After a few real frames the sprite must still be far from its ~454px
+    // After a few real frames the sprite must still be far from its ~446px
     // target and not yet reported settled — i.e. it interpolated, not snapped.
     expect(r.settled).toBe(false);
     expect(r.left).toBeLessThan(300);
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     const endLeft = await page.evaluate(() => GameDebug.getCamelSpriteBounds()[1].left);
     expect(endLeft).toBeGreaterThan(400);
+  });
+
+  test('score glide eases over ~900ms and converges exactly to the target', async ({ page }) => {
+    await page.evaluate(() => {
+      GameCore.setCamelCount(4);
+      GameCore.setGoal(null);
+      GameCore.resetRace();
+    });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    const r = await page.evaluate(() => new Promise((resolve) => {
+      const t0 = performance.now();
+      GameCore.setScore('camel-1', 5000);
+      let firstLeft = null;
+      function tick() {
+        const b = GameDebug.getCamelSpriteBounds()[1].left;
+        if (firstLeft === null) firstLeft = b;
+        if (GameDebug.isSettled()) {
+          resolve({ elapsed: performance.now() - t0, firstLeft, endLeft: b });
+          return;
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }));
+    // Unhurried Volksfest amble: not a snap (old 300ms constant settled in a
+    // few frames) yet still converges well under the poll budget.
+    expect(r.elapsed).toBeGreaterThan(600);
+    expect(r.elapsed).toBeLessThan(2000);
+    expect(r.firstLeft).toBeLessThan(300); // moved gradually from the start
+    expect(r.endLeft).toBeGreaterThan(400); // converged near the right edge
   });
 
   test('walk animation shows distinct frames while moving, stops after ANIM_MS', async ({ page }) => {
@@ -170,36 +208,61 @@ test.describe('Renderer camera and bounds', () => {
       GameCore.resetRace();
     });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    // Ensure the scene is painted before capturing the idle reference pose
+    // (isSettled() is trivially true while visualLeft is still null).
+    await page.evaluate(() => new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    }));
     const res = await page.evaluate(() => new Promise((resolve) => {
+      const FRAME_MS = 320; // walk gait frame length (index.html ANIM_FRAME_MS)
       const canvas = document.getElementById('game');
       const snap = () => {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const x = Math.max(0, Math.round(b.left) - 1);
         const y = Math.max(0, Math.round(b.top));
-        return canvas.getContext('2d').getImageData(x, y, 26, 18).data.join(',');
+        return canvas.getContext('2d').getImageData(x, y, 34, 24).data.join(',');
       };
       const standing = snap();
       const camel = GameCore.getState().camels[0];
-      // Same score => sprite stays put but a 600ms walk anim is triggered.
+      // Same score => sprite stays put but a 1400ms walk anim is triggered.
       GameCore.setScore(camel.id, camel.score);
       const walk = new Set();
+      // Bucket every sample by the walk-frame index the renderer derives from
+      // the rAF clock (floor(now / 320ms) % 4 + 1). The modal snapshot per
+      // bucket is that frame's pose, letting us compare frames 2 and 4 directly.
+      const byFrame = new Map(); // frameIndex -> Map(snapshot -> count)
       let settledFrames = 0;
-      function tick() {
-        const now = performance.now();
+      function tick(now) {
         const animating = GameCore.getState().camels[0].animUntil > now;
         const k = snap();
         if (animating) {
           if (k !== standing) walk.add(k);
+          const fi = (Math.floor(now / FRAME_MS) % 4) + 1;
+          let counts = byFrame.get(fi);
+          if (!counts) { counts = new Map(); byFrame.set(fi, counts); }
+          counts.set(k, (counts.get(k) || 0) + 1);
           requestAnimationFrame(tick);
           return;
         }
         settledFrames += 1;
         if (settledFrames < 2) { requestAnimationFrame(tick); return; }
-        resolve({ distinctWalkFrames: walk.size, after: k, standing });
+        const modal = {};
+        for (const [fi, counts] of byFrame) {
+          let best = null, bestN = -1;
+          for (const [s, n] of counts) if (n > bestN) { bestN = n; best = s; }
+          modal[fi] = best;
+        }
+        resolve({ distinctWalkFrames: walk.size, modal, after: k, standing });
       }
       requestAnimationFrame(tick);
     }));
-    expect(res.distinctWalkFrames).toBeGreaterThanOrEqual(2); // frames 1 and 2
+    // Four gait poses this cycle: contact A, pass A, contact B, pass B.
+    expect(res.distinctWalkFrames).toBe(4);
+    // Each of the four walk frames genuinely renders (sampled over the cycle).
+    expect(Object.keys(res.modal).sort()).toEqual(['1', '2', '3', '4']);
+    // The two pass poses (frames 2 and 4) must differ — the corrected frame 4
+    // is a mirrored pass, not a byte-identical copy of frame 2.
+    expect(res.modal[2]).not.toBe(res.modal[4]);
     expect(res.after).toBe(res.standing); // returns to idle pose after ANIM_MS
   });
 
@@ -216,7 +279,7 @@ test.describe('Renderer camera and bounds', () => {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const x = Math.max(0, Math.round(b.left) - 1);
         const y = Math.max(0, Math.round(b.top));
-        return canvas.getContext('2d').getImageData(x, y, 26, 18).data.join(',');
+        return canvas.getContext('2d').getImageData(x, y, 34, 24).data.join(',');
       };
       const first = snap();
       let n = 0;
@@ -232,7 +295,7 @@ test.describe('Renderer camera and bounds', () => {
 
   test('decor is deterministic across reloads (fixed seed)', async ({ page }) => {
     const decorRegion = () => page.evaluate(
-      () => document.getElementById('game').getContext('2d').getImageData(0, 0, 480, 70).data.join(','),
+      () => document.getElementById('game').getContext('2d').getImageData(0, 0, 512, 70).data.join(','),
     );
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     const first = await decorRegion();
@@ -250,7 +313,7 @@ test.describe('Renderer camera and bounds', () => {
       }, count);
       await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
       const transparent = await page.evaluate(() => {
-        const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 480, 270).data;
+        const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 512, 288).data;
         let n = 0;
         for (let i = 3; i < d.length; i += 4) if (d[i] === 0) n += 1;
         return n;
@@ -270,12 +333,12 @@ test.describe('Renderer camera and bounds', () => {
     // different colors), so the comparison isolates decor from the dune bands.
     const decorColumns = () => page.evaluate(() => {
       const decor = new Set(['6b4a2a', '2f6b3a', '6b5570']);
-      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 480, 70).data;
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 512, 70).data;
       const cols = [];
-      for (let x = 0; x < 480; x += 1) {
+      for (let x = 0; x < 512; x += 1) {
         let hit = false;
         for (let y = 0; y < 70 && !hit; y += 1) {
-          const i = (y * 480 + x) * 4;
+          const i = (y * 512 + x) * 4;
           const h = [d[i], d[i + 1], d[i + 2]]
             .map((v) => v.toString(16).padStart(2, '0')).join('');
           if (decor.has(h)) hit = true;
@@ -317,12 +380,12 @@ test.describe('Renderer camera and bounds', () => {
     const decorDrawn = await page.evaluate(() => GameDebug.getScene().decorDrawn);
     expect(decorDrawn).toBe(0);
     const painted = await page.evaluate(() => {
-      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 480, 270).data;
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 512, 288).data;
       let n = 0;
       for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) n += 1;
       return n;
     });
-    expect(painted).toBe(480 * 270);
+    expect(painted).toBe(512 * 288);
 
     // Within the decor range the counter is live and still bounded.
     await page.evaluate(() => { GameCore.setScore('camel-1', 1000); });
@@ -333,7 +396,134 @@ test.describe('Renderer camera and bounds', () => {
     const bounded = await page.evaluate(() => GameDebug.getScene().decorDrawn);
     expect(bounded).toBeLessThanOrEqual(24);
   });
-});
 
-// Camel body color for lane index i = GameCore.PALETTE[i % 8] (see index.html).
-const LANE_BODY = ['#e84a3a', '#3a6ae8'];
+  test('34x24 sprite rasterises blanket, digit ink, body and outline', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    const b = await page.evaluate(() => GameDebug.getCamelSpriteBounds()[0]);
+    expect(b.right - b.left).toBe(34); // SPRITE_W
+    expect(b.bottom - b.top).toBe(24); // SPRITE_H
+    const seen = await page.evaluate(({ left, top }) => {
+      const d = document.getElementById('game').getContext('2d')
+        .getImageData(Math.round(left), Math.round(top), 34, 24).data;
+      const want = { body: 0xc9803a, blanket: 0xbfe3ea, digit: 0x123a44, outline: 0x1a1208 };
+      const got = { body: 0, blanket: 0, digit: 0, outline: 0 };
+      for (let i = 0; i < d.length; i += 4) {
+        const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        for (const k in want) if (h === want[k]) got[k] += 1;
+      }
+      return got;
+    }, { left: b.left, top: b.top });
+    expect(seen.body).toBeGreaterThan(0);
+    expect(seen.blanket).toBeGreaterThan(0);
+    expect(seen.digit).toBeGreaterThan(0);
+    expect(seen.outline).toBeGreaterThan(0);
+  });
+
+  test('blanket digit is the 3x5 glyph for every lane number', async ({ page }) => {
+    // Full 3x5 font (index.html DIGIT_FONT); a wrong/blank glyph in any lane
+    // shows up as a non-zero mismatch.
+    const GLYPHS = {
+      '1': ['.#.', '##.', '.#.', '.#.', '###'],
+      '2': ['###', '..#', '###', '#..', '###'],
+      '3': ['###', '..#', '###', '..#', '###'],
+      '4': ['#.#', '#.#', '###', '..#', '..#'],
+      '5': ['###', '#..', '###', '..#', '###'],
+      '6': ['###', '#..', '###', '#.#', '###'],
+      '7': ['..#', '..#', '..#', '..#', '..#'],
+      '8': ['###', '#.#', '###', '#.#', '###'],
+    };
+    for (const count of [2, 8]) {
+      await page.evaluate((n) => { GameCore.setCamelCount(n); GameCore.setGoal(null); GameCore.resetRace(); }, count);
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+      // isSettled() is trivially true while visualLeft is still null on a fresh
+      // page, so the canvas can still hold the pre-reset layout's pixels. Let the
+      // game loop paint the current scene before sampling it.
+      await page.evaluate(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+      const res = await page.evaluate(({ glyph }) => {
+        const bounds = GameDebug.getCamelSpriteBounds();
+        const g = document.getElementById('game').getContext('2d');
+        function mismatches(lane, want) {
+          const b = bounds[lane];
+          const d = g.getImageData(Math.round(b.left) + 9, Math.round(b.top) + 10, 3, 5).data;
+          let bad = 0;
+          for (let ry = 0; ry < 5; ry += 1) {
+            for (let rx = 0; rx < 3; rx += 1) {
+              const i = (ry * 3 + rx) * 4;
+              const ink = d[i] === 0x12 && d[i + 1] === 0x3a && d[i + 2] === 0x44;
+              if (ink !== (want[ry][rx] === '#')) bad += 1;
+            }
+          }
+          return bad;
+        }
+        return bounds.map((_, lane) => mismatches(lane, glyph[String(lane + 1)]));
+      }, { glyph: GLYPHS });
+      expect(res).toEqual(Array(count).fill(0));
+    }
+  });
+
+  test('dune lane tokens rasterise (top, shade, edge, rim)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    const tally = await pixelTally(page);
+    for (const c of ['#c9a25a', '#a8813f', '#6e4f2a', '#523a1e']) {
+      expect(tally[c] || 0).toBeGreaterThan(0);
+    }
+  });
+
+  test('camel y follows the terrain and stays inside its lane (2 and 8 camels)', async ({ page }) => {
+    for (const count of [2, 8]) {
+      await page.evaluate((n) => { GameCore.setCamelCount(n); GameCore.setGoal(null); GameCore.resetRace(); }, count);
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+      // h(0) rounds to +1, h(80) rounds to -1: the camel sits 2px lower at 80.
+      const at0 = await page.evaluate(() => GameDebug.getCamelSpriteBounds()[0].top);
+      await page.evaluate(() => { GameCore.setScore('camel-0', 80); });
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+      const at80 = await page.evaluate(() => GameDebug.getCamelSpriteBounds()[0].top);
+      expect(at80 - at0).toBe(2); // 2px lower at the trough (h rounds +1 -> -1)
+      await page.evaluate(() => { GameCore.setScore('camel-0', 0); });
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+
+      const size = await page.evaluate(() => GameDebug.getCanvasSize());
+      const laneH = (size.height - 4 - 70) / count;
+      const bounds = await page.evaluate(() => GameDebug.getCamelSpriteBounds());
+      bounds.forEach((b, i) => {
+        expect(b.top).toBeGreaterThanOrEqual(Math.round(70 + i * laneH));
+        expect(b.bottom).toBeLessThanOrEqual(Math.round(70 + (i + 1) * laneH));
+        expect(b.right - b.left).toBe(34);
+        expect(b.bottom - b.top).toBe(24);
+      });
+    }
+  });
+
+  test('rendered dune crest is continuous across the whole track', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    const res = await page.evaluate(() => {
+      const W = 512, Y0 = 70, H = 8;
+      const d = document.getElementById('game').getContext('2d').getImageData(0, Y0, W, H).data;
+      // The topmost dune-rim pixel per column is lane 0's crest line.
+      const crest = [];
+      for (let x = 0; x < W; x += 1) {
+        let top = -1;
+        for (let ry = 0; ry < H && top < 0; ry += 1) {
+          const i = (ry * W + x) * 4;
+          if (d[i] === 0x52 && d[i + 1] === 0x3a && d[i + 2] === 0x1e) top = Y0 + ry;
+        }
+        crest.push(top);
+      }
+      let maxStep = 0, holes = 0;
+      for (let x = 0; x < W; x += 1) {
+        if (crest[x] < 0) holes += 1;
+        if (x > 0 && crest[x] >= 0 && crest[x - 1] >= 0) {
+          maxStep = Math.max(maxStep, Math.abs(crest[x] - crest[x - 1]));
+        }
+      }
+      return { maxStep, holes, first: crest[0] };
+    });
+    expect(res.holes).toBe(0);       // every column has its dune crest
+    expect(res.maxStep).toBeLessThanOrEqual(1); // continuous, no jumps
+  });
+});

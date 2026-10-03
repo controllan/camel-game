@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { gotoGame } = require('./helpers');
 
-// Count exact-RGB pixels in a horizontal band of the single 480x270 canvas
+// Count exact-RGB pixels in a horizontal band of the single 512x288 canvas
 // buffer. Used to prove that Task 4 art is actually rasterised, not merely that
 // a state flag flipped.
 async function countColor(page, hex, y0, y1) {
@@ -12,7 +12,7 @@ async function countColor(page, hex, y0, y1) {
   ];
   return page.evaluate(({ rgb, y0, y1 }) => {
     const d = document.getElementById('game').getContext('2d')
-      .getImageData(0, y0, 480, y1 - y0).data;
+      .getImageData(0, y0, 512, y1 - y0).data;
     let n = 0;
     for (let i = 0; i < d.length; i += 4) {
       if (d[i] === rgb[0] && d[i + 1] === rgb[1] && d[i + 2] === rgb[2]) n += 1;
@@ -28,7 +28,7 @@ async function countColor(page, hex, y0, y1) {
 async function countLabelInk(page, y0, y1) {
   return page.evaluate(({ y0, y1 }) => {
     const d = document.getElementById('game').getContext('2d')
-      .getImageData(0, y0, 480, y1 - y0).data;
+      .getImageData(0, y0, 512, y1 - y0).data;
     let n = 0;
     for (let i = 0; i < d.length; i += 4) {
       const r = d[i], g = d[i + 1], b = d[i + 2];
@@ -54,7 +54,7 @@ test.describe('Goal end state and infinite mode', () => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); });
     await page.locator('.lane').nth(0).locator('[data-exact]').fill('200');
     await page.locator('.lane').nth(0).locator('[data-action="set"]').click();
-    await expect(page.locator('#live')).toHaveText('Camel 1 wins!');
+    await expect(page.locator('#live')).toHaveText('Team 1 wins!');
     await expect(page.locator('.lane').nth(0).locator('[data-action="add"][data-n="1"]')).toBeDisabled();
     await expect(page.locator('.lane').nth(0).locator('[data-action="set"]')).toBeDisabled();
     await expect(page.locator('.lane').nth(0).locator('[data-exact]')).toBeDisabled();
@@ -64,7 +64,7 @@ test.describe('Goal end state and infinite mode', () => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); });
     await page.locator('.lane').nth(0).locator('[data-exact]').fill('200');
     await page.locator('.lane').nth(0).locator('[data-action="set"]').click();
-    await expect(page.locator('#live')).toHaveText('Camel 1 wins!');
+    await expect(page.locator('#live')).toHaveText('Team 1 wins!');
     await page.locator('#newRace').click();
     await expect(page.locator('.lane').nth(0).locator('[data-exact]')).toHaveValue('0');
     await expect(page.locator('.lane').nth(0).locator('[data-action="set"]')).toBeEnabled();
@@ -99,7 +99,7 @@ test.describe('Goal end state and infinite mode', () => {
     const bounds = await page.evaluate(() => GameDebug.getCamelSpriteBounds());
     for (const b of bounds) {
       expect(b.left).toBeGreaterThanOrEqual(0);
-      expect(b.right).toBeLessThanOrEqual(480);
+      expect(b.right).toBeLessThanOrEqual(512);
     }
   });
 
@@ -108,7 +108,7 @@ test.describe('Goal end state and infinite mode', () => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); });
     await page.locator('.lane').nth(0).locator('[data-exact]').fill('200');
     await page.locator('.lane').nth(0).locator('[data-action="set"]').click();
-    await expect(page.locator('#live')).toHaveText('Kamel 1 gewinnt!');
+    await expect(page.locator('#live')).toHaveText('Team 1 gewinnt!');
   });
 
   test('winner banner is rasterised on the canvas and cleared by New race', async ({ page }) => {
@@ -119,7 +119,7 @@ test.describe('Goal end state and infinite mode', () => {
     expect(await countColor(page, '#e8c83a', 6, 22)).toBe(0);
 
     await winLane(page, 0, 200);
-    await expect(page.locator('#live')).toHaveText('Camel 1 wins!');
+    await expect(page.locator('#live')).toHaveText('Team 1 wins!');
     await expect.poll(() => countColor(page, '#e8c83a', 6, 22)).toBeGreaterThan(0);
 
     await page.locator('#newRace').click();
@@ -133,14 +133,14 @@ test.describe('Goal end state and infinite mode', () => {
     await settle(page);
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().goalScreenX)).toBeGreaterThan(0);
     // #1a1a1a (checkerDark) is used only by the finish art in the track band.
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 270)).toBeGreaterThan(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBeGreaterThan(0);
 
     await page.locator('#infinite').check();
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().finishVisible)).toBe(false);
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 270)).toBe(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBe(0);
 
     await page.locator('#infinite').uncheck();
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 270)).toBeGreaterThan(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBeGreaterThan(0);
   });
 
   test('finish line stays hidden while the goal is outside the camera window', async ({ page }) => {
@@ -152,7 +152,7 @@ test.describe('Goal end state and infinite mode', () => {
     const win = await page.evaluate(() => GameDebug.getCameraWindow());
     expect(200 < win.min || 200 > win.max).toBe(true);
     // #1a1a1a (checkerDark) is drawn only by the finish art in the track band.
-    expect(await countColor(page, '#1a1a1a', 70, 270)).toBe(0);
+    expect(await countColor(page, '#1a1a1a', 70, 288)).toBe(0);
 
     // Bring the goal into the window: the finish raster reappears.
     await page.evaluate(() => { GameCore.setScore('camel-0', 180); });
@@ -161,7 +161,7 @@ test.describe('Goal end state and infinite mode', () => {
       const w = await page.evaluate(() => GameDebug.getCameraWindow());
       return w.min <= 200 && 200 <= w.max;
     }).toBe(true);
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 270)).toBeGreaterThan(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBeGreaterThan(0);
   });
 
   test('milestone flags render at normal spread and drop past DECOR_MAX_SPAN', async ({ page }) => {
@@ -257,7 +257,7 @@ test.describe('Goal end state and infinite mode', () => {
   test('after the goal further score input is rejected and a new race can be won by another camel', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); });
     await winLane(page, 0, 200);
-    await expect(page.locator('#live')).toHaveText('Camel 1 wins!');
+    await expect(page.locator('#live')).toHaveText('Team 1 wins!');
 
     const rejected = await page.evaluate(() => ({
       add: GameCore.addScore('camel-1', 5),
@@ -272,7 +272,7 @@ test.describe('Goal end state and infinite mode', () => {
     await page.locator('#newRace').click();
     await expect(page.locator('.lane').nth(1).locator('[data-action="add"][data-n="1"]')).toBeEnabled();
     await winLane(page, 1, 200);
-    await expect(page.locator('#live')).toHaveText('Camel 2 wins!');
+    await expect(page.locator('#live')).toHaveText('Team 2 wins!');
   });
 
   test('shrink dropping the winner before the first win frame: no crash, race void, loop alive', async ({ page }) => {
@@ -373,7 +373,7 @@ test.describe('Goal end state and infinite mode', () => {
     const { light, dark } = await page.evaluate(({ gx }) => {
       const stripeX = Math.round(gx) - 6 + 4;
       const img = document.getElementById('game').getContext('2d')
-        .getImageData(stripeX, 70, 4, 270 - 70).data;
+        .getImageData(stripeX, 70, 4, 288 - 70).data;
       let light = 0, dark = 0;
       for (let i = 0; i < img.length; i += 4) {
         if (img[i] === 240 && img[i + 1] === 240 && img[i + 2] === 240) light += 1;
@@ -388,7 +388,7 @@ test.describe('Goal end state and infinite mode', () => {
   test('changing the goal after the race does not create a second winner or unlock controls', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); });
     await winLane(page, 0, 250);
-    await expect(page.locator('#live')).toHaveText('Camel 1 wins!');
+    await expect(page.locator('#live')).toHaveText('Team 1 wins!');
 
     for (const value of ['100', '9000']) {
       await page.evaluate((v) => {
@@ -399,7 +399,7 @@ test.describe('Goal end state and infinite mode', () => {
       const s = await page.evaluate(() => GameCore.getState());
       expect(s.raceOver).toBe(true);
       expect(s.winnerId).toBe('camel-0');
-      await expect(page.locator('#live')).toHaveText('Camel 1 wins!');
+      await expect(page.locator('#live')).toHaveText('Team 1 wins!');
     }
     expect(await page.evaluate(() => GameCore.getState().camels.map((c) => c.score))).toEqual([250, 0, 0, 0]);
 
@@ -409,7 +409,7 @@ test.describe('Goal end state and infinite mode', () => {
 
   test('toggling infinite after the race then New race keeps state sane and restores the finish line', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); GameCore.setScore('camel-0', 200); });
-    await expect(page.locator('#live')).toHaveText('Camel 1 wins!');
+    await expect(page.locator('#live')).toHaveText('Team 1 wins!');
 
     await page.locator('#infinite').check();
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().finishVisible)).toBe(false);

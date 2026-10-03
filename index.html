@@ -11,17 +11,24 @@
     --focus:#3ad8d8; --danger:#e84a3a;
   }
   * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; background:var(--bg); color:var(--ink);
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+    background:var(--bg); color:var(--ink);
     font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size:14px; }
-  body { padding:12px; }
-  .app { max-width:1200px; margin:0 auto; }
-  header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  /* Full-viewport shell: the page itself never scrolls; only the panel may. */
+  .app {
+    height:100vh;                 /* fallback for browsers without dvh */
+    height:100dvh;
+    padding:12px;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
   h1 { font-size:18px; letter-spacing:2px; margin:0; color:var(--accent); }
-  main { display:flex; gap:12px; align-items:flex-start; }
-  canvas#game { display:block; width:100%; max-width:960px; aspect-ratio:16/9;
-    image-rendering:pixelated; background:#000; border:2px solid var(--border); }
-  #panel { flex:1 1 260px; min-width:220px; background:var(--panel);
-    border:2px solid var(--border); padding:10px; }
+  main { flex:1 1 auto; min-height:0; display:flex; gap:12px; align-items:stretch; }
+  #canvasWrap { flex:1 1 auto; min-width:0; min-height:0; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; }
+  canvas#game { display:block; box-sizing:content-box; image-rendering:pixelated; background:#000; border:2px solid var(--border); }
+  #panel { flex:0 0 320px; width:320px; min-width:260px; height:100%; min-height:0;
+    overflow-y:auto; background:var(--panel); border:2px solid var(--border); padding:10px; }
   .row { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
   label { font-size:13px; }
   input[type=number] { width:80px; background:var(--panel2); color:var(--ink);
@@ -41,11 +48,11 @@
   #validation { color:var(--danger); margin:6px 0 0; font-size:13px; }
   #live { position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
     overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-  /* Stack strictly below 900px so the panel sits beside the 2x canvas at exactly 900px. */
+  /* Stack strictly below 900px so the panel sits beside the canvas at exactly 900px. */
   @media (max-width: 899.98px) {
     main { flex-direction: column; }
-    canvas#game { max-width: 100%; }
-    #panel { width: 100%; }
+    #canvasWrap { flex:1 1 0; }
+    #panel { flex:0 1 auto; width:100%; min-width:0; height:auto; max-height:45dvh; }
   }
 </style>
 </head>
@@ -59,8 +66,10 @@
     </div>
   </header>
   <main>
-    <canvas id="game" width="480" height="270"
-      aria-label="Camel race track. Camels race left to right to the goal."></canvas>
+    <div id="canvasWrap">
+      <canvas id="game" width="512" height="288"
+        aria-label="Camel race track. Camels race left to right to the goal."></canvas>
+    </div>
     <aside id="panel" aria-label="Controls">
       <div class="row">
         <label for="camelCount" id="camelCountLabel">Camels</label>
@@ -85,10 +94,24 @@ window.GameCore = (function () {
   'use strict';
   const PALETTE = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a'];
   const MIN_CAMELS = 2, MAX_CAMELS = 8;
-  const NAME_TEMPLATES = { en: 'Camel {n}', de: 'Kamel {n}' };
+  // Custom lane names are session-only and never translated; defaults are the
+  // same template in both languages so they read identically.
+  const NAME_TEMPLATES = { en: 'Team {n}', de: 'Team {n}' };
+  const NAME_MAX = 16;
   const GOAL_MIN = 1, GOAL_MAX = 10000;
   const PAD = 20, MIN_WINDOW = 100, GOAL_SLACK = 80;
-  const ANIM_MS = 600;
+  // Shared dune height field h(x): deterministic, no Math.random, amplitude
+  // A1+A2 = 2 px, wavelengths 160/130 px. Same profile for every lane.
+  const TERRAIN = { A1: 1.2, L1: 160, PH1: 0, A2: 0.8, L2: 130, PH2: 1.7 };
+  function terrainHeightAt(x) {
+    const px = (typeof x === 'number' && Number.isFinite(x)) ? x : 0;
+    const h = TERRAIN.A1 * Math.sin(2 * Math.PI * px / TERRAIN.L1 + TERRAIN.PH1)
+      + TERRAIN.A2 * Math.sin(2 * Math.PI * px / TERRAIN.L2 + TERRAIN.PH2);
+    return Math.max(-2, Math.min(2, h));
+  }
+  // Walk animation keeps running this long after the last score change so a
+  // full 4-frame cycle (4 x 320ms = 1280ms) always completes.
+  const ANIM_MS = 1400;
 
   let clock = (typeof performance !== 'undefined' && performance.now)
     ? function () { return performance.now(); }
@@ -140,7 +163,7 @@ window.GameCore = (function () {
       if (existing) {
         next.push({
           id: existing.id,
-          name: camelName(i, state.language),
+          name: existing.name,
           color: PALETTE[i % PALETTE.length],
           score: existing.score,
           lane: i,
@@ -230,7 +253,20 @@ window.GameCore = (function () {
   function setLanguage(lang) {
     if (lang !== 'en' && lang !== 'de') return false;
     state.language = lang;
-    for (let i = 0; i < state.camels.length; i++) state.camels[i].name = camelName(i, lang);
+    // Lane names are session-only and never translated (custom names preserved).
+    emit();
+    return true;
+  }
+
+  // Rename a lane. Trims surrounding whitespace; rejects empty or >16-char
+  // input without touching state. Names are session-only.
+  function setCamelName(camelId, name) {
+    const c = findCamel(camelId);
+    if (!c) return false;
+    if (typeof name !== 'string') return false;
+    const trimmed = name.trim();
+    if (trimmed.length === 0 || trimmed.length > NAME_MAX) return false;
+    c.name = trimmed;
     emit();
     return true;
   }
@@ -270,7 +306,7 @@ window.GameCore = (function () {
 
   function mapScoreToScreenX(score, window, canvasWidth) {
     const w = window || { min: 0, max: MIN_WINDOW };
-    const width = (typeof canvasWidth === 'number' && canvasWidth > 0) ? canvasWidth : 480;
+    const width = (typeof canvasWidth === 'number' && canvasWidth > 0) ? canvasWidth : 512;
     const span = w.max - w.min;
     if (span <= 0) return 0;
     const x = ((score - w.min) / span) * width;
@@ -287,9 +323,10 @@ window.GameCore = (function () {
     PAD: PAD, MIN_WINDOW: MIN_WINDOW, GOAL_SLACK: GOAL_SLACK, ANIM_MS: ANIM_MS,
     addScore: addScore, setScore: setScore, setCamelCount: setCamelCount,
     setGoal: setGoal, resetRace: resetRace, setLanguage: setLanguage,
-    setClock: setClock, getState: getState, subscribe: subscribe,
-    camelName: camelName, computeCameraWindow: computeCameraWindow,
-    mapScoreToScreenX: mapScoreToScreenX,
+    setCamelName: setCamelName, setClock: setClock, getState: getState,
+    subscribe: subscribe, camelName: camelName,
+    computeCameraWindow: computeCameraWindow,
+    mapScoreToScreenX: mapScoreToScreenX, terrainHeightAt: terrainHeightAt,
   };
 })();
 </script>
@@ -299,21 +336,35 @@ window.GameCore = (function () {
   const core = window.GameCore;
 
   const canvas = document.getElementById('game');
+  const canvasWrap = document.getElementById('canvasWrap');
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  const CANVAS_W = canvas.width;   // 480
-  const CANVAS_H = canvas.height;  // 270
+  const CANVAS_W = canvas.width;   // 512
+  const CANVAS_H = canvas.height;  // 288
 
   const HORIZON_Y = 70;
-  const LANE_BOTTOM = CANVAS_H - 4; // 266
-  const SPRITE_W = 24;
-  const SPRITE_H = 16;
+  const LANE_BOTTOM = CANVAS_H - 4; // 284
+  const SPRITE_W = 34;
+  const SPRITE_H = 24;
+  // Feet rest this many px above the lane bottom at terrain height 0.
+  const TERRAIN_FEET_OFFSET = 2;
   const LANE_MARGIN = 2;
-  const LERP_MS = 300;
-  const ANIM_FRAME_MS = 100;
+  // Unhurried Volksfest glide: each retarget tweens LERP_MS ease-out (cubic)
+  // from the sprite's current position, so mid-flight retargets blend smoothly
+  // instead of snapping. No artificial input-blocking delay.
+  const LERP_MS = 900;
+  // 4 walk frames x 320ms = 1280ms gait cycle; idle frame 0 when not animating.
+  const ANIM_FRAME_MS = 320;
+  const CANVAS_BORDER = 4; // 2px border on each side of the canvas
+  // Fill the binding dimension of the wrapper, clamped to a sane range, then
+  // snap to a crisp integer multiple only when the fit is already within 8% of
+  // it AND the integer still fits (keeps 1x/2x/3x where it does).
+  const SCALE_EPSILON = 0.05, SCALE_MAX = 4;
+  const SNAP_TOLERANCE = 0.08;
 
   const runtime = {
     visualLeft: Object.create(null),
+    motion: Object.create(null),
     lastWinnerId: null,
     confetti: [],
     frameWindow: null,
@@ -323,10 +374,64 @@ window.GameCore = (function () {
     confettiDrawn: 0,
   };
 
+  // ---------- canvas layout (fill the area; page never scrolls) ----------
+  let canvasScale = 1;
+  let lastCssW = -1, lastCssH = -1;
+  let layoutPending = false;
+
+  function computeScale(availW, availH) {
+    const fit = Math.min(availW / CANVAS_W, availH / CANVAS_H);
+    if (!(fit > 0)) return 0;
+    // Cap only the upper bound: a minimum above the computed fit would force the
+    // canvas wider than its wrapper (clipped by overflow:hidden). A tiny epsilon
+    // guard keeps the canvas from collapsing to zero size.
+    const capped = Math.min(SCALE_MAX, fit);
+    const nearest = Math.round(capped);
+    const snapFits = nearest * CANVAS_W <= availW && nearest * CANVAS_H <= availH;
+    if (snapFits && Math.abs(capped - nearest) <= SNAP_TOLERANCE * nearest) {
+      return nearest;
+    }
+    return Math.max(SCALE_EPSILON, capped);
+  }
+
+  function applyCanvasLayout() {
+    layoutPending = false;
+    const availW = canvasWrap.clientWidth - CANVAS_BORDER;
+    const availH = canvasWrap.clientHeight - CANVAS_BORDER;
+    if (availW <= 0 || availH <= 0) return;
+    const scale = computeScale(availW, availH);
+    if (!(scale > 0)) return;
+    canvasScale = scale;
+    const w = Math.floor(CANVAS_W * scale);
+    const h = Math.floor(CANVAS_H * scale);
+    if (w === lastCssW && h === lastCssH) return;
+    lastCssW = w;
+    lastCssH = h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  }
+
+  function requestLayout() {
+    if (layoutPending) return;
+    layoutPending = true;
+    window.requestAnimationFrame(applyCanvasLayout);
+  }
+
   function laneHeight(n) { return (LANE_BOTTOM - HORIZON_Y) / n; }
   function laneTopY(i, n) { return HORIZON_Y + i * laneHeight(n); }
   function laneBottomY(i, n) { return laneTopY(i, n) + laneHeight(n); }
-  function camelTopY(i, n) { return laneBottomY(i, n) - SPRITE_H - 2; }
+  // Undulating sand surface for lane i at world position `score`.
+  function laneSurfaceY(i, n, score) {
+    return laneBottomY(i, n) - TERRAIN_FEET_OFFSET - Math.round(core.terrainHeightAt(score));
+  }
+  // Sprite top so the feet land on the surface, clamped inside the lane (an
+  // 8-lane track is ~26.75 px tall, only ~2.75 px of slack for a 24 px sprite).
+  function camelTopY(i, n, score) {
+    const min = Math.round(laneTopY(i, n));
+    const max = Math.round(laneBottomY(i, n) - SPRITE_H);
+    const top = Math.round(laneSurfaceY(i, n, score) - SPRITE_H);
+    return Math.max(min, Math.min(max, top));
+  }
   function mapX(point, win) { return core.mapScoreToScreenX(point, win, CANVAS_W); }
   function camelTargetLeft(score, win) {
     const cx = mapX(score, win);
@@ -347,10 +452,9 @@ window.GameCore = (function () {
       scoreLabel: 'Score',
       setButton: 'Set',
       newRace: 'New race',
-      winnerBanner: 'Camel {n} wins!',
-      languageToggle: 'EN / DE',
+      winnerBanner: '{name} wins!',
+      teamLabel: 'Team',
       validationHint: 'Enter a whole number ≥ 0.',
-      camelName: core.NAME_TEMPLATES.en,
       canvasLabel: 'Camel race track. Camels race left to right to the goal.',
     },
     de: {
@@ -362,10 +466,9 @@ window.GameCore = (function () {
       scoreLabel: 'Punktzahl',
       setButton: 'Setzen',
       newRace: 'Neues Rennen',
-      winnerBanner: 'Kamel {n} gewinnt!',
-      languageToggle: 'EN / DE',
+      winnerBanner: '{name} gewinnt!',
+      teamLabel: 'Team',
       validationHint: 'Bitte eine ganze Zahl ≥ 0 eingeben.',
-      camelName: core.NAME_TEMPLATES.de,
       canvasLabel: 'Kamelrennen. Kamele rennen von links nach rechts zum Ziel.',
     },
   };
@@ -400,6 +503,18 @@ window.GameCore = (function () {
     name.className = 'cname';
     name.setAttribute('data-name', '');
 
+    const nameRow = document.createElement('div');
+    nameRow.className = 'row';
+    const nameLabel = document.createElement('label');
+    nameLabel.setAttribute('data-name-label', '');
+    nameLabel.setAttribute('for', 'name-' + index);
+    const nameInput = document.createElement('input');
+    nameInput.id = 'name-' + index;
+    nameInput.type = 'text';
+    nameInput.maxLength = 16;
+    nameInput.setAttribute('data-name-input', '');
+    nameRow.append(nameLabel, nameInput);
+
     const btns = document.createElement('div');
     btns.className = 'btns';
     for (const n of [1, 5, 10]) {
@@ -427,7 +542,7 @@ window.GameCore = (function () {
     set.setAttribute('data-action', 'set');
     row.append(label, input, set);
 
-    el.append(name, btns, row);
+    el.append(name, nameRow, btns, row);
     return el;
   }
 
@@ -443,6 +558,10 @@ window.GameCore = (function () {
       const name = el.querySelector('[data-name]');
       name.textContent = c.name;
       name.style.color = c.color;
+      el.querySelector('[data-name-label]').textContent = t(s.language, 'teamLabel');
+      const nameInput = el.querySelector('[data-name-input]');
+      // Never clobber the field while the user is typing in it.
+      if (document.activeElement !== nameInput) nameInput.value = c.name;
       el.querySelector('[data-action="add"][data-n="1"]').textContent = t(s.language, 'plus1');
       el.querySelector('[data-action="add"][data-n="5"]').textContent = t(s.language, 'plus5');
       el.querySelector('[data-action="add"][data-n="10"]').textContent = t(s.language, 'plus10');
@@ -450,7 +569,7 @@ window.GameCore = (function () {
       el.querySelector('[data-action="set"]').textContent = t(s.language, 'setButton');
       el.querySelector('[data-exact]').value = String(c.score);
       const lock = s.raceOver;
-      el.querySelectorAll('button, input').forEach(function (ctl) { ctl.disabled = lock; });
+      el.querySelectorAll('[data-action], [data-exact]').forEach(function (ctl) { ctl.disabled = lock; });
     });
   }
 
@@ -478,7 +597,7 @@ window.GameCore = (function () {
         // clears winnerId first; guard the stale case so no phantom name shows.
         if (liveEl.textContent !== '') liveEl.textContent = '';
       } else {
-        const msg = t(s.language, 'winnerBanner', { n: idx + 1 });
+        const msg = t(s.language, 'winnerBanner', { name: s.camels[idx].name });
         if (liveEl.textContent !== msg) liveEl.textContent = msg;
       }
     } else if (!s.raceOver && liveEl.textContent !== '') {
@@ -504,6 +623,29 @@ window.GameCore = (function () {
         showValidation();
       }
     }
+  });
+
+  laneContainer.addEventListener('input', function (ev) {
+    const input = ev.target.closest('[data-name-input]');
+    if (!input) return;
+    const laneEl = input.closest('.lane');
+    const idx = Number(laneEl.dataset.index);
+    const camel = core.getState().camels[idx];
+    if (!camel) return;
+    // Empty / >16-char input is rejected by the core; state (and header) stay.
+    core.setCamelName(camel.id, input.value);
+  });
+
+  // A rejected (empty or >16-char) value is never stored, so a cleared field can
+  // linger blank while the lane header keeps the old name. On blur, resync the
+  // field from core state so it never desyncs.
+  laneContainer.addEventListener('focusout', function (ev) {
+    const input = ev.target.closest('[data-name-input]');
+    if (!input) return;
+    const laneEl = input.closest('.lane');
+    const idx = Number(laneEl.dataset.index);
+    const camel = core.getState().camels[idx];
+    if (camel) input.value = camel.name;
   });
 
   camelCountEl.addEventListener('change', function () {
@@ -544,6 +686,8 @@ window.GameCore = (function () {
   syncDom(core.getState());
 
   // ---------- art ----------
+  // Fixed tones for outline/eye and the decoration sprites. The camel's own
+  // palette (below) supplies body/shade/highlight/robe/white/skin/blanket.
   const COL = {
     outline: '#1a1208',
     eye: '#0a0a0a',
@@ -552,10 +696,35 @@ window.GameCore = (function () {
     checkerDark: '#1a1a1a',
     flag: '#e8c83a',
   };
+
   const SKY_BANDS = ['#1a1030', '#241640', '#2e1c4a'];
-  const PALM_PAL = { body: '#6b4a2a', shade: '#4a3320', grass: '#2f6b3a' };
-  const CACTUS_PAL = { body: '#2f6b3a', shade: '#24502d', grass: '#2f6b3a' };
-  const ROCK_PAL = { body: '#6b5570', shade: '#4a3a50', grass: '#4a3a50' };
+  const PALM_PAL = { body: '#6b4a2a', grass: '#2f6b3a' };
+  const CACTUS_PAL = { body: '#2f6b3a' };
+  const ROCK_PAL = { body: '#6b5570' };
+
+  // Camel palette factory: only `robe` varies per lane; everything else fixed.
+  const CAMEL_PAL = (robe) => ({
+    outline: '#1a1208', body: '#c9803a', shade: '#8a5220', highlight: '#e0a45f',
+    robe: robe, white: '#f0ece0', skin: '#d8a878', blanket: '#bfe3ea', eye: '#0a0a0a',
+  });
+
+  // Dune lane tokens (sand ribbons under the dark sky).
+  const DUNE = { top: '#c9a25a', shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e' };
+  const BLANKET_DIGIT_COLOR = '#123a44';
+
+  // 3x5 digit font for the numbered saddle blanket ('#' lit, '.' transparent).
+  const DIGIT_FONT = {
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['..#', '..#', '..#', '..#', '..#'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+  };
 
   const SEED = 1337;
   const DECOR_SPACING = 90;
@@ -564,62 +733,140 @@ window.GameCore = (function () {
   // dune bands still render. 1500 points draws ~18 decorations per frame.
   const DECOR_MAX_SPAN = 1500;
 
-  // Camel 24x16. Legend: . transparent, O outline, B body(palette-swap),
-  // D body-shade, E eye.
+  // Camel 34x24, 5 frames: 0 standing (idle), 1-4 walk. Legend (docs/art/camel-sprite.md):
+  // . transparent, O outline, B body, S shade, H highlight, R robe (per-lane colour),
+  // W white (turban), K skin (face), L saddle blanket, E eye. Blanket flat area is
+  // cols 8-13 x rows 9-15; the lane digit is drawn by code at sprite-local (9,10).
   const CAMEL = [
-    [ // frame 0: standing
-      '........................',
-      '....OOO...OOO...........',
-      '...OBBBO.OBBBO...OOOO...',
-      '..OBBBBBOBBBBBO.OBEBO...',
-      '..OBBBBBBBBBBBBOBBBBO...',
-      '..OBBBBBBBBBBBBBBBBBO...',
-      '..OBBBBBBBBBBBBBBO......',
-      '..OBBBBBBBBBBBOO........',
-      '..OBBBBBBBBBBBO.........',
-      '..OOOOOOOOOOOOO.........',
-      '..OBO.OBO..OBO.OBO......',
-      '..OBO.OBO..OBO.OBO......',
-      '..OBO.OBO..OBO.OBO......',
-      '..OOO.OOO..OOO.OOO......',
-      '........................',
-      '........................',
+    [ // frame 0 — standing (idle)
+      '..............OOOOOO......OOOO....',
+      '.............OOWWWWOO....OOBBOO...',
+      '.............OWWWWWWO...OOBHHBOO..',
+      '.............OWWWWWWO...OBBBBBBOO.',
+      '.............OOKKKKKO.OOOBBBBEBBO.',
+      '.........OOOOOOKKKKKOOOHHBBBBBBBO.',
+      '........OOBHHBRRRRROOOBBBSSBBBOOO.',
+      '.......OOBHHBBRRRRRRRRBBSSOOOOO...',
+      '......OOBHBBBBRRRRRRRRBSSOO.......',
+      '.....OOBLLLLLLBRRRRRRBSSOO........',
+      '....OOBBLLLLLLBRRRRRBSSOO.........',
+      '..OOOBBBLLLLLLBBBOOBBBBO..........',
+      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
+      'OOSSSSBBLLLLLLBBBBBBBOO...........',
+      'OSOSSSBBLLLLLLBBBBBBBBO...........',
+      'OSOOSSSBLLLLLLBBBBBBBBO...........',
+      'OSOOOBSSSSSSSSSSSSSSSBO...........',
+      'OSSOOOOBOOOSOOOOBOOOSOO...........',
+      'OOOO..OBO.OSO..OBO.OSO............',
+      '......OBO.OSO..OBO.OSO............',
+      '......OBO.OSO..OBO.OSO............',
+      '......OBO.OSO..OBO.OSO............',
+      '......OBO.OSO..OBO.OSO............',
+      '......OOO.OOO..OOO.OOO............',
     ],
-    [ // frame 1: walk A
-      '........................',
-      '....OOO...OOO...........',
-      '...OBBBO.OBBBO...OOOO...',
-      '..OBBBBBOBBBBBO.OBEBO...',
-      '..OBBBBBBBBBBBBOBBBBO...',
-      '..OBBBBBBBBBBBBBBBBBO...',
-      '..OBBBBBBBBBBBBBBO......',
-      '..OBBBBBBBBBBBOO........',
-      '..OBBBBBBBBBBBO.........',
-      '..OOOOOOOOOOOOO.........',
-      '.OBO..OBO...OBO.OBO.....',
-      '..OBO.OBO..OBO..OBO.....',
-      '..OBO.OBO..OBO..OBO.....',
-      '..OOO.OOO..OOO..OOO.....',
-      '........................',
-      '........................',
+    [ // frame 1 — contact A
+      '..............OOOOOO.......OOOO...',
+      '.............OOWWWWOO.....OOBBOO..',
+      '.............OWWWWWWO....OOBHHBOO.',
+      '.............OWWWWWWO....OBBBBBBOO',
+      '.............OOKKKKKO.OOOOBBBBEBBO',
+      '.........OOOOOOKKKKKOOOHHBBBBBBBBO',
+      '........OOBHHBRRRRROOOBBBSSBBBBOOO',
+      '.......OOBHHBBRRRRRRRRBBSSOOOOOO..',
+      '......OOBHBBBBRRRRRRRRBSSOO.......',
+      '.....OOBLLLLLLBRRRRRRBSSOO........',
+      '....OOBBLLLLLLBRRRRRBSSOO.........',
+      '..OOOBBBLLLLLLBBBOOBBBBO..........',
+      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
+      'OOSSSSBBLLLLLLBBBBBBBOO...........',
+      'OSOSSSBBLLLLLLBBBBBBBBO...........',
+      'OSOOSSSBLLLLLLBBBBBBBBO...........',
+      'OSOOOBSSSSSSSSSSSSSSSBO...........',
+      'OSSOOOOBOOOSOOOOBOOOSOO...........',
+      'OOOO..OBO.OSO..OBO.OSO............',
+      '.....OOBO.OSOO.OBOOOSO............',
+      '.....OBOO.OOSO.OOBOSOO............',
+      '.....OBO...OSO..OBOSO.............',
+      '.....OBO...OSO..OBOSO.............',
+      '.....OOO...OOO..OOOOO.............',
     ],
-    [ // frame 2: walk B
-      '........................',
-      '....OOO...OOO...........',
-      '...OBBBO.OBBBO...OOOO...',
-      '..OBBBBBOBBBBBO.OBEBO...',
-      '..OBBBBBBBBBBBBOBBBBO...',
-      '..OBBBBBBBBBBBBBBBBBO...',
-      '..OBBBBBBBBBBBBBBO......',
-      '..OBBBBBBBBBBBOO........',
-      '..OBBBBBBBBBBBO.........',
-      '..OOOOOOOOOOOOO.........',
-      '...OBO.OBO..OBO.OBO.....',
-      '..OBO.OBO..OBO..OBO.....',
-      '..OBO.OBO..OBO..OBO.....',
-      '..OOO.OOO..OOO..OOO.....',
-      '........................',
-      '........................',
+    [ // frame 2 — pass A
+      '..................................',
+      '..............OOOOOO......OOOO....',
+      '.............OOWWWWOO....OOBBOO...',
+      '.............OWWWWWWO...OOBHHBOO..',
+      '.............OWWWWWWO...OBBBBBBOO.',
+      '.............OOKKKKKO.OOOBBBBEBBO.',
+      '.........OOOOOOKKKKKOOOHHBBBBBBBO.',
+      '........OOBHHBRRRRROOOBBBSSBBBOOO.',
+      '.......OOBHHBBRRRRRRRRBBSSOOOOO...',
+      '......OOBHBBBBRRRRRRRRBSSOO.......',
+      '.....OOBLLLLLLBRRRRRRBSSOO........',
+      '....OOBBLLLLLLBRRRRRBSSOO.........',
+      '..OOOBBBLLLLLLBBBOOBBBBO..........',
+      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
+      'OOSSSSBBLLLLLLBBBBBBBOO...........',
+      'OSSSSSBBLLLLLLBBBBBBBBO...........',
+      'OSSOSSSBLLLLLLBBBBBBBBO...........',
+      'OSSSOBSSSSSSSSSSSSSSSBO...........',
+      'OSSOOOOBOOOSOOOOBOOOSOO...........',
+      'OOOO..OBO.OSO..OBO.OSO............',
+      '......OBO.OSO..OBO.OSO............',
+      '......OBO.OSO..OBO.OSO............',
+      '......OBO.OSO..OBO.OSO............',
+      '......OOO.OOO..OOO.OOO............',
+    ],
+    [ // frame 3 — contact B
+      '..............OOOOOO.....OOOO.....',
+      '.............OOWWWWOO...OOBBOO....',
+      '.............OWWWWWWO..OOBHHBOO...',
+      '.............OWWWWWWO..OBBBBBBOO..',
+      '.............OOKKKKKO.OOBBBBEBBO..',
+      '.........OOOOOOKKKKKOOOHHBBBBBBO..',
+      '........OOBHHBRRRRROOOBBBSSBBOOO..',
+      '.......OOBHHBBRRRRRRRRBBSSOOOO....',
+      '......OOBHBBBBRRRRRRRRBSSOO.......',
+      '.....OOBLLLLLLBRRRRRRBSSOO........',
+      '....OOBBLLLLLLBRRRRRBSSOO.........',
+      '..OOOBBBLLLLLLBBBOOBBBBO..........',
+      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
+      'OOSSSSBBLLLLLLBBBBBBBOO...........',
+      'OSOSSSBBLLLLLLBBBBBBBBO...........',
+      'OSOOSSSBLLLLLLBBBBBBBBO...........',
+      'OSOOOBSSSSSSSSSSSSSSSBO...........',
+      'OSSOOOOBOOOSOOOOBOOOSOO...........',
+      'OOOO..OBO.OSO..OBO.OSO............',
+      '......OBOOOSO.OOBO.OSOO...........',
+      '......OOBOSOO.OBOO.OOSO...........',
+      '.......OBOSO..OBO...OSO...........',
+      '.......OBOSO..OBO...OSO...........',
+      '.......OOOOO..OOO...OOO...........',
+    ],
+    [ // frame 4 — pass B (mirrored pass: near/far legs swapped vs frame 2, tail swayed back)
+      '..................................',
+      '..............OOOOOO......OOOO....',
+      '.............OOWWWWOO....OOBBOO...',
+      '.............OWWWWWWO...OOBHHBOO..',
+      '.............OWWWWWWO...OBBBBBBOO.',
+      '.............OOKKKKKO.OOOBBBBEBBO.',
+      '.........OOOOOOKKKKKOOOHHBBBBBBBO.',
+      '........OOBHHBRRRRROOOBBBSSBBBOOO.',
+      '.......OOBHHBBRRRRRRRRBBSSOOOOO...',
+      '......OOBHBBBBRRRRRRRRBSSOO.......',
+      '.....OOBLLLLLLBRRRRRRBSSOO........',
+      '....OOBBLLLLLLBRRRRRBSSOO.........',
+      '..OOOBBBLLLLLLBBBOOBBBBO..........',
+      '.OOSSSBBLLLLLLBBBOOBBOOO..........',
+      'OOSSSSBBLLLLLLBBBBBBBOO...........',
+      'OSOOSSBBLLLLLLBBBBBBBBO...........',
+      'OSOOOSSBLLLLLLBBBBBBBBO...........',
+      'OSOOOBSSSSSSSSSSSSSSSBO...........',
+      'OSSOOOOSOOOBOOOOSOOOBOO...........',
+      'OOOO..OSO.OBO..OSO.OBO............',
+      '......OSO.OBO..OSO.OBO............',
+      '......OSO.OBO..OSO.OBO............',
+      '......OSO.OBO..OSO.OBO............',
+      '......OOO.OOO..OOO.OOO............',
     ],
   ];
 
@@ -679,20 +926,20 @@ window.GameCore = (function () {
     '............',
   ];
 
-  // Finish flag 12x14. Legend adds: P pole, C checker-light, K checker-dark.
+  // Finish flag 12x14. Legend adds: P pole, C checker-light, X checker-dark.
   const FINISH_FLAG = [
     'OO..........',
     'PPOOOOOOOO..',
-    'PPOCKCKCKO..',
-    'PPOKCKCKCO..',
-    'PPOCKCKCKO..',
-    'PPOKCKCKCO..',
-    'PPOCKCKCKO..',
-    'PPOKCKCKCO..',
-    'PPOCKCKCKO..',
-    'PPOKCKCKCO..',
-    'PPOCKCKCKO..',
-    'PPOKCKCKCO..',
+    'PPOCXCXCXO..',
+    'PPOXCXCXCO..',
+    'PPOCXCXCXO..',
+    'PPOXCXCXCO..',
+    'PPOCXCXCXO..',
+    'PPOXCXCXCO..',
+    'PPOCXCXCXO..',
+    'PPOXCXCXCO..',
+    'PPOCXCXCXO..',
+    'PPOXCXCXCO..',
     'PPOOOOOOOO..',
     'PP..........',
   ];
@@ -720,27 +967,43 @@ window.GameCore = (function () {
   const CONFETTI_SEED = 99;
   const CONFETTI_COLORS = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a', '#f0f0f0'];
 
+  // Every legend char resolves through the sprite's own palette (falling back to
+  // the fixed COL tones), so the old H=hoof / K=checker clashes are gone:
+  // camel H = highlight, K = skin; the finish flag uses X = checker-dark.
+  const CHAR_KEY = {
+    O: 'outline', B: 'body', S: 'shade', H: 'highlight', R: 'robe',
+    W: 'white', K: 'skin', L: 'blanket', E: 'eye',
+    G: 'grass', P: 'pole', C: 'checkerLight', X: 'checkerDark', F: 'flag',
+  };
+
   function drawSprite(rows, x, y, palette) {
     const ox = Math.round(x);
     const oy = Math.round(y);
     for (let ry = 0; ry < rows.length; ry++) {
       const row = rows[ry];
       for (let rx = 0; rx < row.length; rx++) {
-        const ch = row[rx];
-        let color = null;
-        if (ch === 'O') color = COL.outline;
-        else if (ch === 'B') color = palette.body;
-        else if (ch === 'D') color = palette.shade;
-        else if (ch === 'G') color = palette.grass;
-        else if (ch === 'E') color = COL.eye;
-        else if (ch === 'P') color = COL.pole;
-        else if (ch === 'C') color = COL.checkerLight;
-        else if (ch === 'K') color = COL.checkerDark;
-        else if (ch === 'F') color = COL.flag;
-        if (color) {
-          ctx.fillStyle = color;
-          ctx.fillRect(ox + rx, oy + ry, 1, 1);
-        }
+        const key = CHAR_KEY[row[rx]];
+        if (!key) continue;
+        const color = (palette && palette[key]) || COL[key];
+        if (!color) continue;
+        ctx.fillStyle = color;
+        ctx.fillRect(ox + rx, oy + ry, 1, 1);
+      }
+    }
+  }
+
+  // Draw the camel's 1-based lane digit on its saddle blanket (3x5, anchored at
+  // sprite-local (9,10)) in the dark blanket-number ink, after the sprite pass.
+  function drawBlanketNumber(left, top, laneIndex) {
+    let n = laneIndex + 1;
+    if (n > 9) n = 0; // unreachable safety fallback: lane count is capped at 8
+    const glyph = DIGIT_FONT[String(n)];
+    if (!glyph) return;
+    ctx.fillStyle = BLANKET_DIGIT_COLOR;
+    for (let ry = 0; ry < 5; ry++) {
+      const row = glyph[ry];
+      for (let rx = 0; rx < 3; rx++) {
+        if (row[rx] === '#') ctx.fillRect(Math.round(left) + 9 + rx, Math.round(top) + 10 + ry, 1, 1);
       }
     }
   }
@@ -829,14 +1092,16 @@ window.GameCore = (function () {
     for (let m = start; m <= win.max; m += MILESTONE_STEP) {
       const x = mapX(m, win) - 2;
       if (x < -12 || x > CANVAS_W + 12) continue;
-      drawSprite(MILESTONE, x, HORIZON_Y - 14, { body: '#6b4a2a', shade: '#4a3320', grass: '#6b4a2a' });
+      // Stand the flag on the terrain at its world position.
+      const flagY = HORIZON_Y - 14 - Math.round(core.terrainHeightAt(m));
+      drawSprite(MILESTONE, x, flagY, { body: '#6b4a2a', shade: '#4a3320', grass: '#6b4a2a' });
       // At high-but-allowed zoom a 50-point step can be narrower than the label,
       // so skip the number (flag still drawn) to avoid colliding labels.
       const label = String(m);
       const stepPx = mapX(m + MILESTONE_STEP, win) - mapX(m, win);
       if (stepPx < ctx.measureText(label).width + 4) continue;
       ctx.fillStyle = '#e8e0d0';
-      ctx.fillText(label, x + 10, HORIZON_Y - 11);
+      ctx.fillText(label, x + 10, flagY + 3);
     }
   }
 
@@ -845,13 +1110,15 @@ window.GameCore = (function () {
     // mapX clamps to [0,CANVAS_W], so a goal outside the window would otherwise
     // pin the flag clipped to the edge. Draw nothing until it scrolls into view.
     if (s.goalScore < win.min || s.goalScore > win.max) return;
+    // Stand the pole on the terrain at the goal's world position.
+    const poleTop = HORIZON_Y - Math.round(core.terrainHeightAt(s.goalScore));
     const x = Math.round(runtime.goalScreenX) - 6;
-    drawSprite(FINISH_FLAG, x, HORIZON_Y - 14, PALM_PAL);
+    drawSprite(FINISH_FLAG, x, poleTop - 14, COL);
     const stripeX = x + 4;
     // Checker parity is relative to the pole top so the stripe alternates
     // light/dark from its first row (matching the flag's checkered look).
-    for (let y = HORIZON_Y; y < LANE_BOTTOM; y += 4) {
-      ctx.fillStyle = (Math.floor((y - HORIZON_Y) / 4) % 2 === 0) ? COL.checkerLight : COL.checkerDark;
+    for (let y = poleTop; y < LANE_BOTTOM; y += 4) {
+      ctx.fillStyle = (Math.floor((y - poleTop) / 4) % 2 === 0) ? COL.checkerLight : COL.checkerDark;
       ctx.fillRect(stripeX, y, 4, 4);
     }
   }
@@ -895,7 +1162,7 @@ window.GameCore = (function () {
     if (!s.raceOver || !s.winnerId) return;
     const idx = s.camels.findIndex(function (c) { return c.id === s.winnerId; });
     if (idx < 0) return; // Defense-in-depth: winner lane gone; draw nothing
-    const text = t(s.language, 'winnerBanner', { n: idx + 1 });
+    const text = t(s.language, 'winnerBanner', { name: s.camels[idx].name });
     ctx.font = '8px monospace';
     ctx.textBaseline = 'top';
     const w = Math.ceil(ctx.measureText(text).width) + 16;
@@ -909,17 +1176,43 @@ window.GameCore = (function () {
     ctx.fillText(text, x + 8, y + 2);
   }
 
-  function drawLanes(s) {
+  // Terrain height per canvas column, independent of lane: precompute once per
+  // frame so 8 lanes do not each re-evaluate ~512 sin pairs (pixel-identical).
+  function terrainHeights(win) {
+    const span = Math.max(1e-6, win.max - win.min);
+    const heights = new Array(CANVAS_W);
+    for (let x = 0; x < CANVAS_W; x++) {
+      const worldX = win.min + ((x + 0.5) / CANVAS_W) * span;
+      heights[x] = Math.round(core.terrainHeightAt(worldX));
+    }
+    return heights;
+  }
+
+  function drawLanes(s, win) {
     const n = s.camels.length;
-    const lh = laneHeight(n);
+    const heights = terrainHeights(win);
     for (let i = 0; i < n; i++) {
-      ctx.fillStyle = (i % 2 === 0) ? '#241b33' : '#2b2140';
-      ctx.fillRect(0, Math.round(laneTopY(i, n)), CANVAS_W, Math.ceil(lh));
-      ctx.fillStyle = '#3a2d55';
-      ctx.fillRect(0, Math.round(laneBottomY(i, n)) - 1, CANVAS_W, 1);
+      const top = Math.round(laneTopY(i, n));
+      const bottom = Math.round(laneBottomY(i, n));
+      // Base sand fills the whole lane so there are never gaps between lanes.
+      ctx.fillStyle = DUNE.top;
+      ctx.fillRect(0, top, CANVAS_W, bottom - top);
+      ctx.fillStyle = DUNE.edge;
+      ctx.fillRect(0, bottom - 1, CANVAS_W, 1);
+      for (let x = 0; x < CANVAS_W; x++) {
+        const h = heights[x];
+        // Undulating crest: rises above the lane top when h > 0 (lower lanes
+        // drawn later overlap it), never poking above the horizon sky.
+        let crest = Math.max(HORIZON_Y, top - h);
+        if (crest > bottom - 2) crest = bottom - 2;
+        ctx.fillStyle = DUNE.rim;
+        ctx.fillRect(x, crest, 1, 1);
+        ctx.fillStyle = DUNE.shade;
+        ctx.fillRect(x, crest + 3, 1, 2);
+      }
     }
     // Paint the rows below the last lane so no transparent strip remains.
-    ctx.fillStyle = '#1a1226';
+    ctx.fillStyle = DUNE.edge;
     ctx.fillRect(0, LANE_BOTTOM, CANVAS_W, CANVAS_H - LANE_BOTTOM);
   }
 
@@ -928,9 +1221,10 @@ window.GameCore = (function () {
     s.camels.forEach(function (c, i) {
       const v = runtime.visualLeft[c.id];
       const left = (v == null) ? camelTargetLeft(c.score, win) : v;
-      const frameIndex = (now < c.animUntil) ? (Math.floor(now / ANIM_FRAME_MS) % 2) + 1 : 0;
-      const pal = { body: c.color, grass: c.color };
-      drawSprite(CAMEL[frameIndex], left, camelTopY(i, n), pal);
+      const frameIndex = (now < c.animUntil) ? (Math.floor(now / ANIM_FRAME_MS) % 4) + 1 : 0;
+      const top = camelTopY(i, n, c.score);
+      drawSprite(CAMEL[frameIndex], left, top, CAMEL_PAL(c.color));
+      drawBlanketNumber(left, top, i);
     });
   }
 
@@ -938,19 +1232,26 @@ window.GameCore = (function () {
     const win = runtime.frameWindow;
     for (const c of s.camels) {
       const target = camelTargetLeft(c.score, win);
-      let v = runtime.visualLeft[c.id];
-      if (v == null) {
+      const v = runtime.visualLeft[c.id];
+      const m = runtime.motion[c.id];
+      if (v == null || m == null) {
         runtime.visualLeft[c.id] = target;
+        runtime.motion[c.id] = { from: target, target: target, start: now };
         continue;
       }
-      const k = 1 - Math.exp(-dt / LERP_MS);
-      v += (target - v) * k;
-      if (Math.abs(target - v) < 0.5) v = target;
-      runtime.visualLeft[c.id] = v;
+      if (Math.abs(m.target - target) > 0.01) {
+        // Retarget mid-flight: ease from where the sprite is right now.
+        m.from = v;
+        m.target = target;
+        m.start = now;
+      }
+      const p = Math.min(1, (now - m.start) / LERP_MS);
+      const eased = 1 - Math.pow(1 - p, 3);
+      runtime.visualLeft[c.id] = (p >= 1) ? m.target : m.from + (m.target - m.from) * eased;
     }
     const ids = new Set(s.camels.map(function (c) { return c.id; }));
     for (const id of Object.keys(runtime.visualLeft)) {
-      if (!ids.has(id)) delete runtime.visualLeft[id];
+      if (!ids.has(id)) { delete runtime.visualLeft[id]; delete runtime.motion[id]; }
     }
 
     const winnerIdx = (s.raceOver && s.winnerId)
@@ -966,7 +1267,7 @@ window.GameCore = (function () {
       runtime.lastWinnerId = s.winnerId;
       const c = s.camels[winnerIdx];
       const cx = (runtime.visualLeft[c.id] == null ? camelTargetLeft(c.score, win) : runtime.visualLeft[c.id]) + SPRITE_W / 2;
-      spawnConfetti(cx, laneBottomY(winnerIdx, s.camels.length) - 20);
+      spawnConfetti(cx, laneSurfaceY(winnerIdx, s.camels.length, c.score) - 4);
     }
     if (!s.raceOver && runtime.lastWinnerId !== null) {
       runtime.lastWinnerId = null;
@@ -985,7 +1286,7 @@ window.GameCore = (function () {
     drawDunes(win);
     drawDecor(win);
     drawMilestones(win);
-    drawLanes(s);
+    drawLanes(s, win);
     drawFinish(s, win);
     drawCamels(s, win, now);
     drawConfetti();
@@ -1023,6 +1324,17 @@ window.GameCore = (function () {
       return { min: w.min, max: w.max };
     },
     getCanvasSize: function () { return { width: CANVAS_W, height: CANVAS_H }; },
+    getCanvasLayout: function () {
+      return {
+        scale: canvasScale,
+        bufferWidth: CANVAS_W,
+        bufferHeight: CANVAS_H,
+        cssWidth: parseFloat(canvas.style.width) || CANVAS_W,
+        cssHeight: parseFloat(canvas.style.height) || CANVAS_H,
+        wrapperWidth: canvasWrap.clientWidth,
+        wrapperHeight: canvasWrap.clientHeight,
+      };
+    },
     getCamelSpriteBounds: function () {
       const s = core.getState();
       const win = runtime.frameWindow || currentWindow(s);
@@ -1030,7 +1342,7 @@ window.GameCore = (function () {
       return s.camels.map(function (c, i) {
         const v = runtime.visualLeft[c.id];
         const left = (v == null) ? camelTargetLeft(c.score, win) : v;
-        const top = camelTopY(i, n);
+        const top = camelTopY(i, n, c.score);
         return { id: c.id, lane: i, left: left, right: left + SPRITE_W, top: top, bottom: top + SPRITE_H };
       });
     },
@@ -1049,6 +1361,14 @@ window.GameCore = (function () {
   };
 
   window.requestAnimationFrame(frame);
+
+  // Fit the canvas once now, and again on viewport/wrapper changes (rAF-debounced).
+  applyCanvasLayout();
+  window.addEventListener('resize', requestLayout);
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(requestLayout);
+    ro.observe(canvasWrap);
+  }
 })();
 </script>
 </body>
