@@ -187,6 +187,14 @@ window.GameCore = (function () {
     if (!Number.isInteger(n)) return false;
     const count = Math.max(MIN_CAMELS, Math.min(MAX_CAMELS, n));
     rebuildCamels(count);
+    // If a shrink drops the winning camel, the race is void: no winner exists
+    // in the remaining lanes, so unlock (scores and config otherwise untouched).
+    if (state.raceOver && state.winnerId && !findCamel(state.winnerId)) {
+      state.raceOver = false;
+      state.winnerId = null;
+      // A remaining camel may already be at/above a just-lowered goal.
+      checkWinner();
+    }
     emit();
     return true;
   }
@@ -306,6 +314,7 @@ window.GameCore = (function () {
     finishVisible: false,
     goalScreenX: null,
     decorDrawn: 0,
+    confettiDrawn: 0,
   };
 
   function laneHeight(n) { return (LANE_BOTTOM - HORIZON_Y) / n; }
@@ -434,7 +443,8 @@ window.GameCore = (function () {
       el.querySelector('[data-score-label]').textContent = t(s.language, 'scoreLabel');
       el.querySelector('[data-action="set"]').textContent = t(s.language, 'setButton');
       el.querySelector('[data-exact]').value = String(c.score);
-      // Task 4 adds input lockout here.
+      const lock = s.raceOver;
+      el.querySelectorAll('button, input').forEach(function (ctl) { ctl.disabled = lock; });
     });
   }
 
@@ -455,7 +465,19 @@ window.GameCore = (function () {
     if (!s.infinite && s.goalScore != null) goalEl.value = String(s.goalScore);
 
     renderLanes(s);
-    // Task 4 adds winner aria-live announcement here.
+    if (s.raceOver && s.winnerId) {
+      const idx = s.camels.findIndex(function (c) { return c.id === s.winnerId; });
+      if (idx < 0) {
+        // Defense-in-depth: a removed winner lane normally voids the race and
+        // clears winnerId first; guard the stale case so no phantom name shows.
+        if (liveEl.textContent !== '') liveEl.textContent = '';
+      } else {
+        const msg = t(s.language, 'winnerBanner', { n: idx + 1 });
+        if (liveEl.textContent !== msg) liveEl.textContent = msg;
+      }
+    } else if (!s.raceOver && liveEl.textContent !== '') {
+      liveEl.textContent = '';
+    }
   }
 
   laneContainer.addEventListener('click', function (ev) {
@@ -651,6 +673,47 @@ window.GameCore = (function () {
     '............',
   ];
 
+  // Finish flag 12x14. Legend adds: P pole, C checker-light, K checker-dark.
+  const FINISH_FLAG = [
+    'OO..........',
+    'PPOOOOOOOO..',
+    'PPOCKCKCKO..',
+    'PPOKCKCKCO..',
+    'PPOCKCKCKO..',
+    'PPOKCKCKCO..',
+    'PPOCKCKCKO..',
+    'PPOKCKCKCO..',
+    'PPOCKCKCKO..',
+    'PPOKCKCKCO..',
+    'PPOCKCKCKO..',
+    'PPOKCKCKCO..',
+    'PPOOOOOOOO..',
+    'PP..........',
+  ];
+
+  // Milestone flag 10x14. Legend adds: P pole, F flag color.
+  const MILESTONE = [
+    '.PPO......',
+    '.PPFFFFFF.',
+    '.PPFFFFFF.',
+    '.PPFFFFFF.',
+    '.PPFFFFFF.',
+    '.PPFFFFFF.',
+    '.PP.......',
+    '.PP.......',
+    '.PP.......',
+    '.PP.......',
+    '.PP.......',
+    '.PP.......',
+    '.PP.......',
+    '.OO.......',
+  ];
+
+  const MILESTONE_STEP = 50;
+  const CONFETTI_COUNT = 60;
+  const CONFETTI_SEED = 99;
+  const CONFETTI_COLORS = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a', '#f0f0f0'];
+
   function drawSprite(rows, x, y, palette) {
     const ox = Math.round(x);
     const oy = Math.round(y);
@@ -749,6 +812,97 @@ window.GameCore = (function () {
     runtime.decorDrawn = drawn;
   }
 
+  function drawMilestones(win) {
+    // Milestones are world decor: past DECOR_MAX_SPAN the window spans too many
+    // 50-point cells to iterate cheaply (scores are unbounded), so drop them like
+    // drawDecor does. Below the bound this is <= 30 iterations per frame.
+    if ((win.max - win.min) > DECOR_MAX_SPAN) return;
+    ctx.font = '6px monospace';
+    ctx.textBaseline = 'top';
+    const start = Math.max(MILESTONE_STEP, Math.ceil(win.min / MILESTONE_STEP) * MILESTONE_STEP);
+    for (let m = start; m <= win.max; m += MILESTONE_STEP) {
+      const x = mapX(m, win) - 2;
+      if (x < -12 || x > CANVAS_W + 12) continue;
+      drawSprite(MILESTONE, x, HORIZON_Y - 14, { body: '#6b4a2a', shade: '#4a3320', grass: '#6b4a2a' });
+      // At high-but-allowed zoom a 50-point step can be narrower than the label,
+      // so skip the number (flag still drawn) to avoid colliding labels.
+      const label = String(m);
+      const stepPx = mapX(m + MILESTONE_STEP, win) - mapX(m, win);
+      if (stepPx < ctx.measureText(label).width + 4) continue;
+      ctx.fillStyle = '#e8e0d0';
+      ctx.fillText(label, x + 10, HORIZON_Y - 11);
+    }
+  }
+
+  function drawFinish(s, win) {
+    if (!runtime.finishVisible || runtime.goalScreenX == null) return;
+    // mapX clamps to [0,CANVAS_W], so a goal outside the window would otherwise
+    // pin the flag clipped to the edge. Draw nothing until it scrolls into view.
+    if (s.goalScore < win.min || s.goalScore > win.max) return;
+    const x = Math.round(runtime.goalScreenX) - 6;
+    drawSprite(FINISH_FLAG, x, HORIZON_Y - 14, PALM_PAL);
+    const stripeX = x + 4;
+    // Checker parity is relative to the pole top so the stripe alternates
+    // light/dark from its first row (matching the flag's checkered look).
+    for (let y = HORIZON_Y; y < LANE_BOTTOM; y += 4) {
+      ctx.fillStyle = (Math.floor((y - HORIZON_Y) / 4) % 2 === 0) ? COL.checkerLight : COL.checkerDark;
+      ctx.fillRect(stripeX, y, 4, 4);
+    }
+  }
+
+  function spawnConfetti(cx, cy) {
+    for (let i = 0; i < CONFETTI_COUNT; i++) {
+      const rng = mulberry32(hash2(CONFETTI_SEED, i));
+      runtime.confetti.push({
+        x: cx,
+        y: cy,
+        vx: (rng() * 2 - 1) * 60,
+        vy: -(rng() * 60 + 30),
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        age: 0,
+        life: 900 + rng() * 300,
+      });
+    }
+  }
+
+  function updateConfetti(dt) {
+    const alive = [];
+    for (const p of runtime.confetti) {
+      p.age += dt;
+      p.vy += 140 * dt / 1000;
+      p.x += p.vx * dt / 1000;
+      p.y += p.vy * dt / 1000;
+      if (p.age < p.life && p.y < CANVAS_H + 4 && p.x > -4 && p.x < CANVAS_W + 4) alive.push(p);
+    }
+    runtime.confetti = alive;
+  }
+
+  function drawConfetti() {
+    runtime.confettiDrawn = runtime.confetti.length;
+    for (const p of runtime.confetti) {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+    }
+  }
+
+  function drawBanner(s) {
+    if (!s.raceOver || !s.winnerId) return;
+    const idx = s.camels.findIndex(function (c) { return c.id === s.winnerId; });
+    if (idx < 0) return; // Defense-in-depth: winner lane gone; draw nothing
+    const text = t(s.language, 'winnerBanner', { n: idx + 1 });
+    ctx.font = '8px monospace';
+    ctx.textBaseline = 'top';
+    const w = Math.ceil(ctx.measureText(text).width) + 16;
+    const x = Math.round((CANVAS_W - w) / 2);
+    const y = 8;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(x - 2, y - 2, w + 4, 16);
+    ctx.fillStyle = COL.flag;
+    ctx.fillRect(x, y, w, 12);
+    ctx.fillStyle = '#1a1208';
+    ctx.fillText(text, x + 8, y + 2);
+  }
+
   function drawLanes(s) {
     const n = s.camels.length;
     const lh = laneHeight(n);
@@ -792,6 +946,29 @@ window.GameCore = (function () {
     for (const id of Object.keys(runtime.visualLeft)) {
       if (!ids.has(id)) delete runtime.visualLeft[id];
     }
+
+    const winnerIdx = (s.raceOver && s.winnerId)
+      ? s.camels.findIndex(function (c) { return c.id === s.winnerId; })
+      : -1;
+    if (s.raceOver && s.winnerId && winnerIdx < 0) {
+      // Defense-in-depth: winner camel removed (e.g. a camel-count shrink); drop
+      // any burst and
+      // stop tracking so nothing dereferences a lane that no longer exists.
+      runtime.lastWinnerId = null;
+      runtime.confetti = [];
+    } else if (s.raceOver && s.winnerId && runtime.lastWinnerId !== s.winnerId) {
+      runtime.lastWinnerId = s.winnerId;
+      const c = s.camels[winnerIdx];
+      const cx = (runtime.visualLeft[c.id] == null ? camelTargetLeft(c.score, win) : runtime.visualLeft[c.id]) + SPRITE_W / 2;
+      spawnConfetti(cx, laneBottomY(winnerIdx, s.camels.length) - 20);
+    }
+    if (!s.raceOver && runtime.lastWinnerId !== null) {
+      runtime.lastWinnerId = null;
+      runtime.confetti = [];
+    }
+
+    updateConfetti(dt);
+
     runtime.finishVisible = !s.infinite && s.goalScore != null;
     runtime.goalScreenX = runtime.finishVisible ? mapX(s.goalScore, win) : null;
   }
@@ -801,20 +978,36 @@ window.GameCore = (function () {
     drawSun();
     drawDunes(win);
     drawDecor(win);
+    drawMilestones(win);
     drawLanes(s);
+    drawFinish(s, win);
     drawCamels(s, win, now);
+    drawConfetti();
+    drawBanner(s);
   }
 
   let last = performance.now();
+  let frameErrorLogged = false; // rate-limit: one log per error occurrence
   function frame(now) {
-    const dt = Math.min(50, now - last);
-    last = now;
-    const s = core.getState();
-    const win = currentWindow(s);
-    runtime.frameWindow = win;
-    updateRuntime(s, dt, now);
-    drawScene(s, win, now);
-    window.requestAnimationFrame(frame);
+    try {
+      const dt = Math.min(50, now - last);
+      last = now;
+      const s = core.getState();
+      const win = currentWindow(s);
+      runtime.frameWindow = win;
+      updateRuntime(s, dt, now);
+      drawScene(s, win, now);
+      frameErrorLogged = false; // a clean frame re-arms logging
+    } catch (err) {
+      // A single bad frame must not kill the loop; the next frame re-schedules.
+      // Log once per occurrence so a persistent render error is not 60x/s spam.
+      if (!frameErrorLogged) {
+        frameErrorLogged = true;
+        console.error(err);
+      }
+    } finally {
+      window.requestAnimationFrame(frame);
+    }
   }
 
   window.GameDebug = {
@@ -845,7 +1038,7 @@ window.GameCore = (function () {
       });
     },
     getScene: function () {
-      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn };
+      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, confettiDrawn: runtime.confettiDrawn };
     },
   };
 
