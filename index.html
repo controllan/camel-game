@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KAMEL DERBY</title>
+<style>
+  :root {
+    --bg:#120b1e; --panel:#1c1430; --panel2:#241b3a; --ink:#e8e0f0;
+    --accent:#e8c83a; --border:#4a3550; --btn:#2b2140; --btn-hover:#3a2d55;
+    --focus:#3ad8d8; --danger:#e84a3a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size:14px; }
+  body { padding:12px; }
+  .app { max-width:1100px; margin:0 auto; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  h1 { font-size:18px; letter-spacing:2px; margin:0; color:var(--accent); }
+  main { display:flex; gap:12px; align-items:flex-start; }
+  canvas#game { display:block; width:100%; max-width:480px; aspect-ratio:16/9;
+    image-rendering:pixelated; background:#000; border:2px solid var(--border); }
+  #panel { flex:1 1 260px; min-width:220px; background:var(--panel);
+    border:2px solid var(--border); padding:10px; }
+  .row { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  label { font-size:13px; }
+  input[type=number] { width:80px; background:var(--panel2); color:var(--ink);
+    border:2px solid var(--border); padding:4px 6px; font:inherit; }
+  input:disabled { opacity:.45; }
+  button { background:var(--btn); color:var(--ink); border:2px solid var(--border);
+    padding:4px 8px; font:inherit; cursor:pointer; border-radius:0; }
+  button:hover:not(:disabled) { background:var(--btn-hover); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button[aria-pressed="true"] { background:var(--accent); color:#1a1208; }
+  .lang button { min-width:44px; }
+  :focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
+  .lane { border-top:2px solid var(--border); padding-top:8px; margin-top:8px; }
+  .lane:first-child { border-top:0; padding-top:0; margin-top:0; }
+  .lane .cname { display:inline-block; min-width:84px; font-weight:bold; }
+  .lane .btns { display:inline-flex; gap:4px; margin:4px 0; }
+  #validation { color:var(--danger); margin:6px 0 0; font-size:13px; }
+  #live { position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="title">KAMEL DERBY</h1>
+    <div class="lang" role="group" aria-label="Language" id="languageToggle">
+      <button id="lang-en" type="button" aria-pressed="true">EN</button>
+      <button id="lang-de" type="button" aria-pressed="false">DE</button>
+    </div>
+  </header>
+  <main>
+    <canvas id="game" width="480" height="270"
+      aria-label="Camel race track. Camels race left to right to the goal."></canvas>
+    <aside id="panel" aria-label="Controls">
+      <div class="row">
+        <label for="camelCount" id="camelCountLabel">Camels</label>
+        <input id="camelCount" type="number" min="2" max="8" step="1" value="4">
+      </div>
+      <div class="row">
+        <label for="goalScore" id="goalLabel">Goal</label>
+        <input id="goalScore" type="number" min="1" max="10000" step="1" value="200">
+        <label for="infinite"><input id="infinite" type="checkbox"> <span id="infiniteText">∞</span></label>
+      </div>
+      <div id="laneControls"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="newRace" type="button">New race</button>
+      </div>
+      <p id="validation" role="alert" hidden>Enter a whole number ≥ 0.</p>
+    </aside>
+  </main>
+  <div id="live" aria-live="polite" role="status"></div>
+</div>
+<script id="core">
+window.GameCore = (function () {
+  'use strict';
+  const PALETTE = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a'];
+  const MIN_CAMELS = 2, MAX_CAMELS = 8;
+  const GOAL_MIN = 1, GOAL_MAX = 10000;
+  const PAD = 20, MIN_WINDOW = 100, GOAL_SLACK = 80;
+  const ANIM_MS = 600;
+
+  let clock = (typeof performance !== 'undefined' && performance.now)
+    ? function () { return performance.now(); }
+    : function () { return Date.now(); };
+
+  const state = {
+    camels: [],
+    camelCount: 4,
+    goalScore: 200,
+    infinite: false,
+    language: 'en',
+    raceOver: false,
+    winnerId: null,
+  };
+
+  const listeners = new Set();
+  function subscribe(fn) { listeners.add(fn); return function () { listeners.delete(fn); }; }
+  function emit() { for (const fn of listeners) fn(getState()); }
+
+  function camelName(index, language) {
+    return (language === 'de' ? 'Kamel ' : 'Camel ') + (index + 1);
+  }
+
+  function makeCamel(index, score) {
+    return {
+      id: 'camel-' + index,
+      name: camelName(index, state.language),
+      color: PALETTE[index % PALETTE.length],
+      score: score,
+      lane: index,
+      animUntil: 0,
+    };
+  }
+
+  function isValidScore(n) {
+    return typeof n === 'number' && Number.isInteger(n) && n >= 0;
+  }
+
+  function findCamel(id) {
+    for (const c of state.camels) if (c.id === id) return c;
+    return null;
+  }
+
+  function rebuildCamels(count) {
+    const next = [];
+    for (let i = 0; i < count; i++) {
+      const existing = state.camels[i];
+      if (existing) {
+        next.push({
+          id: existing.id,
+          name: camelName(i, state.language),
+          color: PALETTE[i % PALETTE.length],
+          score: existing.score,
+          lane: i,
+          animUntil: existing.animUntil,
+        });
+      } else {
+        next.push(makeCamel(i, 0));
+      }
+    }
+    state.camels = next;
+    state.camelCount = count;
+  }
+
+  function checkWinner() {
+    if (state.raceOver || state.infinite || state.goalScore == null) return;
+    for (const c of state.camels) {
+      if (c.score >= state.goalScore) {
+        state.raceOver = true;
+        state.winnerId = c.id;
+        return;
+      }
+    }
+  }
+
+  function addScore(camelId, n) {
+    if (state.raceOver) return false;
+    const c = findCamel(camelId);
+    if (!c) return false;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n <= 0) return false;
+    c.score += n;
+    c.animUntil = clock() + ANIM_MS;
+    checkWinner();
+    emit();
+    return true;
+  }
+
+  function setScore(camelId, n) {
+    if (state.raceOver) return false;
+    const c = findCamel(camelId);
+    if (!c) return false;
+    if (!isValidScore(n)) return false;
+    c.score = n;
+    c.animUntil = clock() + ANIM_MS;
+    checkWinner();
+    emit();
+    return true;
+  }
+
+  function setCamelCount(n) {
+    if (!Number.isInteger(n)) return false;
+    const count = Math.max(MIN_CAMELS, Math.min(MAX_CAMELS, n));
+    rebuildCamels(count);
+    emit();
+    return true;
+  }
+
+  function setGoal(scoreOrNull) {
+    if (scoreOrNull === null) {
+      state.infinite = true;
+      state.goalScore = null;
+    } else {
+      if (!Number.isInteger(scoreOrNull) || scoreOrNull < GOAL_MIN || scoreOrNull > GOAL_MAX) return false;
+      state.infinite = false;
+      state.goalScore = scoreOrNull;
+      checkWinner();
+    }
+    emit();
+    return true;
+  }
+
+  function resetRace() {
+    for (const c of state.camels) { c.score = 0; c.animUntil = 0; }
+    state.raceOver = false;
+    state.winnerId = null;
+    emit();
+    return true;
+  }
+
+  function setLanguage(lang) {
+    if (lang !== 'en' && lang !== 'de') return false;
+    state.language = lang;
+    for (let i = 0; i < state.camels.length; i++) state.camels[i].name = camelName(i, lang);
+    emit();
+    return true;
+  }
+
+  function setClock(fn) { clock = fn; }
+
+  function getState() {
+    return {
+      camels: state.camels.map(function (c) {
+        return { id: c.id, name: c.name, color: c.color, score: c.score, lane: c.lane, animUntil: c.animUntil };
+      }),
+      camelCount: state.camelCount,
+      goalScore: state.goalScore,
+      infinite: state.infinite,
+      language: state.language,
+      raceOver: state.raceOver,
+      winnerId: state.winnerId,
+    };
+  }
+
+  function computeCameraWindow(scores, goalScore) {
+    if (!Array.isArray(scores) || scores.length === 0) return { min: 0, max: MIN_WINDOW };
+    let minScore = Infinity, maxScore = -Infinity;
+    for (const s of scores) {
+      const v = (typeof s === 'number' && Number.isFinite(s)) ? s : 0;
+      if (v < minScore) minScore = v;
+      if (v > maxScore) maxScore = v;
+    }
+    const span = maxScore - minScore;
+    const wMin = minScore - PAD;
+    let wMax = Math.max(maxScore + PAD, wMin + MIN_WINDOW);
+    if (goalScore != null && Number.isFinite(goalScore) && (goalScore - wMin) <= (span + GOAL_SLACK)) {
+      wMax = Math.max(wMax, goalScore + PAD);
+    }
+    return { min: wMin, max: wMax };
+  }
+
+  function mapScoreToScreenX(score, window, canvasWidth) {
+    const w = window || { min: 0, max: MIN_WINDOW };
+    const width = (typeof canvasWidth === 'number' && canvasWidth > 0) ? canvasWidth : 480;
+    const span = w.max - w.min;
+    if (span <= 0) return 0;
+    const x = ((score - w.min) / span) * width;
+    return Math.max(0, Math.min(width, x));
+  }
+
+  rebuildCamels(state.camelCount);
+
+  return {
+    PALETTE: PALETTE,
+    MIN_CAMELS: MIN_CAMELS, MAX_CAMELS: MAX_CAMELS,
+    GOAL_MIN: GOAL_MIN, GOAL_MAX: GOAL_MAX,
+    PAD: PAD, MIN_WINDOW: MIN_WINDOW, GOAL_SLACK: GOAL_SLACK, ANIM_MS: ANIM_MS,
+    addScore: addScore, setScore: setScore, setCamelCount: setCamelCount,
+    setGoal: setGoal, resetRace: resetRace, setLanguage: setLanguage,
+    setClock: setClock, getState: getState, subscribe: subscribe,
+    camelName: camelName, computeCameraWindow: computeCameraWindow,
+    mapScoreToScreenX: mapScoreToScreenX,
+  };
+})();
+</script>
+<script id="app">
+(function () {
+  'use strict';
+  const core = window.GameCore;
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const CANVAS_W = canvas.width;   // 480
+  const CANVAS_H = canvas.height;  // 270
+
+  const HORIZON_Y = 70;
+  const LANE_BOTTOM = CANVAS_H - 4; // 266
+  const SPRITE_W = 24;
+  const SPRITE_H = 16;
+  const LANE_MARGIN = 2;
+  const LERP_MS = 300;
+  const ANIM_FRAME_MS = 100;
+
+  const runtime = {
+    visualLeft: Object.create(null),
+    lastWinnerId: null,
+    confetti: [],
+    frameWindow: null,
+    finishVisible: false,
+    goalScreenX: null,
+  };
+
+  function laneHeight(n) { return (LANE_BOTTOM - HORIZON_Y) / n; }
+  function laneTopY(i, n) { return HORIZON_Y + i * laneHeight(n); }
+  function laneBottomY(i, n) { return laneTopY(i, n) + laneHeight(n); }
+  function camelTopY(i, n) { return laneBottomY(i, n) - SPRITE_H - 2; }
+  function mapX(point, win) { return core.mapScoreToScreenX(point, win, CANVAS_W); }
+  function camelTargetLeft(score, win) {
+    const cx = mapX(score, win);
+    return Math.max(LANE_MARGIN, Math.min(CANVAS_W - SPRITE_W - LANE_MARGIN, cx - SPRITE_W / 2));
+  }
+  function currentWindow(s) {
+    return core.computeCameraWindow(s.camels.map(function (c) { return c.score; }), s.goalScore);
+  }
+
+  // Task 3 replaces this stub.
+  function updateRuntime(s, dt, now) { /* Task 3 */ }
+  // Task 3 replaces this stub.
+  function drawScene(s, win, now) { /* Task 3 */ }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(50, now - last);
+    last = now;
+    const s = core.getState();
+    const win = currentWindow(s);
+    runtime.frameWindow = win;
+    updateRuntime(s, dt, now);
+    drawScene(s, win, now);
+    window.requestAnimationFrame(frame);
+  }
+
+  window.GameDebug = {
+    getState: function () { return core.getState(); },
+    getCameraWindow: function () {
+      const w = runtime.frameWindow || currentWindow(core.getState());
+      return { min: w.min, max: w.max };
+    },
+    getCanvasSize: function () { return { width: CANVAS_W, height: CANVAS_H }; },
+    getCamelSpriteBounds: function () {
+      const s = core.getState();
+      const win = runtime.frameWindow || currentWindow(s);
+      const n = s.camels.length;
+      return s.camels.map(function (c, i) {
+        const v = runtime.visualLeft[c.id];
+        const left = (v == null) ? camelTargetLeft(c.score, win) : v;
+        const top = camelTopY(i, n);
+        return { id: c.id, lane: i, left: left, right: left + SPRITE_W, top: top, bottom: top + SPRITE_H };
+      });
+    },
+    isSettled: function () {
+      const s = core.getState();
+      const win = runtime.frameWindow || currentWindow(s);
+      return s.camels.every(function (c) {
+        const v = runtime.visualLeft[c.id];
+        if (v == null) return true;
+        return Math.abs(v - camelTargetLeft(c.score, win)) <= 0.5;
+      });
+    },
+    getScene: function () {
+      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX };
+    },
+  };
+
+  window.requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
