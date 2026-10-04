@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KAMEL DERBY</title>
+<title>Camel Race · Kamel Rennen</title>
 <style>
   :root {
     --bg:#120b1e; --panel:#1c1430; --panel2:#241b3a; --ink:#e8e0f0;
@@ -59,7 +59,7 @@
 <body>
 <div class="app">
   <header>
-    <h1 id="title">KAMEL DERBY</h1>
+    <h1 id="title">CAMEL RACE</h1>
     <div class="lang" role="group" aria-label="Language" id="languageToggle">
       <button id="lang-en" type="button" aria-pressed="true">EN</button>
       <button id="lang-de" type="button" aria-pressed="false">DE</button>
@@ -447,7 +447,7 @@ window.GameCore = (function () {
   // ---------- i18n ----------
   const I18N = {
     en: {
-      title: 'KAMEL DERBY',
+      title: 'CAMEL RACE',
       camelCountLabel: 'Camels',
       goalLabel: 'Goal',
       infiniteLabel: '∞',
@@ -461,7 +461,7 @@ window.GameCore = (function () {
       canvasLabel: 'Camel race track. Camels race left to right to the goal.',
     },
     de: {
-      title: 'KAMEL DERBY',
+      title: 'KAMEL RENNEN',
       camelCountLabel: 'Kamele',
       goalLabel: 'Ziel',
       infiniteLabel: '∞',
@@ -578,6 +578,7 @@ window.GameCore = (function () {
 
   function syncDom(s) {
     document.getElementById('title').textContent = t(s.language, 'title');
+    document.title = t(s.language, 'title');
     document.getElementById('camelCountLabel').textContent = t(s.language, 'camelCountLabel');
     document.getElementById('goalLabel').textContent = t(s.language, 'goalLabel');
     document.getElementById('infiniteText').textContent = t(s.language, 'infiniteLabel');

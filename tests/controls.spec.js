@@ -232,6 +232,8 @@ test.describe('Controls and i18n', () => {
   });
 
   test('EN/DE toggle switches visible strings', async ({ page }) => {
+    await expect(page.locator('#title')).toHaveText('CAMEL RACE');
+    expect(await page.title()).toBe('CAMEL RACE');
     await page.locator('#lang-de').click();
     await expect(page.locator('#newRace')).toHaveText('Neues Rennen');
     await expect(page.locator('#goalLabel')).toHaveText('Ziel');
@@ -240,8 +242,13 @@ test.describe('Controls and i18n', () => {
     await expect(page.locator('.lane').nth(0).locator('[data-name-label]')).toHaveText('Team');
     await expect(page.locator('.lane').nth(0).locator('[data-score-label]')).toHaveText('Punktzahl');
     await expect(page.locator('.lane').nth(0).locator('[data-action="set"]')).toHaveText('Setzen');
+    await expect(page.locator('#title')).toHaveText('KAMEL RENNEN');
+    expect(await page.title()).toBe('KAMEL RENNEN');
     await expect(page.locator('#lang-de')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#lang-en')).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('#lang-en').click();
+    await expect(page.locator('#title')).toHaveText('CAMEL RACE');
+    expect(await page.title()).toBe('CAMEL RACE');
   });
 
   test('language toggle preserves config', async ({ page }) => {

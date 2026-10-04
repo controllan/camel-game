@@ -2,7 +2,7 @@
   "name": "camel-game",
   "version": "1.0.0",
   "private": true,
-  "description": "Single-file pixel-art camel race game (Kamel Derby).",
+  "description": "Single-file pixel-art camel race game (Camel Race / Kamel Rennen).",
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed"

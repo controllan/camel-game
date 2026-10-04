@@ -1,4 +1,4 @@
-# Kamel Derby Implementation Plan
+# Camel Race / Kamel Rennen Implementation Plan
 
 > **For agentic workers:** execute this plan via the orchestrator loop: implement → verify → `code-reviewer` → `git-expert` commit. Steps use checkbox (`- [ ]`) syntax.
 
@@ -1859,6 +1859,7 @@ Review-driven deviations from this plan's original code/numbers. Evidence: commi
 
 | Task | Planned | As implemented |
 |---|---|---|
+| Rename | — | title EN CAMEL RACE / DE KAMEL RENNEN, <title> Camel Race · Kamel Rennen, README/spec/plan headings updated |
 | 1 | `setGoal(n)` only set goal + `emit()` | `setGoal(n)` also calls `checkWinner()` so lowering the goal onto an already-winning camel ends the race immediately (`index.html` `setGoal`). |
 | 1 | `resetRace()` zeroed `score`, `raceOver`, `winnerId` | `resetRace()` also zeroes each camel's `animUntil` (walk animation stops). |
 | 1 | `trace: 'on-first-retry'` | `trace: 'retain-on-failure'` (`playwright.config.js`). |

@@ -1,4 +1,4 @@
-# Kamel Derby
+# Camel Race / Kamel Rennen
 
 Single-file pixel-art camel race game. One `index.html`, zero runtime dependencies, no build step. Works offline from `file://`.
 

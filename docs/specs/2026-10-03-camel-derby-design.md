@@ -1,4 +1,4 @@
-# Kamel Derby — Design Spec
+# Camel Race / Kamel Rennen — Design Spec
 
 Date: 2026-10-03
 Status: approved by user
@@ -245,7 +245,7 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 
 ```
 ┌──────────────────────────────────────────────┐
-│ KAMEL DERBY  [EN|DE]                         │
+│ KAMEL RENNEN [EN|DE]                         │
 ├───────────────────────────────┬──────────────┤
 │  canvas 640×360, fills        │ ⚙ camels 2-8 │
 │  lane1 ▓▓▓▓🐪 ─────────── 🏁  │ goal [200] ☐∞│
@@ -279,7 +279,7 @@ Complete. Both languages. Switch every visible UI string. No mixed-language UI.
 
 | Key | EN | DE |
 |---|---|---|
-| `title` | KAMEL DERBY | KAMEL DERBY |
+| `title` | CAMEL RACE | KAMEL RENNEN |
 | `camelCountLabel` | Camels | Kamele |
 | `goalLabel` | Goal | Ziel |
 | `infiniteLabel` | ∞ | ∞ |

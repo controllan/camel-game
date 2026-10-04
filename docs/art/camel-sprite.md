@@ -1,6 +1,6 @@
 # Camel sprite v4 — 33×31 two-hump Bactrian rider + numbered saddle blanket
 
-Procedural pixel art for the Kamel Derby racer. Facing **right**, one lane per camel.
+Procedural pixel art for the Camel Race / Kamel Rennen racer. Facing **right**, one lane per camel.
 No image files: the matrices below drive the existing `drawSprite` pixel loop
 (extended legend — see [Legend](#legend-char--palette)).
 
