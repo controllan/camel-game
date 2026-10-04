@@ -115,21 +115,21 @@ test.describe('GameCore unit', () => {
     const r = await page.evaluate(() => {
       const w = { min: 0, max: 100 };
       return [
-        GameCore.mapScoreToScreenX(0, w, 640),
-        GameCore.mapScoreToScreenX(50, w, 640),
-        GameCore.mapScoreToScreenX(100, w, 640),
-        GameCore.mapScoreToScreenX(-50, w, 640),
-        GameCore.mapScoreToScreenX(150, w, 640),
-        GameCore.mapScoreToScreenX(50, w), // default buffer width is 640
+        GameCore.mapScoreToScreenX(0, w, 1280),
+        GameCore.mapScoreToScreenX(50, w, 1280),
+        GameCore.mapScoreToScreenX(100, w, 1280),
+        GameCore.mapScoreToScreenX(-50, w, 1280),
+        GameCore.mapScoreToScreenX(150, w, 1280),
+        GameCore.mapScoreToScreenX(50, w), // default buffer width is 1280
       ];
     });
-    expect(r).toEqual([0, 320, 640, 0, 640, 320]);
+    expect(r).toEqual([0, 640, 1280, 0, 1280, 640]);
   });
 
   test('terrainHeightAt is deterministic, bounded to ±2 and continuous', async ({ page }) => {
     const r = await page.evaluate(() => {
       let min = Infinity, max = -Infinity, maxStep = 0;
-      for (let x = 0; x <= 640; x += 1) {
+      for (let x = 0; x <= 1280; x += 1) {
         const h = GameCore.terrainHeightAt(x);
         if (h < min) min = h;
         if (h > max) max = h;

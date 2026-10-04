@@ -11,6 +11,19 @@ module.exports = defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      // Perf is measured as absolute fps, so it must not share the machine with
+      // parallel workers; it runs in the isolated 'perf' project below.
+      testIgnore: /perf\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'perf',
+      testMatch: /perf\.spec\.js/,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 });

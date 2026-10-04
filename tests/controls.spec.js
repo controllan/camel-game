@@ -30,9 +30,9 @@ test.describe('Controls and i18n', () => {
     await page.locator('.lane').nth(0).locator('[data-exact]').fill('200');
     await page.locator('.lane').nth(0).locator('[data-action="set"]').click();
     await expect(page.locator('#live')).toHaveText('Thunderbolt wins!');
-    // Banner gold rides the top strip (y 6-22), like the milestone-free band.
+    // Banner gold rides the top strip (y 8-32), like the milestone-free band.
     await expect.poll(() => page.evaluate(() => {
-      const d = document.getElementById('game').getContext('2d').getImageData(0, 6, 640, 16).data;
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 6, 1280, 24).data;
       let n = 0;
       for (let i = 0; i < d.length; i += 4) {
         if (d[i] === 0xe8 && d[i + 1] === 0xc8 && d[i + 2] === 0x3a) n += 1;

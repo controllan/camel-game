@@ -67,7 +67,7 @@
   </header>
   <main>
     <div id="canvasWrap">
-      <canvas id="game" width="640" height="360"
+      <canvas id="game" width="1280" height="720"
         aria-label="Camel race track. Camels race left to right to the goal."></canvas>
     </div>
     <aside id="panel" aria-label="Controls">
@@ -311,7 +311,7 @@ window.GameCore = (function () {
 
   function mapScoreToScreenX(score, window, canvasWidth) {
     const w = window || { min: 0, max: MIN_WINDOW };
-    const width = (typeof canvasWidth === 'number' && canvasWidth > 0) ? canvasWidth : 640;
+    const width = (typeof canvasWidth === 'number' && canvasWidth > 0) ? canvasWidth : 1280;
     const span = w.max - w.min;
     if (span <= 0) return 0;
     const x = ((score - w.min) / span) * width;
@@ -484,16 +484,16 @@ window.GameCore = (function () {
   const canvasWrap = document.getElementById('canvasWrap');
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  const CANVAS_W = canvas.width;   // 640
-  const CANVAS_H = canvas.height;  // 360
+  const CANVAS_W = canvas.width;   // 1280
+  const CANVAS_H = canvas.height;  // 720
 
-  const HORIZON_Y = 88;
-  const LANE_BOTTOM = CANVAS_H - 4; // 356
-  const SPRITE_W = 33;
-  const SPRITE_H = 31;
+  const HORIZON_Y = 120;
+  const LANE_BOTTOM = CANVAS_H - 8; // 712
+  const SPRITE_W = 66;
+  const SPRITE_H = 62;
   // Feet rest this many px above the lane bottom at terrain height 0.
   const TERRAIN_FEET_OFFSET = 2;
-  const LANE_MARGIN = 2;
+  const LANE_MARGIN = 4;
   // Unhurried Volksfest glide: each retarget tweens LERP_MS ease-out (cubic)
   // from the sprite's current position, so mid-flight retargets blend smoothly
   // instead of snapping. No artificial input-blocking delay.
@@ -503,8 +503,8 @@ window.GameCore = (function () {
   const CANVAS_BORDER = 4; // 2px border on each side of the canvas
   // Fill the binding dimension of the wrapper, clamped to a sane range, then
   // snap to a crisp integer multiple only when the fit is already within 8% of
-  // it AND the integer still fits (keeps 1x/2x/3x where it does).
-  const SCALE_EPSILON = 0.05, SCALE_MAX = 4;
+  // it AND the integer still fits (keeps 1x/2x where it does).
+  const SCALE_EPSILON = 0.05, SCALE_MAX = 2;
   const SNAP_TOLERANCE = 0.08;
 
   const runtime = {
@@ -570,7 +570,8 @@ window.GameCore = (function () {
     return laneBottomY(i, n) - TERRAIN_FEET_OFFSET - Math.round(core.terrainHeightAt(score));
   }
   // Sprite top so the feet land on the surface, clamped inside the lane (an
-  // 8-lane track is ~33.5 px tall, only ~2.5 px of slack for a 31 px sprite).
+  // 8-lane track is 74 px tall, 12 px of slack for a 62 px sprite over the
+  // ±2 px dune bob and 1 px walk bob).
   function camelTopY(i, n, score) {
     const min = Math.round(laneTopY(i, n));
     const max = Math.round(laneBottomY(i, n) - SPRITE_H);
@@ -839,9 +840,9 @@ window.GameCore = (function () {
   };
 
   const SKY_BANDS = ['#1a1030', '#241640', '#2e1c4a'];
-  const PALM_PAL = { body: '#6b4a2a', harness: '#2f6b3a' }; // G fronds via the shared harness key
-  const CACTUS_PAL = { body: '#2f6b3a' };
-  const ROCK_PAL = { body: '#6b5570' };
+  const PALM_PAL = { body: '#6b4a2a', shade: '#4a3320', harness: '#2f6b3a' }; // G fronds via the shared harness key
+  const CACTUS_PAL = { body: '#2f6b3a', shade: '#1f4a26' };
+  const ROCK_PAL = { body: '#6b5570', shade: '#4a3a52' };
 
   // Camel palette factory: only `robe` varies per lane; everything else fixed.
   const CAMEL_PAL = (robe) => ({
@@ -874,269 +875,496 @@ window.GameCore = (function () {
   // dune bands still render. 1500 points draws ~18 decorations per frame.
   const DECOR_MAX_SPAN = 1500;
 
-  // Camel 33x31, 5 frames: 0 standing (idle), 1-4 walk. Legend (docs/art/camel-sprite.md):
-  // . transparent, O outline, B body, S shade, G harness (fixed), R robe (per-lane colour),
-  // W white (turban), K skin (face), L saddle blanket. Blanket flat area is
-  // rows 12-17 x cols 10-15 (rows 13-18 on the bob frames 2, 4); the lane digit is
-  // drawn by code at sprite-local (11,12), +1 row on the bob frames.
+  // Camel v5 66x62, 5 frames: 0 standing (idle), 1-4 walk (contact A, pass A,
+  // contact B, pass B). Legend (docs/art/camel-sprite.md): . transparent,
+  // O outline, B body, S shade, G harness (fixed), R robe (per-lane colour),
+  // W white (turban), K skin (face), L saddle blanket. Blanket flat area holds a
+  // 6x10 digit drawn by code at sprite-local (24, 36) (+2 rows on bob frames 2, 4).
   const CAMEL = [
     [ // frame 0 — standing (idle)
-      '......................OOO........',
-      '..........OOOOOO......OSSOO......',
-      '..........OWWWWO....OOSBBBBO.....',
-      '..........OWWWWO....OSBSSSBBOOO..',
-      '..........OWWWWO....OBBBBBBBGBBO.',
-      '..........OOKKOO.....OBBBBBGBBBO.',
-      '........OOORRRRO.....OSBSSSGOSSO.',
-      '.......OOBORRRROOO...OSBBBSGOOOO.',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOSSSSSSO....OSSSSO...........',
-      '..O.SSSSSSO.....OSSSO............',
-      '...OSSSSSSO.....OSSSO............',
-      '....OSSSSO.....OSSSO.............',
-      '.....OSSSO......OSSO.............',
-      '......OSO........OSO.............',
-      '......OSO........OSO.............',
-      '......OSO........OSO.............',
-      '......OSO........OSO.............',
-      '.....OOOOO......OOOOO............',
+      '..................................................................',
+      '..................................................................',
+      '..................................................................',
+      '.................................................O................',
+      '..........................O.....................OBO...............',
+      '.......................OOOWOOO.................OBSBO..............',
+      '......................OWWWWWWWO................OSBSO...O..........',
+      '.....................OWWWWWWWWWO................OBSSOOOBOOOO......',
+      '...................OOWWWWWWWWWWO................OBSBBBSSBBSBOO....',
+      '...................OWWWWWWWWWWWWO...O...........OBSBSSSBSSSSBBO...',
+      '...................OWWWWWWWWWWWO.OOOBOOO.......OBBSBBBSBBBSBSSBO..',
+      '...................OWWWWWWWWWWWWOBSBSBSBOO.....OBBSBBBSBOOSBBBSBOO',
+      '...................OOWWWWWWWWWWWBSSSBSSSBBO....OBBSBBBSBOOSBBBBSBO',
+      '.....................OWWWWWWWWWWSBSBBBSBSSBO..OBBBSBBBSBBBSBBBBBSO',
+      '..................OOOBBKKKWKKKSBBBSBBBSBBBSBO..OBBSBBBSBBBSBBBBBBO',
+      '................OOSBBBBKKKKKKKSBBBSBBBSBBBSSO..OBBSBBBSBBBSBSSSSBO',
+      '...............OBBSSSRRKKKKKKKRRSSSBBBSBBBSBSOOBBBSBBBSBBSSSSSSSSO',
+      '...............OSSSBSRRKKKKKKKRRSSSBBBSBBBSBBBSBBBSBBBSBSSSSSSOOOO',
+      '..............OSBSSSRRRRRKKKKRRRRSSBBBSBBBSBBSSBBBSBBBSSSSSSOO....',
+      '.............OSBBRRRRRRRRRRRRRRRRRSSBBSBBBSBBBSBBBSBBBSSSSOO......',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBSBBBSBBBSSSO........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBGGSBBBSBBBSBBSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBGGBBBSBBBSBBSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBGGBBSBBBSSSSSO..........',
+      '............OBSBBRRRRRRRRRRRRRRRRRRRBBSBBBSGGBSBBBSSSSSO..........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBGGSBBBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBGGBBBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBGGBBSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBGGSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBBGGSO.............',
+      '.........OOOOBSBBBSBRRRRRRRRRRRRRRRBBBSBBBSBBBSBSSGGO.............',
+      '.......OOBSBBBGGBBSBBRRRRRRRRRRRRRSBBBSBBBSBBBSBSSSGO.............',
+      '......OBBSSSSBGGBSSSBRROOOOOROOOOOSBSBSBBBSBBBSBSSSO..............',
+      '.....OSSSBSBBBGGBBSBSRROOOOOROOOOOSBSBSBBBSSBBSBSSSO..............',
+      '....OBSBBBBBBBGGBBBBBBLOOOOOLOOOOOBBSBBBBBBSBBBBSSO...............',
+      '....OSBBBBBBBBGGBBBBBBLLLLLLLLLLLLBBSBBBBBBSBBBBSSO...............',
+      '....OBBBBBBBBSGGBBBBBSLLLLLLLLLLLLBBSBBBBBBSBBBBSSSO..............',
+      '...OBBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBBSBBBBBBSBBBBSSO...............',
+      '....OBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBSSBBBBBSSBBBBSSO...............',
+      '....OSSBBBBBBSGGBBBBBBLLLLLLLLLLLLBSSBBBBBSSBBBBSSO...............',
+      '....OSSBBBSSSSSBBBBBBBLLLLLLLLLLLLSSSBBBBBSSBBBBSO................',
+      '.....OSBBBSSSSSBBBBBBSLLLLLLLLLLLLSSSBBBBBSSBBBBSO................',
+      '......OBBSSSSSSBBBBBBSLLLLLLLLLLLLSSSBBBBBSSBBBBO.................',
+      '.......OBSSSSSSBBBBBBSLLLLLLLLLLLLSSSSSSSSSSBBBSO.................',
+      '.......OBSOOOBOBBSSSSOLLLLLLLLLLLLOOOBBSSSSOBSSSO.................',
+      '.......OBO...O.OBSSSO.OLLLLLLLLLLO...OBSSSO.OBSO..................',
+      '.......OBO.....OBSSSO.OLLLOOOOOOOO...OBSSSO.OBSO..................',
+      '......OBSO.....OBSSSO.OBSO...........OBSSSO.OBSO..................',
+      '.....OBSO.....OBBSSSO.OBSO..........OBBSSSO.OBSO..................',
+      '....OBSSO.....OBBSSSO.OBSO..........OBBSSSO.OBSO..................',
+      '....OBSSO.....OBBSSSO.OBSO..........OBBSSSO.OBSO..................',
+      '....OBSSO.....OBBSSSO.OBSO..........OBBSSSO.OBSO..................',
+      '.....OBO......OBBSSSO.OBSO..........OBBSSSO.OBSO..................',
+      '......O.......OBSSSO..OBSO..........OBSSSO..OBSO..................',
+      '..............OBSSSO..OBSO..........OBSSSO..OBSO..................',
+      '..............OBSSSO..OBSO..........OBSSSO..OBSO..................',
+      '..............OBSSSO.OBSSO..........OBSSSO.OBSSO..................',
+      '..............OBSSSO.OBSSO..........OBSSSO.OBSSO..................',
+      '.............OBBSSSO.OBSSO.........OBBSSSO.OBSSO..................',
+      '.............OBBSSSO.OBSSO.........OBBSSSO.OBSSO..................',
+      '.............OBBSSSO.OBSSO.........OBBSSSO.OBSSO..................',
+      '.............OOOOOOO.OOOOO.........OOOOOOO.OOOOO..................',
     ],
     [ // frame 1 — contact A
-      '.......................OOO.......',
-      '..........OOOOOO.......OSSOO.....',
-      '..........OWWWWO.....OOSBBBBO....',
-      '..........OWWWWO.....OSBSSSBBOOO.',
-      '..........OWWWWO.....OBBBBBBBGBBO',
-      '..........OOKKOO......OBBBBBGBBBO',
-      '........OOORRRRO......OSBSSSGOSSO',
-      '.......OOBORRRROOO....OSBBBSGOOOO',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOSSSSSSO....OSSSSO...........',
-      '..O.OOSSSOO.....OOOSO............',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '.....OSO............OSO..........',
-      '.....OSO............OSO..........',
-      '....OSO..............OSO.........',
-      '...OSO................OSO........',
-      '..OOOOO..............OOOOO.......',
+      '..................................................................',
+      '..................................................................',
+      '..................................................................',
+      '..................................................O...............',
+      '..........................O......................OBO..............',
+      '.......................OOOWOOO..................OBSBO.............',
+      '......................OWWWWWWWO.................OSSSO...O.........',
+      '.....................OWWWWWWWWWO.................OSBSOOOBOOOO.....',
+      '...................OOWWWWWWWWWWO.................OSBBBSBSBSBBOO...',
+      '...................OWWWWWWWWWWWWO...O............OSBBSSSBSSSSBBO..',
+      '...................OWWWWWWWWWWWO.OOOBOOO........OBSBBBSBBBSBBSSBO.',
+      '...................OWWWWWWWWWWWWOBSBSBSBOO......OBSBBBSBBOOBBBBSBO',
+      '...................OOWWWWWWWWWWWBSSSBSSSBBO.....OBSBBBSBBOOBBBBBSO',
+      '.....................OWWWWWWWWWWSBSBBBSBSSBO...OBBSBBBSBBBSBBBBBBO',
+      '..................OOOBBKKKWKKKSBBBSBBBSBBBSBO...OBSBBBSBBBSBBBBBBO',
+      '................OOSBBBBKKKKKKKSBBBSBBBSBBBSSO...OBSBBBSBBBSBBSSSSO',
+      '...............OBBSSSRRKKKKKKKRRSSSBBBSBBBSBSO.OBBSBBBSBBBSSSSSSSO',
+      '...............OSSSBSRRKKKKKKKRRSSSBBBSBBBSBBO.OBBSBBBSBBSSSSSSOOO',
+      '..............OSBSSSRRRRRKKKKRRRRSSBBBSBBBSBBSOSBBSBBBSBSSSSSOO...',
+      '.............OSBBRRRRRRRRRRRRRRRRRSSBBSBBBSBBBSBBBSBBBSBSSSOO.....',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBSBBBSBBBSSSSO.......',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBGGBBBSBBBSBBBSSSO........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBGGBBSBBBSBBBSSSO........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSGGBSBBBSBSSSSO.........',
+      '............OBSBBRRRRRRRRRRRRRRRRRRRBBSBBBSBGGSBBBSBSSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBGGBBBSSSSSO..........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBGGBBSSSSSO..........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBSGGBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBBGGSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBBSGGSO............',
+      '.........OOOOBSBBBSBRRRRRRRRRRRRRRRBBBSBBBSBBBSBBSSGGO............',
+      '.......OOBSBBBGGBBSBBRRRRRRRRRRRRRSBBBSBBBSBBBSBSSSSGO............',
+      '......OBBSSSSBGGBSSSBRROOOOOROOOOOSBBBSBBBSBBBSBSSSSO.............',
+      '.....OSSSBSBBBGGBBSBSRROOOOOROOOOOSBBBSBBBSBBBSBSSSSO.............',
+      '....OBSBBBBBBBGGBBBBBBLOOOOOLOOOOOBBBBBBBSSBBBBBSSSO..............',
+      '....OSBBBBBBBBGGBBBBBBLLLLLLLLLLLLBBBBBBBSSBBBBSSSSO..............',
+      '....OBBBBBBBBSGGBBBBBSLLLLLLLLLLLLBBBBBBBSSBBBBSSSSO..............',
+      '...OBBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBBBBBBSSSBBBBSSSO...............',
+      '....OBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBSBBBSSSSBBBSSSSO...............',
+      '....OSSBBBBBBSGGSBBBBBLLLLLLLLLLLLBSBBBSSSSBBBSSSSO...............',
+      '....OSSSBBBSSSSSSBBBBBLLLLLLLLLLLLSSBBSSSSSBBSSSSO................',
+      '.....OSSBBBSSSSSSBBBBBLLLLLLLLLLLLSSBBSSSSSBBSSSSO................',
+      '......OSBBSSSSSSSBBBBBLLLLLLLLLLLLSSSBSSSSSBSSSSO.................',
+      '.......OBBSSSSSSSBBBBBLLLLLLLLLLLLSSSSSSSSSBSSSO..................',
+      '........OBSOOBOOBBSSSSLLLLLLLLLLLLOOBBSSSSOBSSSO..................',
+      '........OBO..O..OBBSSSLLLLLLLLLLLO..OBSSSO.OBSSO..................',
+      '........OBO.....OBBSSSOLLLLLOOOOOO.OBBSSSO.OBSO...................',
+      '.......OBSO.....OBSSSO.OBSSO.......OBBSSSOOBSSO...................',
+      '......OBSO......OBBSSSOOBSSO.......OBSSSO.OBSSO...................',
+      '.....OBSSO......OBBSSSO.OBSO......OBBSSSO.OBSSO...................',
+      '.....OBSSO......OBBSSSO.OBSO......OBBSSSO.OBSO....................',
+      '.....OBSSO......OBBSSSO.OBSO......OBBSSSOOBSSO....................',
+      '......OBO.......OBBSSSO.OBSSO.....OBSSSO.OBSSO....................',
+      '.......O.........OBSSSO.OBSSO....OBBSSSO.OBSSO....................',
+      '.................OBSSSO.OBSSO....OBBSSSO.OBSO.....................',
+      '.................OBSSSO..OBSO....OBSSSO.OBSSO.....................',
+      '.................OBSSSO..OBSO...OBBSSSO.OBSSO.....................',
+      '.................OBSSSO..OBSSO..OBBSSSOOBSSSO.....................',
+      '.................OBBSSSO.OBSSO..OBSSSO.OBSSO......................',
+      '.................OBBSSSO.OBSSO.OBBSSSO.OBSSO......................',
+      '.................OBBSSSO.OBSSO.OBBSSSO.OBSSO......................',
+      '.................OOOOOOO.OOOOO.OOOOOOO.OOOOO......................',
     ],
     [ // frame 2 — pass A (bob)
-      '.................................',
-      '......................OOO........',
-      '..........OOOOOO......OSSOO......',
-      '..........OWWWWO....OOSBBBBO.....',
-      '..........OWWWWO....OSBSSSBBOOO..',
-      '..........OWWWWO....OBBBBBBBGBBO.',
-      '..........OOKKOO.....OBBBBBGBBBO.',
-      '........OOORRRRO.....OSBSSSGOSSO.',
-      '.......OOBORRRROOO...OSBBBSGOOOO.',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '..OOO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOOSSSOOO....OOOSSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '.....OSO............OSO..........',
-      '.....OSO............OSO..........',
-      '....OOOOO..........OOOOO.........',
+      '..................................................................',
+      '..................................................................',
+      '..................................................................',
+      '..................................................................',
+      '.................................................O................',
+      '..........................O.....................OBO...............',
+      '.......................OOOWOOO.................OBSBO..............',
+      '......................OWWWWWWWO................OSBSO...O..........',
+      '.....................OWWWWWWWWWO................OBSSOOOBOOOO......',
+      '...................OOWWWWWWWWWWO................OBSBBBSSBBSBOO....',
+      '...................OWWWWWWWWWWWWO...O...........OBSBSSSBSSSSBBO...',
+      '...................OWWWWWWWWWWWO.OOOBOOO.......OBBSBBBSBBBSBSSBO..',
+      '...................OWWWWWWWWWWWWOBSBSBSBOO.....OBBSBBBSBOOSBBBSBOO',
+      '...................OOWWWWWWWWWWWBSSSBSSSBBO....OBBSBBBSBOOSBBBBSBO',
+      '.....................OWWWWWWWWWWSBSBBBSBSSBO..OBBBSBBBSBBBSBBBBBSO',
+      '..................OOOBBKKKWKKKSBBBSBBBSBBBSBO..OBBSBBBSBBBSBBBBBBO',
+      '................OOSBBBBKKKKKKKSBBBSBBBSBBBSSO..OBBSBBBSBBBSBSSSSBO',
+      '...............OBBSSSRRKKKKKKKRRSSSBBBSBBBSBSOOBBBSBBBSBBSSSSSSSSO',
+      '...............OSSSBSRRKKKKKKKRRSSSBBBSBBBSBBBSBBBSBBBSBSSSSSSOOOO',
+      '..............OSBSSSRRRRRKKKKRRRRSSBBBSBBBSBBSSBBBSBBBSSSSSSOO....',
+      '.............OSBBRRRRRRRRRRRRRRRRRSSBBSBBBSBBBSBBBSBBBSSSSOO......',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBSBBBSBBBSSSO........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBGGSBBBSBBBSBBSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBGGBBBSBBBSBBSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBGGBBSBBBSSSSSO..........',
+      '............OBSBBRRRRRRRRRRRRRRRRRRRBBSBBBSGGBSBBBSSSSSO..........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBGGSBBBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBGGBBBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBGGBBSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBGGSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBBGGSO.............',
+      '.........OOOOBSBBBSBRRRRRRRRRRRRRRRBBBSBBBSBBBSBBSGGO.............',
+      '.......OOBSBBBGGBBSBBRRRRRRRRRRRRRSBBBSBBBSBBBSBBSSGO.............',
+      '......OBBSSSSBGGBSSSBRROOOOOROOOOOSBSBSBBBSBBBSBBSSO..............',
+      '.....OSSSBSBBBGGBBSBSRROOOOOROOOOOSBSBSBBBSSBBSBBSSO..............',
+      '....OBSBBBBBBBGGBBBBBBBOOOOOBOOOOOBBSBBBBBBSBBBBBSO...............',
+      '....OSBBBBBBBBGGBBBBBBLLLLLLLLLLLLBBSBBBBBSSBBBBBSO...............',
+      '....OBBBBBBBBSGGBBBBBSLLLLLLLLLLLLBBSBBBBBSSBBBBBSSO..............',
+      '...OBBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBBSBBBBBSSBBBBBSO...............',
+      '....OBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBSSBBBBBSSBBBBBSO...............',
+      '....OSSBBBBBBSGGBBBBBBLLLLLLLLLLLLBSSBBBBSSSBBBBBSO...............',
+      '....OSSSBBBSSSSBBBBBBBLLLLLLLLLLLLSSSBBBBSSSBBBBSO................',
+      '.....OSSBBBSSSSBBBBBBSLLLLLLLLLLLLSSSBBBBSSSBBBBSO................',
+      '......OSBBSSSSSBBBBBBSLLLLLLLLLLLLSSSSSSSSSSBBBSO.................',
+      '.......OBBBBBBSSSSSSSSLLLLLLLLLLLLBBBBBBSSSSSSSSO.................',
+      '........OBSOOBOBBSSSSOLLLLLLLLLLLLOOOBBSSSSOBSSSO.................',
+      '........OBO..O.OBSSSO.OLLLLLLLLLLO...OBSSSO.OBSSO.................',
+      '........OBO...OBBSSSO.OLLLLLLLLLLO..OBBSSSO.OBSSO.................',
+      '.......OBSO...OBBSSSO.OLLLLOOOOOOO..OBBSSSO.OBSSO.................',
+      '......OBSO....OBBSSSO.OBSSO.........OBBSSSO.OBSSO.................',
+      '.....OBSSO....OBSSSO..OBSSO.........OBSSSO..OBSSO.................',
+      '.....OBSSO....OBSSSO..OBSSO.........OBSSSO..OBSSO.................',
+      '.....OBSSO....OBSSSO..OBSSO.........OBSSSO..OBSSO.................',
+      '......OBO....OBBSSSO..OBSSO........OBBSSSO..OBSSO.................',
+      '.......O.....OBBSSSO..OBSSO........OBBSSSO..OBSSO.................',
+      '.............OBBSSSO..OBSSO........OBBSSSO..OBSSO.................',
+      '.............OBSSSO...OBSSO........OBSSSO...OBSSO.................',
+      '.............OBSSSO...OBSSO........OBSSSO...OBSSO.................',
+      '.............OBSSSO...OBSSO........OBSSSO...OBSSO.................',
+      '............OBBSSSO...OBSSO.......OBBSSSO...OBSSO.................',
+      '............OBBSSSO...OBSSO.......OBBSSSO...OBSSO.................',
+      '............OOOOOOO...OOOOO.......OOOOOOO...OOOOO.................',
     ],
     [ // frame 3 — contact B
-      '.....................OOO.........',
-      '..........OOOOOO.....OSSOO.......',
-      '..........OWWWWO...OOSBBBBO......',
-      '..........OWWWWO...OSBSSSBBOOO...',
-      '..........OWWWWO...OBBBBBBBGBBO..',
-      '..........OOKKOO....OBBBBBGBBBO..',
-      '........OOORRRRO....OSBSSSGOSSO..',
-      '.......OOBORRRROOO..OOBBBSGOOOO..',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOSSSSSSO....OSSSSO...........',
-      '..O.OOSSSOO.....OOOSO............',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '........OSO......OSO.............',
-      '.........OSO....OSO..............',
-      '........OOOOO..OOOOO.............',
+      '..................................................................',
+      '..................................................................',
+      '..................................................................',
+      '................................................O.................',
+      '..........................O....................OBO................',
+      '.......................OOOWOOO................OBSBO...............',
+      '......................OWWWWWWWO...............OSBSO...O...........',
+      '.....................OWWWWWWWWWO...............OBBSOOOBOOOO.......',
+      '...................OOWWWWWWWWWWO...............OBBSBBBSBBBBOO.....',
+      '...................OWWWWWWWWWWWWO...O..........OBBSSSSSSSSSBBO....',
+      '...................OWWWWWWWWWWWO.OOOBOOO......OBBBSBBBSBBBSSSBO...',
+      '...................OWWWWWWWWWWWWOBSBSBSBOO....OBBBSBBBSOOBSBBSBOO.',
+      '...................OOWWWWWWWWWWWBSSSBSSSBBO...OBBBSBBBSOOBSBBBSBO.',
+      '.....................OWWWWWWWWWWSBSBBBSBSSBO.OSBBBSBBBSBBBSBBBBSO.',
+      '..................OOOBBKKKWKKKSBBBSBBBSBBBSBO.OBBBSBBBSBBBSBBBBBO.',
+      '................OOSBBBBKKKKKKKSBBBSBBBSBBBSSO.OBBBSBBBSBBBSSSSSBO.',
+      '...............OBBSSSRRKKKKKKKRRSSSBBBSBBBSBSOSBBBSBBBSBSSSSSSSSO.',
+      '...............OSSSBSRRKKKKKKKRRSSSBBBSBBBSBBBSBBBSBBBSSSSSSSOOOO.',
+      '..............OSBSSSRRRRRKKKKRRRRSSBBBSBBBSBBSSBBBSBBBSSSSSOO.....',
+      '.............OSBBRRRRRRRRRRRRRRRRRSSBBSBBBSBBBSBBBSBBBSSSOO.......',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBSBBBSBBSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSGGBSBBBSBBBSBSSSO..........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBGGSBBBSBBBSBSSSO..........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBGGBBBSBBBSSSSO...........',
+      '............OBSBBRRRRRRRRRRRRRRRRRRRBBSBBBGGBBSBBBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSGGBSBBBSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBGGSBBBSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBGGBBBSSO.............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSGGSSSO.............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBGGSO..............',
+      '.........OOOOBSBBBSBRRRRRRRRRRRRRRRBBBSBBBSBBBSBBGGO..............',
+      '.......OOBSBBBGGBBSBBRRRRRRRRRRRRRSBBBSBBBSBBBSBBSGO..............',
+      '......OBBSSSSBGGBSSSBRROOOOOROOOOOSBSSSBBBSBBBSBBSO...............',
+      '.....OSSSBSBBBGGBBSBSRROOOOOROOOOOSBSSSBBBSBSBSBBSO...............',
+      '....OBSBBBBBBBGGBBBBBBLOOOOOLOOOOOBBSSBBBBBBSBBBBSO...............',
+      '....OSBBBBBBBBGGBBBBBBLLLLLLLLLLLLBBSSBBBBBBSBBBBSO...............',
+      '....OBBBBBBBBBGGBBBBBSLLLLLLLLLLLLBBSSBBBBBBSBBBBSSO..............',
+      '...OBBBBBBBBBBGGBBBBBBLLLLLLLLLLLLBBSSSBBBBBSSBBBSO...............',
+      '....OBBBBBBBBBGGBBBBBBLLLLLLLLLLLLBSSSSBBBBBSSSBBSO...............',
+      '....OSBBBBBBBBGGBBBBBBLLLLLLLLLLLLBSSSSBBBBBSSSBBSO...............',
+      '....OSBBBSSSSBBBBBBBSBLLLLLLLLLLLLSSSSSBBBBBSSSSSO................',
+      '.....OBBBSSSSBBBBBBBSBLLLLLLLLLLLLSSSSSBBBBBSSSSSO................',
+      '......OBSSSSSBBBSBBSSBLLLLLLLLLLLLSSSSSBBBBBSSSSO.................',
+      '......OBSSSSSBBBSBBSSBLLLLLLLLLLLLSSSSSSSSSBOSSSO.................',
+      '......OBSOOOOBBBSSSSOBLLLLLLLLLLLLOOOOBBSSSO.OBSO.................',
+      '......OBO....OBBSSSO.OLLLLLLLLLLLO....OBSSSO.OBSO.................',
+      '......OBO....OBBSSSO.OLLLOOOOOOOOO....OBSSSO.OBSSO................',
+      '.....OBSO....OBBSSSOOBSSO.............OBSSSO.OBSSO................',
+      '....OBSO.....OBSSSO.OBSSO.............OBBSSSOOBSSO................',
+      '...OBSSO....OBBSSSO.OBSSO.............OBBSSSO.OBSO................',
+      '...OBSSO....OBBSSSO.OBSO..............OBBSSSO.OBSO................',
+      '...OBSSO....OBBSSSOOBSSO..............OBBSSSO.OBSO................',
+      '....OBO.....OBSSSO.OBSSO..............OBBSSSO.OBSSO...............',
+      '.....O.....OBBSSSO.OBSSO...............OBSSSO.OBSSO...............',
+      '...........OBBSSSO.OBSO................OBSSSO.OBSSO...............',
+      '...........OBSSSO.OBSSO................OBSSSO..OBSO...............',
+      '..........OBBSSSO.OBSSO................OBSSSO..OBSO...............',
+      '..........OBBSSSOOBSSSO................OBSSSO..OBSSO..............',
+      '..........OBSSSO.OBSSO.................OBBSSSO.OBSSO..............',
+      '.........OBBSSSO.OBSSO.................OBBSSSO.OBSSO..............',
+      '.........OBBSSSO.OBSSO.................OBBSSSO.OBSSO..............',
+      '.........OOOOOOO.OOOOO.................OOOOOOO.OOOOO..............',
     ],
     [ // frame 4 — pass B (bob)
-      '.................................',
-      '......................OOO........',
-      '..........OOOOOO......OSSOO......',
-      '..........OWWWWO....OOSBBBBO.....',
-      '..........OWWWWO....OSBSSSBBOOO..',
-      '..........OWWWWO....OBBBBBBBGBBO.',
-      '..........OOKKOO.....OBBBBBGBBBO.',
-      '........OOORRRRO.....OSBSSSGOSSO.',
-      '.......OOBORRRROOO...OSBBBSGOOOO.',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OOOOSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOOOSSSOO....OOSSSO...........',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '........OSO......OSO.............',
-      '........OSO......OSO.............',
-      '.......OOOOO....OOOOO............',
+      '..................................................................',
+      '..................................................................',
+      '..................................................................',
+      '..................................................................',
+      '.................................................O................',
+      '..........................O.....................OBO...............',
+      '.......................OOOWOOO.................OBSBO..............',
+      '......................OWWWWWWWO................OSBSO...O..........',
+      '.....................OWWWWWWWWWO................OBSSOOOBOOOO......',
+      '...................OOWWWWWWWWWWO................OBSBBBSSBBSBOO....',
+      '...................OWWWWWWWWWWWWO...O...........OBSBSSSBSSSSBBO...',
+      '...................OWWWWWWWWWWWO.OOOBOOO.......OBBSBBBSBBBSBSSBO..',
+      '...................OWWWWWWWWWWWWOBSBSBSBOO.....OBBSBBBSBOOSBBBSBOO',
+      '...................OOWWWWWWWWWWWBSSSBSSSBBO....OBBSBBBSBOOSBBBBSBO',
+      '.....................OWWWWWWWWWWSBSBBBSBSSBO..OBBBSBBBSBBBSBBBBBSO',
+      '..................OOOBBKKKWKKKSBBBSBBBSBBBSBO..OBBSBBBSBBBSBBBBBBO',
+      '................OOSBBBBKKKKKKKSBBBSBBBSBBBSSO..OBBSBBBSBBBSBSSSSBO',
+      '...............OBBSSSRRKKKKKKKRRSSSBBBSBBBSBSOOBBBSBBBSBBSSSSSSSSO',
+      '...............OSSSBSRRKKKKKKKRRSSSBBBSBBBSBBBSBBBSBBBSBSSSSSSOOOO',
+      '..............OSBSSSRRRRRKKKKRRRRSSBBBSBBBSBBSSBBBSBBBSSSSSSOO....',
+      '.............OSBBRRRRRRRRRRRRRRRRRSSBBSBBBSBBBSBBBSBBBSSSSOO......',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBSBBBSBBBSSSO........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBGGSBBBSBBBSBBSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBGGBBBSBBBSBBSSSO.........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBGGBBSBBBSSSSSO..........',
+      '............OBSBBRRRRRRRRRRRRRRRRRRRBBSBBBSGGBSBBBSSSSSO..........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBGGSBBBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBGGBBBSSSSO...........',
+      '.............OSBBRRRRRRRRRRRRRRRRRRSBBSBBBSBBBGGBBSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBGGSSSO............',
+      '.............OSBBRRRRRRRRRRRRRRRRRRBBBSBBBSBBBSBSGGSO.............',
+      '.........OOOOBSBBBSBRRRRRRRRRRRRRRRBBBSBBBSBBBSBSSGGO.............',
+      '.......OOBSBBBGGBBSBBRRRRRRRRRRRRRSBBBSBBBSBBBSBSSSGO.............',
+      '......OBBSSSSBGGBSSSBRROOOOOROOOOOSBSBSBBBSBBBSBSSSO..............',
+      '.....OSSSBSBBBGGBBSBSRROOOOOROOOOOSBSBSBBBSSBBSBSSSO..............',
+      '....OBSBBBBBBBGGBBBBBBBOOOOOBOOOOOBBSBBBBBBSBBBBSSO...............',
+      '....OSBBBBBBBBGGBBBBBBLLLLLLLLLLLLBBSBBBBBBSBBBBSSO...............',
+      '....OBBBBBBBBSGGBBBBBSLLLLLLLLLLLLBBSBBBBBBSBBBBSSSO..............',
+      '...OBBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBBSBBBBBBSBBBSSSO...............',
+      '....OBBBBBBBBSGGBBBBBBLLLLLLLLLLLLBSSBBBBBBSBBBSSSO...............',
+      '....OSBBBBBBBSGGBBBBBBLLLLLLLLLLLLBSSBBBBBBSBBBSSSO...............',
+      '....OSBBBSSSSSSBBBBBBBLLLLLLLLLLLLSSSBBBBBBSBBBSSO................',
+      '.....OBBBSSSSSSBBBBBBSLLLLLLLLLLLLSSSBBBBBBSBBBSSO................',
+      '......OBSSSSSSSBBBBBBSLLLLLLLLLLLLSSSSSSSSBSBBBSO.................',
+      '......OBBBBBBSSSSSSSSSLLLLLLLLLLLLBBBBBSSSSSSSSO..................',
+      '......OBSOOOOBOBBSSSSOLLLLLLLLLLLLOOOBBSSSSOBSSO..................',
+      '......OBO....O.OBSSSO.OLLLLLLLLLLO...OBSSSO.OBSO..................',
+      '......OBO......OBSSSO.OLLLLLLLLLLO...OBSSSO.OBSO..................',
+      '.....OBSO......OBSSSO.OLLLOOOOOOOO...OBSSSO.OBSO..................',
+      '....OBSO.......OBSSSO.OBSO...........OBSSSO.OBSO..................',
+      '...OBSSO.......OBBSSSOBSSO...........OBBSSSOBSSO..................',
+      '...OBSSO.......OBBBBSSSSSO...........OBBBBSSSSSO..................',
+      '...OBSSO.......OBBBBSSSSSO...........OBBBBSSSSSO..................',
+      '....OBO........OBBBSSSSSO............OBBBSSSSSO...................',
+      '.....O.........OBBBSSSSSO............OBBBSSSSSO...................',
+      '...............OBBBSSSSSO............OBBBSSSSSO...................',
+      '...............OBBBSSSSSO............OBBBSSSSSO...................',
+      '..............OBBBBSSSSSO...........OBBBBSSSSSO...................',
+      '..............OBBBBSSSSSO...........OBBBBSSSSSO...................',
+      '..............OBBBBSSSSSO...........OBBBBSSSSSO...................',
+      '..............OBBBBSSSSSO...........OBBBBSSSSSO...................',
+      '..............OOOOOOOOOOO...........OOOOOOOOOOO...................',
     ],
   ];
 
-  // Palm 16x20. Legend adds: G frond, B trunk.
+  // Palm 32x40. Legend adds: G frond, B trunk, S shade.
   const PALM = [
-    '....OO......OO..',
-    '..OOGGOO..OOGGO.',
-    '.OGGOGGOOOGGOGO.',
-    'OGOGGGGGGGGOGGGO',
-    '.OGGGGGGGGGGOO..',
-    '..OGGGGOOOO.....',
-    '....OOO.........',
-    '.....OO.........',
-    '.....OO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '....OBO.........',
-    '...OBBBO........',
-    '...OOOOO........',
+    '................................',
+    '................................',
+    '................O...............',
+    '...............OGO.....O........',
+    '........OO.....OGO...OOGO.......',
+    '.......OGGOOO..OGO.OOGGO........',
+    '........OOGGGO.OGOOGGGO.........',
+    '..........OGGGOOGOGGGO..........',
+    '..........OOGGGOGGGGGGOOOOOO....',
+    '....OOOOOOGGGGGGGGGGGGGGGGGGO...',
+    '...OGGGGGGGGGGGGGGGGGGOOOOOO....',
+    '....OOOOOOGGGGGGGGGGGGGO........',
+    '......OOOGGGGGGGGGGGGGGGOOO.....',
+    '.....OGGGOGGGOOBBSOOGGGOGGGO....',
+    '...OOGGOO.OOO.OBBSO.OOO.OOGGOO..',
+    '..OGGOO.......OBBSO.......OOGGO.',
+    '...OO.........OBBSO.........OO..',
+    '..............OBBSO.............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '...............OBBSO............',
+    '................OBBSO...........',
+    '................OBBSO...........',
+    '................OBBSO...........',
+    '................OBBSO...........',
+    '................OBBSO...........',
+    '...............OOBBSO...........',
+    '..............OBOBBSO...........',
+    '...............O.OOO............',
+    '................................',
+    '................................',
+    '................................',
   ];
 
-  // Cactus 12x16. Legend: O outline, B body.
+  // Cactus 24x32. Legend: O outline, B body, S shade.
   const CACTUS = [
-    '...OO.......',
-    '..OBO.......',
-    '..OBO.......',
-    '..OBO..OO...',
-    'OBOBO..OBO..',
-    'OBOBOOOOBO..',
-    'OBOBO..OBO..',
-    '.OOO...OBO..',
-    '...OBO.OBO..',
-    '...OBO.OO...',
-    '...OBO......',
-    '...OBO......',
-    '...OBO......',
-    '...OBO......',
-    '...OBO......',
-    '...OOO......',
+    '........................',
+    '.........OOOO...........',
+    '........OBBBBO..........',
+    '........OBBBBO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..OOOO....',
+    '........OBBBSO.OBBBBO...',
+    '........OBBBSO.OBBBBO...',
+    '...OOOO.OBBBSO.OBBBBO...',
+    '..OBBBBOOBBBSO.OBBBBO...',
+    '..OBBBBOOBBBSO.OBBBBO...',
+    '..OBBBBOOBBBSO.OBBBBO...',
+    '..OBBBBOOBBBSO.OBBBBO...',
+    '..OBBBBOOBBBSO.OBBBBO...',
+    '..OBBBBOOBBBSOOOBBBBO...',
+    '..OBBBBOOBBBSBBBBBBBO...',
+    '..OBBBBOOBBBSOOOOOOO....',
+    '..OBBBBOOBBBSO..........',
+    '..OBBBBOOBBBSO..........',
+    '..OBBBBBBBBBSO..........',
+    '...OOOOOOBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '........OBBBSO..........',
+    '.........OOOO...........',
+    '........................',
   ];
 
-  // Rock 12x8. Legend: O outline, B body.
+  // Rock 24x16. Legend: O outline, B body, S shade.
   const ROCK = [
-    '...OOOO.....',
-    '..OBBBBOO...',
-    '.OBBBBBBBO..',
-    'OBBBBBBBBBO.',
-    'OBBBBBBBBBBO',
-    'OBBBBBBBBBO.',
-    '.OOOOOOOOO..',
-    '............',
+    '........................',
+    '........................',
+    '.......OOO..............',
+    '.....OOBBBOO............',
+    '....OBBBBBBBOOOO........',
+    '....OBBBBBBBBBBBOO......',
+    '....OBBBBBBBBBBBBBO.....',
+    '...OBBBBBBBBBBBBBBBO....',
+    '....OBBBBBBBBBBBBBBBO...',
+    '...OBBBBBBBBBBBBBBBBBO..',
+    '..OBBBBBBBBBBBBBBBBBBBO.',
+    '..OBBBBBBBBBBBBBBBBBBBO.',
+    '..OBBBBBBBBBSSSSSSSSSBO.',
+    '..OBBBBBBBBBSSSSSSSSSBO.',
+    '...OOOOOOOOOOOOOOOOOOO..',
+    '........................',
   ];
 
-  // Finish flag 12x14. Legend adds: P pole, C checker-light, X checker-dark.
+  // Finish flag 24x28. Legend adds: P pole, C checker-light, X checker-dark.
   const FINISH_FLAG = [
-    'OO..........',
-    'PPOOOOOOOO..',
-    'PPOCXCXCXO..',
-    'PPOXCXCXCO..',
-    'PPOCXCXCXO..',
-    'PPOXCXCXCO..',
-    'PPOCXCXCXO..',
-    'PPOXCXCXCO..',
-    'PPOCXCXCXO..',
-    'PPOXCXCXCO..',
-    'PPOCXCXCXO..',
-    'PPOXCXCXCO..',
-    'PPOOOOOOOO..',
-    'PP..........',
+    '........................',
+    '........................',
+    '..OO....................',
+    '.OPPOOOOOOOOOOOOOOOOOO..',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPXXCCXXCCXXCCXXCCXXO.',
+    '.OPPXXCCXXCCXXCCXXCCXXO.',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPXXCCXXCCXXCCXXCCXXO.',
+    '.OPPXXCCXXCCXXCCXXCCXXO.',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPXXCCXXCCXXCCXXCCXXO.',
+    '.OPPXXCCXXCCXXCCXXCCXXO.',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPCCXXCCXXCCXXCCXXCCO.',
+    '.OPPOOOOOOOOOOOOOOOOOO..',
+    '.OPPO...................',
+    '.OPPO...................',
+    '.OPPO...................',
+    '.OPPO...................',
+    '.OPPO...................',
+    '.OPPO...................',
+    '.OPPO...................',
+    '..OO....................',
+    '........................',
   ];
 
-  // Milestone flag 10x14. Legend adds: P pole, F flag color.
+  // Milestone flag 20x28. Legend adds: P pole, F flag color.
   const MILESTONE = [
-    '.PPO......',
-    '.PPFFFFFF.',
-    '.PPFFFFFF.',
-    '.PPFFFFFF.',
-    '.PPFFFFFF.',
-    '.PPFFFFFF.',
-    '.PP.......',
-    '.PP.......',
-    '.PP.......',
-    '.PP.......',
-    '.PP.......',
-    '.PP.......',
-    '.PP.......',
-    '.OO.......',
+    '....................',
+    '....................',
+    '..OO................',
+    '.OPPOOOOOOOOOOOOOO..',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPFFFFFFFFFFFFFFO.',
+    '.OPPOOOOOOOOOOOOOO..',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '.OPPO...............',
+    '..OO................',
+    '....................',
   ];
 
   const MILESTONE_STEP = 50;
@@ -1145,7 +1373,7 @@ window.GameCore = (function () {
   const CONFETTI_COLORS = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a', '#f0f0f0'];
 
   // Every legend char resolves through the sprite's own palette (falling back to
-  // the fixed COL tones). V4 uses no H/E; the finish flag uses X = checker-dark.
+  // the fixed COL tones). The camel v5 uses no H/E; the finish flag uses X = checker-dark.
   const CHAR_KEY = {
     O: 'outline', B: 'body', S: 'shade', G: 'harness', R: 'robe',
     W: 'white', K: 'skin', L: 'blanket',
@@ -1168,20 +1396,22 @@ window.GameCore = (function () {
     }
   }
 
-  // Draw the camel's 1-based lane digit on its saddle blanket (3x5, anchored at
-  // sprite-local (11,12)) in the dark blanket-number ink, after the sprite pass.
-  // The blanket (and digit) drop 1 px with the body on the bob frames (2, 4).
+  // Draw the camel's 1-based lane digit on its saddle blanket (6x10, anchored
+  // at sprite-local (24,36)) in the dark blanket-number ink, after the sprite
+  // pass. The 6x10 glyph is the exact 2x nearest-neighbour upscale of the 3x5
+  // DIGIT_FONT above (single source of truth). The blanket (and digit) drop
+  // 2 px with the body on the bob frames (2, 4).
   function drawBlanketNumber(left, top, laneIndex, frameIndex) {
     let n = laneIndex + 1;
     if (n > 9) n = 0; // unreachable safety fallback: lane count is capped at 8
     const glyph = DIGIT_FONT[String(n)];
     if (!glyph) return;
-    const rowOffset = (frameIndex === 2 || frameIndex === 4) ? 1 : 0;
+    const rowOffset = (frameIndex === 2 || frameIndex === 4) ? 2 : 0;
     ctx.fillStyle = BLANKET_DIGIT_COLOR;
     for (let ry = 0; ry < 5; ry++) {
       const row = glyph[ry];
       for (let rx = 0; rx < 3; rx++) {
-        if (row[rx] === '#') ctx.fillRect(Math.round(left) + 11 + rx, Math.round(top) + 12 + rowOffset + ry, 1, 1);
+        if (row[rx] === '#') ctx.fillRect(Math.round(left) + 24 + rx * 2, Math.round(top) + 36 + rowOffset + ry * 2, 2, 2);
       }
     }
   }
@@ -1212,10 +1442,10 @@ window.GameCore = (function () {
   }
 
   function drawSun() {
-    const cx = 510, cy = 38, r = 16;
+    const cx = 1020, cy = 76, r = 32;
     for (let dy = -r; dy <= r; dy++) {
       const span = Math.floor(Math.sqrt(r * r - dy * dy));
-      ctx.fillStyle = (Math.abs(dy) > r - 3) ? '#f0c060' : '#e8a03a';
+      ctx.fillStyle = (Math.abs(dy) > r - 6) ? '#f0c060' : '#e8a03a';
       ctx.fillRect(cx - span, cy + dy, span * 2 + 1, 1);
     }
   }
@@ -1252,9 +1482,9 @@ window.GameCore = (function () {
       const point = k * DECOR_SPACING + Math.floor(rng() * 40 - 20);
       if (point < win.min - margin || point > win.max + margin) continue;
       const cx = mapX(point, win);
-      if (roll < 0.34) { drawSprite(PALM, cx - PALM[0].length / 2, HORIZON_Y - 20, PALM_PAL); drawn++; }
-      else if (roll < 0.67) { drawSprite(CACTUS, cx - CACTUS[0].length / 2, HORIZON_Y - 16, CACTUS_PAL); drawn++; }
-      else { drawSprite(ROCK, cx - ROCK[0].length / 2, HORIZON_Y - 8, ROCK_PAL); drawn++; }
+      if (roll < 0.34) { drawSprite(PALM, cx - PALM[0].length / 2, HORIZON_Y - 40, PALM_PAL); drawn++; }
+      else if (roll < 0.67) { drawSprite(CACTUS, cx - CACTUS[0].length / 2, HORIZON_Y - 32, CACTUS_PAL); drawn++; }
+      else { drawSprite(ROCK, cx - ROCK[0].length / 2, HORIZON_Y - 16, ROCK_PAL); drawn++; }
     }
     runtime.decorDrawn = drawn;
   }
@@ -1264,22 +1494,22 @@ window.GameCore = (function () {
     // 50-point cells to iterate cheaply (scores are unbounded), so drop them like
     // drawDecor does. Below the bound this is <= 30 iterations per frame.
     if ((win.max - win.min) > DECOR_MAX_SPAN) return;
-    ctx.font = '6px monospace';
+    ctx.font = '12px monospace';
     ctx.textBaseline = 'top';
     const start = Math.max(MILESTONE_STEP, Math.ceil(win.min / MILESTONE_STEP) * MILESTONE_STEP);
     for (let m = start; m <= win.max; m += MILESTONE_STEP) {
-      const x = mapX(m, win) - 2;
-      if (x < -12 || x > CANVAS_W + 12) continue;
-      // Stand the flag on the terrain at its world position.
-      const flagY = HORIZON_Y - 14 - Math.round(core.terrainHeightAt(m));
-      drawSprite(MILESTONE, x, flagY, { body: '#6b4a2a', shade: '#4a3320', harness: '#6b4a2a' });
+      const x = mapX(m, win) - 4;
+      if (x < -24 || x > CANVAS_W + 24) continue;
+      // Stand the flag on the terrain at its world position (20x28 sprite).
+      const flagY = HORIZON_Y - 28 - Math.round(core.terrainHeightAt(m));
+      drawSprite(MILESTONE, x, flagY, COL);
       // At high-but-allowed zoom a 50-point step can be narrower than the label,
       // so skip the number (flag still drawn) to avoid colliding labels.
       const label = String(m);
       const stepPx = mapX(m + MILESTONE_STEP, win) - mapX(m, win);
-      if (stepPx < ctx.measureText(label).width + 4) continue;
+      if (stepPx < ctx.measureText(label).width + 8) continue;
       ctx.fillStyle = '#e8e0d0';
-      ctx.fillText(label, x + 10, flagY + 3);
+      ctx.fillText(label, x + 20, flagY + 8);
     }
   }
 
@@ -1291,13 +1521,13 @@ window.GameCore = (function () {
     // Stand the pole on the terrain at the goal's world position.
     const poleTop = HORIZON_Y - Math.round(core.terrainHeightAt(s.goalScore));
     const x = Math.round(runtime.goalScreenX) - 6;
-    drawSprite(FINISH_FLAG, x, poleTop - 14, COL);
-    const stripeX = x + 4;
+    drawSprite(FINISH_FLAG, x, poleTop - 28, COL);
+    const stripeX = x + 8;
     // Checker parity is relative to the pole top so the stripe alternates
     // light/dark from its first row (matching the flag's checkered look).
-    for (let y = poleTop; y < LANE_BOTTOM; y += 4) {
-      ctx.fillStyle = (Math.floor((y - poleTop) / 4) % 2 === 0) ? COL.checkerLight : COL.checkerDark;
-      ctx.fillRect(stripeX, y, 4, 4);
+    for (let y = poleTop; y < LANE_BOTTOM; y += 8) {
+      ctx.fillStyle = (Math.floor((y - poleTop) / 8) % 2 === 0) ? COL.checkerLight : COL.checkerDark;
+      ctx.fillRect(stripeX, y, 8, 8);
     }
   }
 
@@ -1307,8 +1537,8 @@ window.GameCore = (function () {
       runtime.confetti.push({
         x: cx,
         y: cy,
-        vx: (rng() * 2 - 1) * 60,
-        vy: -(rng() * 60 + 30),
+        vx: (rng() * 2 - 1) * 120,
+        vy: -(rng() * 120 + 60),
         color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
         age: 0,
         life: 900 + rng() * 300,
@@ -1320,7 +1550,7 @@ window.GameCore = (function () {
     const alive = [];
     for (const p of runtime.confetti) {
       p.age += dt;
-      p.vy += 140 * dt / 1000;
+      p.vy += 280 * dt / 1000;
       p.x += p.vx * dt / 1000;
       p.y += p.vy * dt / 1000;
       if (p.age < p.life && p.y < CANVAS_H + 4 && p.x > -4 && p.x < CANVAS_W + 4) alive.push(p);
@@ -1332,7 +1562,7 @@ window.GameCore = (function () {
     runtime.confettiDrawn = runtime.confetti.length;
     for (const p of runtime.confetti) {
       ctx.fillStyle = p.color;
-      ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), 4, 4);
     }
   }
 
@@ -1341,29 +1571,31 @@ window.GameCore = (function () {
     const idx = s.camels.findIndex(function (c) { return c.id === s.winnerId; });
     if (idx < 0) return; // Defense-in-depth: winner lane gone; draw nothing
     const text = t(s.language, 'winnerBanner', { name: s.camels[idx].name });
-    ctx.font = '8px monospace';
+    ctx.font = '16px monospace';
     ctx.textBaseline = 'top';
-    const w = Math.ceil(ctx.measureText(text).width) + 16;
+    const w = Math.ceil(ctx.measureText(text).width) + 32;
     const x = Math.round((CANVAS_W - w) / 2);
     const y = 8;
     ctx.fillStyle = '#000000';
-    ctx.fillRect(x - 2, y - 2, w + 4, 16);
+    ctx.fillRect(x - 2, y - 2, w + 4, 32);
     ctx.fillStyle = COL.flag;
-    ctx.fillRect(x, y, w, 12);
+    ctx.fillRect(x, y, w, 24);
     ctx.fillStyle = '#1a1208';
-    ctx.fillText(text, x + 8, y + 2);
+    ctx.fillText(text, x + 16, y + 4);
   }
 
   // Terrain height per canvas column, independent of lane: precompute once per
-  // frame so 8 lanes do not each re-evaluate ~640 sin pairs (pixel-identical).
+  // frame so 8 lanes do not each re-evaluate ~1280 sin pairs (pixel-identical).
+  // The buffer is reused across frames: drawLanes consumes it synchronously
+  // before the next terrainHeights call, so no per-frame allocation is needed.
+  const terrainHeightBuf = new Int32Array(CANVAS_W);
   function terrainHeights(win) {
     const span = Math.max(1e-6, win.max - win.min);
-    const heights = new Array(CANVAS_W);
     for (let x = 0; x < CANVAS_W; x++) {
       const worldX = win.min + ((x + 0.5) / CANVAS_W) * span;
-      heights[x] = Math.round(core.terrainHeightAt(worldX));
+      terrainHeightBuf[x] = Math.round(core.terrainHeightAt(worldX));
     }
-    return heights;
+    return terrainHeightBuf;
   }
 
   function drawLanes(s, win) {

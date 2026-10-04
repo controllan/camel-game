@@ -64,6 +64,7 @@ test.describe('App-level: errors, network, responsive, a11y', () => {
     { width: 480, height: 900 },
     { width: 800, height: 900 },
     { width: 1024, height: 768 },
+    { width: 1280, height: 720 },
     { width: 1280, height: 800 },
     { width: 1440, height: 900 },
     { width: 1920, height: 1080 },
@@ -90,15 +91,34 @@ test.describe('App-level: errors, network, responsive, a11y', () => {
     });
   }
 
-  test('1920x1080 scales the 640px buffer up (integer snap where it fits)', async ({ page }) => {
+  test('1920x1080 scales the 1280px buffer up without distortion or overflow', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await gotoGame(page);
     const l = await page.evaluate(() => GameDebug.getCanvasLayout());
-    // The binding dimension is width here (panel beside the canvas): the real
-    // fill snaps to a crisp 2x (2 * 640 = 1280px) without overflowing.
-    expect(l.bufferWidth).toBe(640);
-    expect(l.bufferHeight).toBe(360);
+    // The binding dimension is width here (panel beside the canvas). The fit is
+    // fractional (~1.22) and does not snap to an integer: it is outside
+    // SNAP_TOLERANCE (8%) of the nearest integer (1), so it fills the wrapper
+    // width without overflowing.
+    expect(l.bufferWidth).toBe(1280);
+    expect(l.bufferHeight).toBe(720);
+    expect(l.scale).toBeGreaterThan(1);
+    expect(l.scale).toBeLessThanOrEqual(2);
     expect(l.cssWidth).toBeGreaterThanOrEqual(1280);
+    expect(l.cssWidth + 4).toBeLessThanOrEqual(l.wrapperWidth);
+    expect(l.cssHeight + 4).toBeLessThanOrEqual(l.wrapperHeight);
+  });
+
+  test('1700x1000 snaps the display scale to the 1x integer within the 8% tolerance', async ({ page }) => {
+    await page.setViewportSize({ width: 1700, height: 1000 });
+    await gotoGame(page);
+    const l = await page.evaluate(() => GameDebug.getCanvasLayout());
+    // The binding fit here (~1.05x) is within SNAP_TOLERANCE (8%) of 1 and 1x
+    // fits the wrapper, so computeScale must return exactly 1 instead of the
+    // fractional fit. Disabling the snap branch returns ~1.046875 and fails.
+    expect(l.scale).toBe(1);
+    expect(l.cssWidth).toBe(1280);
+    expect(l.cssHeight).toBe(720);
+    expect(l.cssWidth + 4).toBeLessThanOrEqual(l.wrapperWidth);
   });
 
   test('8 camels scroll inside the panel while the page itself never scrolls', async ({ page }) => {
