@@ -20,4 +20,18 @@ async function openGame(page) {
   return { errors, requests };
 }
 
-module.exports = { INDEX_URL, gotoGame, openGame };
+// Attach capture BEFORE navigation, then load an explicit URL (HTTP origin).
+async function openHttpGame(page, url) {
+  const errors = [];
+  const requests = [];
+  page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+  page.on('pageerror', (err) => errors.push(String(err)));
+  page.on('request', (req) => {
+    const u = req.url();
+    if (!u.startsWith('file://') && !u.startsWith('http://127.0.0.1')) requests.push(u);
+  });
+  await page.goto(url);
+  return { errors, requests };
+}
+
+module.exports = { INDEX_URL, gotoGame, openGame, openHttpGame };

@@ -235,6 +235,25 @@ test.describe('GameCore unit', () => {
     expect(r.afterMax16).toBe('y'.repeat(16));
   });
 
+  test('restore path strips control/bidi/zero-width and is surrogate-safe', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const name = (v) => GameCore.deserialize({ version: 1, camelCount: 2, camels: [{ name: v, score: 1 }] }).fields.camels[0].name;
+      return {
+        bidi: name('\u202eTeam'),
+        nul: name('A\u0000B'),
+        zwsp: name('Ze\u200bro'),
+        onlyFmt: name('\u202e\u200b'),
+        surrogate: name('x'.repeat(15) + '\u{1F42A}'),
+      };
+    });
+    expect(r.bidi).toBe('Team');
+    expect(r.nul).toBe('AB');
+    expect(r.zwsp).toBe('Zero');
+    expect(r.onlyFmt).toBe('Team 1');
+    expect(Array.from(r.surrogate).length).toBe(16);
+    expect(r.surrogate).toBe('x'.repeat(15) + '\u{1F42A}');
+  });
+
   test('reaching the goal ends the race and locks scores', async ({ page }) => {
     const r = await page.evaluate(() => {
       GameCore.setCamelCount(4);
@@ -353,5 +372,133 @@ test.describe('GameCore unit', () => {
     expect(r.lastAfterFirst).toBe(5);
     expect(r.callsAfterUnsub).toBe(1);
     expect(r.score).toBe(10);
+  });
+});
+
+test.describe('Persistence validation', () => {
+  test.beforeEach(async ({ page }) => { await gotoGame(page); });
+
+  test('serialize produces the exact schema with version 1', async ({ page }) => {
+    const obj = await page.evaluate(() => {
+      GameCore.setCamelCount(4);
+      GameCore.setGoal(200);
+      GameCore.resetRace();
+      return GameCore.serialize();
+    });
+    expect(obj.version).toBe(1);
+    expect(Object.keys(obj).sort()).toEqual(
+      ['camelCount', 'camels', 'goalScore', 'infinite', 'language', 'raceOver', 'theme', 'version', 'winnerId'].sort());
+    expect(obj.camelCount).toBe(4);
+    expect(obj.camels.length).toBe(4);
+    expect(obj.camels[0]).toEqual({ name: 'Team 1', score: 0 });
+    expect(obj.goalScore).toBe(200);
+    expect(obj.infinite).toBe(false);
+    expect(obj.language).toBe('en');
+    expect(obj.theme).toBe('desert');
+    expect(obj.raceOver).toBe(false);
+    expect(obj.winnerId).toBe(null);
+  });
+
+  test('deserialize clamps every field; bad root -> defaults + writeBack', async ({ page }) => {
+    const r = await page.evaluate(() => ({
+      nullRoot: GameCore.deserialize(null),
+      arrayRoot: GameCore.deserialize([1, 2, 3]),
+      badVersion: GameCore.deserialize({ version: 99, camelCount: 6 }),
+      clamped: GameCore.deserialize({
+        version: 1, camelCount: 99, camels: [{ name: '  A\u0000B  ', score: -3 }, { score: 2.5 }],
+        goalScore: 99999, infinite: false, language: 'fr', theme: 'nope', raceOver: true, winnerId: 'camel-7',
+      }),
+      infinite: GameCore.deserialize({ version: 1, infinite: true, goalScore: 500, camelCount: 2, camels: [], winnerId: 'camel-1', raceOver: true }),
+    }));
+    expect(r.nullRoot.writeBack).toBe(true);
+    expect(r.arrayRoot.writeBack).toBe(true);
+    expect(r.badVersion.writeBack).toBe(false);           // unknown version: no overwrite
+    expect(r.badVersion.fields.camelCount).toBe(4);        // fresh defaults
+    expect(r.clamped.fields.camelCount).toBe(8);
+    expect(r.clamped.fields.camels[0].name).toBe('AB');    // sanitized + trimmed + <=16
+    expect(r.clamped.fields.camels[0].score).toBe(0);      // negative -> 0
+    expect(r.clamped.fields.camels[1].name).toBe('Team 2');
+    expect(r.clamped.fields.camels[1].score).toBe(0);      // non-integer -> 0
+    expect(r.clamped.fields.goalScore).toBe(10000);        // clamped
+    expect(r.clamped.fields.language).toBe('en');
+    expect(r.clamped.fields.theme).toBe('desert');
+    expect(r.clamped.fields.raceOver).toBe(true);
+    expect(r.clamped.fields.winnerId).toBe('camel-7');    // lane exists in the clamped 8-camel race
+    expect(r.infinite.fields.goalScore).toBe(null);        // infinite forces null
+    expect(r.infinite.fields.winnerId).toBe('camel-1');
+  });
+
+  test('winnerId must match an existing lane; raceOver false forces null', async ({ page }) => {
+    const r = await page.evaluate(() => ({
+      missing: GameCore.deserialize({ version: 1, camelCount: 2, camels: [], raceOver: true, winnerId: 'camel-5' }).fields.winnerId,
+      notOver: GameCore.deserialize({ version: 1, camelCount: 2, camels: [], raceOver: false, winnerId: 'camel-0' }).fields.winnerId,
+      ok: GameCore.deserialize({ version: 1, camelCount: 2, camels: [], raceOver: true, winnerId: 'camel-1' }).fields.winnerId,
+    }));
+    expect(r.missing).toBe(null);
+    expect(r.notOver).toBe(null);
+    expect(r.ok).toBe('camel-1');
+  });
+
+  test('applyFields rebuilds camels; setTheme validates against registry', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const res = GameCore.deserialize({
+        version: 1, camelCount: 3, camels: [{ name: 'X', score: 7 }, { name: 'Y', score: 8 }, { name: 'Z', score: 9 }],
+        goalScore: 100, infinite: false, language: 'de', theme: 'forest', raceOver: false, winnerId: null,
+      });
+      GameCore.applyFields(res.fields);
+      const s = GameCore.getState();
+      return {
+        ids: s.camels.map((c) => c.id),
+        scores: s.camels.map((c) => c.score),
+        theme: s.theme,
+        language: s.language,
+        themeIds: GameCore.getThemeIds().sort(),
+        badSet: GameCore.setTheme('nope'),
+        goodSet: GameCore.setTheme('desert'),
+      };
+    });
+    expect(r.ids).toEqual(['camel-0', 'camel-1', 'camel-2']);
+    expect(r.scores).toEqual([7, 8, 9]);
+    expect(r.theme).toBe('forest');
+    expect(r.language).toBe('de');
+    expect(r.themeIds).toEqual(['desert', 'forest']);
+    expect(r.badSet).toBe(false);
+    expect(r.goodSet).toBe(true);
+  });
+
+  test('deserialize falls back per field for absent/non-integer/out-of-range values', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const f = (raw) => GameCore.deserialize(raw).fields;
+      return {
+        countFloat: f({ version: 1, camelCount: 2.5 }).camelCount,                       // non-integer -> 4
+        countLow: f({ version: 1, camelCount: 1 }).camelCount,                           // clamp min 2
+        goalLow: f({ version: 1, camelCount: 2, infinite: false, goalScore: 0 }).goalScore,   // clamp min 1
+        goalAbsent: f({ version: 1, camelCount: 2, infinite: false }).goalScore,         // -> 200
+        goalFloat: f({ version: 1, camelCount: 2, infinite: false, goalScore: 12.5 }).goalScore, // non-int -> 200
+        raceOverBad: f({ version: 1, camelCount: 2, raceOver: 'yes' }).raceOver,         // -> false
+        scoreHuge: f({ version: 1, camelCount: 2, camels: [{ name: 'A', score: Number.MAX_SAFE_INTEGER + 1 }] }).camels[0].score, // -> 0
+        nameLong: f({ version: 1, camelCount: 2, camels: [{ name: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', score: 1 }] }).camels[0].name, // <=16
+        nameEmpty: f({ version: 1, camelCount: 2, camels: [{ name: '   ', score: 1 }] }).camels[0].name, // Team 1
+      };
+    });
+    expect(r.countFloat).toBe(4);
+    expect(r.countLow).toBe(2);
+    expect(r.goalLow).toBe(1);
+    expect(r.goalAbsent).toBe(200);
+    expect(r.goalFloat).toBe(200);
+    expect(r.raceOverBad).toBe(false);
+    expect(r.scoreHuge).toBe(0);
+    expect(r.nameLong).toBe('ABCDEFGHIJKLMNOP');
+    expect(r.nameEmpty).toBe('Team 1');
+  });
+
+  test('GameStorage exposes KEY/VERSION and probes without throwing', async ({ page }) => {
+    const r = await page.evaluate(() => ({
+      key: GameStorage.KEY, ver: GameStorage.VERSION,
+      has: ['available', 'load', 'save', 'clear'].every((k) => typeof GameStorage[k] === 'function'),
+    }));
+    expect(r.key).toBe('camelRace.v1');
+    expect(r.ver).toBe(1);
+    expect(r.has).toBe(true);
   });
 });

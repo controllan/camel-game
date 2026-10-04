@@ -123,6 +123,7 @@ window.GameCore = (function () {
     goalScore: 200,
     infinite: false,
     language: 'en',
+    theme: 'desert',
     raceOver: false,
     winnerId: null,
   };
@@ -285,6 +286,7 @@ window.GameCore = (function () {
       goalScore: state.goalScore,
       infinite: state.infinite,
       language: state.language,
+      theme: state.theme,
       raceOver: state.raceOver,
       winnerId: state.winnerId,
     };
@@ -316,6 +318,142 @@ window.GameCore = (function () {
     return Math.max(0, Math.min(width, x));
   }
 
+  // ---------- persistence ----------
+  const KEY = 'camelRace.v1';
+  const VERSION = 1;
+  // Theme ids known to the core for validation; #app registers the live registry.
+  let themeIds = new Set(['desert', 'forest']);
+  function registerThemeIds(ids) { themeIds = new Set(ids); }
+  function getThemeIds() { return Array.from(themeIds); }
+  function setTheme(id) {
+    if (typeof id !== 'string' || !themeIds.has(id)) return false;
+    state.theme = id;
+    emit();
+    return true;
+  }
+
+  function storageAvailable() {
+    try {
+      const k = '__camel_probe__';
+      window.localStorage.setItem(k, '1');
+      window.localStorage.removeItem(k);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function sanitizeStoredName(v, index) {
+    if (typeof v !== 'string') return camelName(index, 'en');
+    const cleaned = v.replace(/[\p{Cc}\p{Cf}]/gu, '').trim();
+    const truncated = Array.from(cleaned).slice(0, NAME_MAX).join('');
+    return truncated.length === 0 ? camelName(index, 'en') : truncated;
+  }
+
+  function defaultFields() {
+    const camels = [];
+    for (let i = 0; i < 4; i++) camels.push({ name: camelName(i, 'en'), score: 0 });
+    return { camelCount: 4, camels: camels, goalScore: 200, infinite: false, language: 'en', theme: 'desert', raceOver: false, winnerId: null };
+  }
+
+  // Per-field validation; never throws, never propagates NaN. Returns the
+  // validated fields plus whether the stored blob should be rewritten.
+  function deserialize(raw) {
+    const def = defaultFields();
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return { fields: def, writeBack: true };
+    if (raw.version !== VERSION) return { fields: def, writeBack: false };
+
+    let camelCount = def.camelCount;
+    if (Number.isInteger(raw.camelCount)) camelCount = Math.max(MIN_CAMELS, Math.min(MAX_CAMELS, raw.camelCount));
+
+    const src = Array.isArray(raw.camels) ? raw.camels : [];
+    const camels = [];
+    for (let i = 0; i < camelCount; i++) {
+      const c = (src[i] && typeof src[i] === 'object' && !Array.isArray(src[i])) ? src[i] : {};
+      let score = 0;
+      if (Number.isInteger(c.score) && c.score >= 0 && c.score <= Number.MAX_SAFE_INTEGER) score = c.score;
+      camels.push({ name: sanitizeStoredName(c.name, i), score: score });
+    }
+
+    let infinite = (typeof raw.infinite === 'boolean') ? raw.infinite : false;
+    let goalScore;
+    if (infinite) goalScore = null;
+    else if (Number.isInteger(raw.goalScore)) goalScore = Math.max(GOAL_MIN, Math.min(GOAL_MAX, raw.goalScore));
+    else goalScore = 200;
+
+    const language = (raw.language === 'en' || raw.language === 'de') ? raw.language : 'en';
+    const theme = (typeof raw.theme === 'string' && themeIds.has(raw.theme)) ? raw.theme : 'desert';
+    const raceOver = (typeof raw.raceOver === 'boolean') ? raw.raceOver : false;
+
+    let winnerId = null;
+    if (raceOver && typeof raw.winnerId === 'string') {
+      for (let i = 0; i < camelCount; i++) {
+        if (raw.winnerId === 'camel-' + i) { winnerId = raw.winnerId; break; }
+      }
+    }
+
+    return { fields: { camelCount: camelCount, camels: camels, goalScore: goalScore, infinite: infinite, language: language, theme: theme, raceOver: raceOver, winnerId: winnerId }, writeBack: false };
+  }
+
+  function applyFields(f) {
+    state.language = f.language;
+    state.theme = f.theme;
+    state.infinite = f.infinite;
+    state.goalScore = f.goalScore;
+    state.raceOver = f.raceOver;
+    state.winnerId = f.winnerId;
+    const camels = [];
+    for (let i = 0; i < f.camelCount; i++) {
+      camels.push({
+        id: 'camel-' + i,
+        name: f.camels[i].name,
+        color: PALETTE[i % PALETTE.length],
+        score: f.camels[i].score,
+        lane: i,
+        animUntil: 0,
+      });
+    }
+    state.camels = camels;
+    state.camelCount = f.camelCount;
+  }
+
+  function serialize() {
+    return {
+      version: VERSION,
+      camelCount: state.camelCount,
+      camels: state.camels.map(function (c) { return { name: c.name, score: c.score }; }),
+      goalScore: state.infinite ? null : state.goalScore,
+      infinite: state.infinite,
+      language: state.language,
+      theme: state.theme,
+      raceOver: state.raceOver,
+      winnerId: state.winnerId,
+    };
+  }
+
+  function load() {
+    if (!storageAvailable()) return { restored: false };
+    let text = null;
+    try { text = window.localStorage.getItem(KEY); } catch (e) { return { restored: false }; }
+    if (text == null) return { restored: false };
+    let parsed = null, corrupt = false;
+    try { parsed = JSON.parse(text); } catch (e) { corrupt = true; }
+    const res = deserialize(corrupt ? null : parsed);
+    applyFields(res.fields);
+    if (res.writeBack) { try { window.localStorage.setItem(KEY, JSON.stringify(serialize())); } catch (e) { /* ignore */ } }
+    emit();
+    return { restored: true };
+  }
+
+  function save() {
+    if (!storageAvailable()) return false;
+    try { window.localStorage.setItem(KEY, JSON.stringify(serialize())); return true; } catch (e) { return false; }
+  }
+
+  function clear() {
+    try { window.localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+  }
+
+  window.GameStorage = { KEY: KEY, VERSION: VERSION, available: storageAvailable, load: load, save: save, clear: clear };
+
   rebuildCamels(state.camelCount);
 
   return {
@@ -328,6 +466,10 @@ window.GameCore = (function () {
     setGoal: setGoal, resetRace: resetRace, setLanguage: setLanguage,
     setCamelName: setCamelName, setClock: setClock, getState: getState,
     subscribe: subscribe, camelName: camelName,
+    KEY: KEY, VERSION: VERSION,
+    serialize: serialize, deserialize: deserialize, applyFields: applyFields,
+    setTheme: setTheme, getThemeIds: getThemeIds, registerThemeIds: registerThemeIds,
+    storageAvailable: storageAvailable,
     computeCameraWindow: computeCameraWindow,
     mapScoreToScreenX: mapScoreToScreenX, terrainHeightAt: terrainHeightAt,
   };
@@ -684,10 +826,6 @@ window.GameCore = (function () {
 
   document.getElementById('lang-en').addEventListener('click', function () { core.setLanguage('en'); });
   document.getElementById('lang-de').addEventListener('click', function () { core.setLanguage('de'); });
-
-  core.subscribe(syncDom);
-  hideValidation();
-  syncDom(core.getState());
 
   // ---------- art ----------
   // Fixed tones for the decoration sprites. The camel's own
@@ -1399,6 +1537,40 @@ window.GameCore = (function () {
       return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, confettiDrawn: runtime.confettiDrawn };
     },
   };
+
+  // ---------- persistence wiring + boot (restore before first paint) ----------
+  const SAVE_DEBOUNCE_MS = 200;
+  const storageOk = GameStorage.available();
+  let saveTimer = null;
+  function scheduleSave() {
+    if (!storageOk) return;
+    if (saveTimer != null) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { saveTimer = null; GameStorage.save(); }, SAVE_DEBOUNCE_MS);
+  }
+  function flushSave() {
+    // Only flush an outstanding debounce; a no-op pagehide must never overwrite
+    // the stored blob (e.g. a forward-compat unknown-version payload).
+    if (saveTimer == null) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    if (storageOk) GameStorage.save();
+  }
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushSave();
+  });
+
+  // Restore before building/refreshing the DOM and before the first frame, so
+  // no default theme/language flashes. load() emits with no subscribers yet.
+  if (storageOk) GameStorage.load();
+  // A restored finished race shows the banner but must NOT replay confetti:
+  // seed the winner tracker so updateRuntime sees no live transition.
+  if (core.getState().raceOver) runtime.lastWinnerId = core.getState().winnerId;
+
+  core.subscribe(syncDom);
+  core.subscribe(scheduleSave); // never fires on load (no emit after subscribe)
+  hideValidation();
+  syncDom(core.getState());
 
   window.requestAnimationFrame(frame);
 
