@@ -60,7 +60,7 @@ flowchart TD
   UI -->|"calls mutators"| CORE["window.GameCore<br/>pure logic + state"]
   CORE -->|"state + derived window"| UI
   UI -->|"read state each frame"| RAF["requestAnimationFrame loop<br/>delta-time"]
-  RAF -->|"draw"| CANVAS["canvas 512×288 buffer<br/>imageSmoothingEnabled=false"]
+  RAF -->|"draw"| CANVAS["canvas 640×360 buffer<br/>imageSmoothingEnabled=false"]
   CORE -.->|"computeCameraWindow /<br/>mapScoreToScreenX"| RAF
   CORE -->|"state"| DOM
   RAF -->|"winner event"| LIVE["aria-live=polite region"]
@@ -172,10 +172,10 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 
 | Item | Value |
 |---|---|
-| Internal resolution | exactly 512×288 buffer pixels |
+| Internal resolution | exactly 640×360 buffer pixels |
 | Smoothing | `ctx.imageSmoothingEnabled = false`; CSS `image-rendering: pixelated` |
-| Display size | fills its wrapper: `scale = min(availW/512, availH/288)`, capped at 4, snapped to the nearest integer when within 8% and it fits, else fractional; never larger than the wrapper; never distorted; keep 16:9 |
-| Camel sprite size | 34×24 buffer px at CONSTANT screen size, regardless of zoom |
+| Display size | fills its wrapper: `scale = min(availW/640, availH/360)`, capped at 4, snapped to the nearest integer when within 8% and it fits, else fractional; never larger than the wrapper; never distorted; keep 16:9 |
+| Camel sprite size | 33×31 buffer px at CONSTANT screen size, regardless of zoom |
 | Position | only horizontal SCREEN POSITION comes from camera mapping |
 | Lanes | one lane per camel, stacked vertically, fixed lane row height; each lane draws its own track band, camel, and DOM controls in side panel keyed by color |
 
@@ -185,7 +185,7 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 - Decorations placed with a seeded PRNG (fixed seed) → world stable across frames; drawn through camera mapping; may repeat/tile.
 - Finish line: checkered, pole + flag at goal position (goal mode only).
 - Milestone flags every 50 points, each with a 6px monospace numeric label drawn inside buffer. Required (not optional).
-- Camel sprite 34×24: brown dromedary (`#c9803a` body, `#8a5220` shade, `#e0a45f` highlight, `#1a1208` outline) with a lane-colored robe rider (white turban, skin tone) and a numbered light-blue saddle blanket (3×5 pixel digit). 1 standing + 4 walk frames. Details: [`../art/camel-sprite.md`](../art/camel-sprite.md).
+- Camel sprite 33×31: brown two-hump Bactrian (`#c9803a` body, `#8a5220` shade, fixed `#53565e` harness, `#1a1208` outline) with a lane-coloured robe rider (white turban, skin tone) and a numbered light-blue saddle blanket (3×5 pixel digit, sprite-local anchor col 11 / row 12, +1 row on bob frames 2/4). 1 standing + 4 distinct walk frames. Details: [`../art/camel-sprite.md`](../art/camel-sprite.md).
 - Lanes are undulating sand dune ribbons (`#c9a25a` top, `#a8813f` shade, `#6e4f2a` edge, `#523a1e` rim); camels, the goal pole, and milestone flags stand on the shared dune profile `GameCore.terrainHeightAt(x)` (`1.2·sin(2πx/160)+0.8·sin(2πx/130+1.7)`, clamped ±2 px).
 - User art references (not loaded at runtime): [`../reference/camel-pixel-art.png`](../reference/camel-pixel-art.png), [`../reference/real-life-camel-race.png`](../reference/real-life-camel-race.png).
 - Idle camel bob: NOT required. Do not add.
@@ -247,7 +247,7 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 ┌──────────────────────────────────────────────┐
 │ KAMEL DERBY  [EN|DE]                         │
 ├───────────────────────────────┬──────────────┤
-│  canvas 512×288, fills        │ ⚙ camels 2-8 │
+│  canvas 640×360, fills        │ ⚙ camels 2-8 │
 │  lane1 ▓▓▓▓🐪 ─────────── 🏁  │ goal [200] ☐∞│
 │  lane2 ▓▓🐪  ──────────── 🏁  │ [+1][+5][+10]│
 │  lane3 ▓▓▓▓▓🐪 ────────── 🏁  │ score [__] 𐄂 │
@@ -309,7 +309,7 @@ Complete. Both languages. Switch every visible UI string. No mixed-language UI.
 ## Responsiveness
 
 - App fills the viewport; the page never scrolls (either axis). Only the control panel scrolls internally.
-- Canvas scale fills its wrapper: `scale = min(availW/512, availH/288)`, capped at 4, snapped to the nearest integer when within 8% and it fits, else fractional; never larger than the wrapper.
+- Canvas scale fills its wrapper: `scale = min(availW/640, availH/360)`, capped at 4, snapped to the nearest integer when within 8% and it fits, else fractional; never larger than the wrapper.
 - Works at 1024×768 and up.
 - Narrow viewports (<900px): side panel stacks below canvas.
 - Canvas never overflows the viewport. No page scrollbar on either axis.
@@ -357,7 +357,7 @@ Specify a short repo README (do NOT create now — doc phase):
 ## Acceptance Criteria
 
 1. `index.html` exists, opens from `file://`, no external network requests, no build step.
-2. All visuals pixel art (canvas buffer 512×288 upscaled nearest-neighbor) plus pixel-styled DOM controls.
+2. All visuals pixel art (canvas buffer 640×360 upscaled nearest-neighbor) plus pixel-styled DOM controls.
 3. Camel count adjustable 2–8; default 4.
 4. Goal score settable (default 200, range 1–10000); infinite mode available and mutually exclusive with goal.
 5. Per-camel independent `+1/+5/+10` buttons, exact-score set, and an editable `Team` name (max 16 chars) that updates the lane header, winner banner, and `aria-live`; increases move that camel right proportionally; decreases move it left.
@@ -371,7 +371,7 @@ Specify a short repo README (do NOT create now — doc phase):
 
 | Risk | Mitigation / trade-off |
 |---|---|
-| Auto-fit vs. constant sprite size: extreme spread compresses background but sprites stay 34×24 | Accept compression; camel screen x clamped to edge + safety margin |
+| Auto-fit vs. constant sprite size: extreme spread compresses background but sprites stay 33×31 | Accept compression; camel screen x clamped to edge + safety margin |
 | `file://` + Playwright | Tests must load from `file://`; no HTTP server allowed |
 | Seeded PRNG decorations + camera mapping | Fixed seed → stable world; may tile/repeat |
 | Lerp easing vs. determinism | Delta-time loop, no fixed sleeps; tests await UI state, not clocks |

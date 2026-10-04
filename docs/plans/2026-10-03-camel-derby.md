@@ -1913,3 +1913,13 @@ Camel sprite v3 (Draft A refined), user-selected from `docs/art/camel-drafts.md`
 | Camel matrices | 34×24 v2 sprite | matrices `24×34` (rows × chars), drawn bbox ~31×24, 5 distinct poses (closest pair 0.955) |
 | Blanket digit | 3×5 digit on the blanket | anchor sprite-local `(col 10, row 10)` + 1-row bob offset on frames 2/4 |
 | Tests | 91+ | 96 → 98 (`pnpm test`) |
+
+### T2 camel upgrade
+
+Shipped-but-uncommitted T2 (user-selected over v3). Evidence: `index.html`, `tests/`, `docs/art/camel-sprite.md` (v4).
+
+- Buffer 512×288→**640×360**; sprite 34×24→**33×31 T2 two-hump dressed** (brown Bactrian, lane-colour rider, numbered light-blue blanket; 5 frames: stand + 4 distinct walk poses, closest pair ~0.92).
+- Digit anchor sprite-local **(col 11, row 12)**, +1 row on bob frames 2/4.
+- Palette: `CAMEL_PAL` gains fixed harness `#53565e` (key `G`, also reused for PALM fronds in their own green tone — no leakage), lane-colour robe `R`; drops `highlight`/`eye`.
+- Geometry: `HORIZON_Y` 88, `LANE_BOTTOM` 356 (lane ≈ 33.5 px at 8 camels); terrain ±2, glide 900 ms, gait 320 ms unchanged.
+- 98-test suite; selection note: user picked T2 over v3.
