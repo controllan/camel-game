@@ -285,7 +285,7 @@ rock `−16` (= minus the sprite height).
 ### 2.4 Milestone flag + `6×10` label placement
 
 Legend adds `P` pole `#d8d8d8`, `F` flag `#e8c83a`. Base stands on the terrain:
-`flagY = HORIZON_Y − 14 − round(terrainHeightAt(m))` (2× the old `−7`).
+`flagY = HORIZON_Y − 28 − round(terrainHeightAt(m))` (2× the old `−14`).
 
 **`MILESTONE` — `const MILESTONE` (`20 × 28`)**
 
@@ -327,7 +327,7 @@ ctx.font = '12px monospace';      // was 6px
 ctx.textBaseline = 'top';
 const label = String(m);          // m = milestone world value (step 50)
 const x = mapX(m, win) - 4;       // was -2
-const flagY = HORIZON_Y - 14 - Math.round(core.terrainHeightAt(m));
+const flagY = HORIZON_Y - 28 - Math.round(core.terrainHeightAt(m));
 drawSprite(MILESTONE, x, flagY, { outline:'#1a1208', pole:'#d8d8d8', flag:'#e8c83a' });
 // skip the number (flag still drawn) when the 50-pt step is narrower than the label:
 if (stepPx < ctx.measureText(label).width + 8) continue;   // was +4

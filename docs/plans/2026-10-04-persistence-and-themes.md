@@ -965,7 +965,7 @@ Replace `drawBlanketNumber` body with:
       const row = glyph[ry];
       for (let rx = 0; rx < 3; rx++) {
         if (row[rx] === '#') {
-          ctx.fillRect(Math.round(left) + 11 + rx * 2, Math.round(top) + 12 + rowOffset + ry * 2, 2, 2);
+          ctx.fillRect(Math.round(left) + 24 + rx * 2, Math.round(top) + 36 + rowOffset + ry * 2, 2, 2);
         }
       }
     }
@@ -985,7 +985,7 @@ In the art section apply:
   function drawConfetti() { /* ... */ ctx.fillRect(px, py, 4, 4); }
 ```
 
-Milestone flag origin: `drawSprite(MILESTONE, x, HORIZON_Y - 28 - terrain, ...)`; label at `x + 20, flagY + 6`. Finish flag at `poleTop - 28`; checker stripes `6 px` wide/tall. Sun via theme palette (Task 8).
+Milestone flag origin: `drawSprite(MILESTONE, x, HORIZON_Y - 28 - terrain, ...)`; label at `x + 20, flagY + 8`. Finish flag at `poleTop - 28`; checker stripes `8 px` wide/tall. Sun via theme palette (Task 8).
 
 - [ ] **Step 5: Copy Task 1/3 matrices verbatim**
 
@@ -1018,12 +1018,12 @@ expect(r).toEqual([0, 640, 1280, 0, 1280, 640]);
 | `toBeCloseTo(31, 9)` | `toBeCloseTo(62, 9)` |
 | `getImageData(x, y, 33, 31)` | `getImageData(x, y, 66, 62)` |
 | `for (let ry = 0; ry < 31; ry += 1)` / `rx < 33` | `ry < 62` / `rx < 66` |
-| `Math.round(b.left) + 11, Math.round(b.top) + 12, 3, 5` (digit sample) | `Math.round(b.left) + 11, Math.round(b.top) + 12, 6, 10` |
+| `Math.round(b.left) + 11, Math.round(b.top) + 12, 3, 5` (digit sample) | `Math.round(b.left) + 24, Math.round(b.top) + 36, 6, 10` |
 | `+ ry < 5` digit loop / `3x5 glyph` label | `6x10` (every `#` is a 2×2 block) |
 | bob offset `+1` digit | `+2` |
 | `const laneH = (size.height - 4 - 88) / count;` | `const laneH = (size.height - 8 - 120) / count;` |
 | `Math.round(88 + i * laneH)` | `Math.round(120 + i * laneH)` |
-| digit row anchor `+ 12 + rowOffset` with rowOffset `{0,1}` | `+ 12 + rowOffset` with rowOffset `{0,2}`, sample `6,10` |
+| digit row anchor `+ 12 + rowOffset` with rowOffset `{0,1}` | `+ 36 + rowOffset` with rowOffset `{0,2}`, sample `6,10` |
 
 The camel pixel tallies in the "idle bodies" test change (v5 body is denser). Replace the tally threshold with `> 4000` and keep `tally['#123a44'] > 0`.
 
@@ -1046,7 +1046,7 @@ The camel pixel tallies in the "idle bodies" test change (v5 body is denser). Re
 | `getImageData(x0, y0, x1 - x0, y1 - y0)` widths | unchanged (relative) |
 | `toBeLessThanOrEqual(640)` | `toBeLessThanOrEqual(1280)` |
 | milestone band `(74, 88)` | `(96, 120)` (flag now `20×28` at `HORIZON_Y − 28`) |
-| checker band `(88, 360)` / `getImageData(stripeX, 88, 4, 360 - 88)` | `(120, 720)` / `getImageData(stripeX, 120, 6, 720 - 120)` |
+| checker band `(88, 360)` / `getImageData(stripeX, 88, 4, 360 - 88)` | `(120, 720)` / `getImageData(stripeX, 120, 8, 720 - 120)` |
 | `mapScoreToScreenX(10700, w, 640)` | `mapScoreToScreenX(10700, w, 1280)`, `+ 17` → `+ 34` |
 | label band `(74, 88)` | `(96, 120)` |
 
@@ -1730,3 +1730,18 @@ git commit -m "docs: document persistence and themes; record plan deltas"
 ## Execution Handoff
 
 Present this plan; wait for approval. Then run the orchestrator loop per task: implement (specialist agent; `ux-ui-designer` for Tasks 1–3; `developer` for Tasks 4–11) → verify (`pnpm exec playwright test tests/<file>.spec.js`, then `pnpm test`) → `code-reviewer` → `git-expert` commit. `git-expert` runs the commit commands; the implementer never commits. Art tasks must copy preview PNGs out of `test-results/` before any suite run (Playwright wipes it).
+
+---
+
+## Implementation Deltas (post-review)
+
+Review-driven deviations from this plan's Task 7 code/numbers: the shipped
+implementation used the art-doc values where the plan's code blocks were stale.
+Evidence: `index.html`, `docs/art/theme-art.md`, `tests/`.
+
+| Task | Planned | As implemented |
+|---|---|---|
+| 7 | Digit `fillRect` anchor `Math.round(left) + 11, Math.round(top) + 12` (old `33×31` sprite) | `Math.round(left) + 24, Math.round(top) + 36` — `2×2` blocks with `+2` row offset on bob frames 2/4 (`index.html` `drawBlanketNumber`) |
+| 7 | Milestone label `x + 20, flagY + 6` | `x + 20, flagY + 8`; flag `flagY = HORIZON_Y − 28` (art-doc `20×28` sprite) |
+| 7 | Finish checker stripes `6 px` wide/tall | `8×8` cells, `stripeX = x + 8` (`index.html` `drawFinish`) |
+| 7 | Perf check inline with the functional suite | `tests/perf.spec.js` isolated via a dedicated Playwright project with warm-up frames before measurement |
