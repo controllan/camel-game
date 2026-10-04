@@ -450,6 +450,26 @@ test.describe('Renderer camera and bounds', () => {
     expect(seen.bbox.maxC).toBeLessThanOrEqual(32);
     expect(seen.bbox.minR).toBeGreaterThanOrEqual(0);
     expect(seen.bbox.maxR).toBe(30);
+    // Thinned standing legs (rows 23-30): OSO shanks + 5-wide hooves.
+    // Row 26 is two 3-wide OSO shanks (6 camel px); row 30 is two OOOOO
+    // hooves (10 feet cells, was 14 before the leg fix).
+    const idle = await page.evaluate(({ left, top }) => {
+      const d = document.getElementById('game').getContext('2d')
+        .getImageData(Math.round(left), Math.round(top), 33, 31).data;
+      const camel = new Set([0x1a1208, 0xc9803a, 0x8a5220, 0x53565e, 0xe84a3a,
+        0xf0ece0, 0xd8a878, 0xbfe3ea, 0x123a44]);
+      const row = (r) => {
+        let n = 0;
+        for (let rx = 0; rx < 33; rx += 1) {
+          const i = (r * 33 + rx) * 4;
+          if (camel.has((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])) n += 1;
+        }
+        return n;
+      };
+      return { shank: row(26), feet: row(30) };
+    }, { left: b.left, top: b.top });
+    expect(idle.shank).toBe(6); // two OSO shanks
+    expect(idle.feet).toBe(10); // two OOOOO hooves
   });
 
   test('blanket digit is the 3x5 glyph for every lane number', async ({ page }) => {
