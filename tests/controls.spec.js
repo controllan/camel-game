@@ -276,4 +276,10 @@ test.describe('Controls and i18n', () => {
     await expect(page.locator('.lane')).toHaveCount(5);
     await expect(page.locator('#newRace')).toHaveText('Neues Rennen');
   });
+
+  test('EN/DE includes theme strings', async ({ page }) => {
+    await page.locator('#lang-de').click();
+    await expect(page.locator('#theme-desert')).toHaveText('Wüste');
+    await expect(page.locator('#theme-forest')).toHaveText('Wald');
+  });
 });

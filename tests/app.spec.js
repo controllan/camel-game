@@ -160,8 +160,44 @@ test.describe('App-level: errors, network, responsive, a11y', () => {
       if (info.outlineStyle !== 'solid' || !(info.outlineWidth > 0)) outlineFailures.push(info.key);
     }
     expect(outlineFailures).toEqual([]);
-    for (const required of ['lang-en', 'lang-de', 'camelCount', 'goalScore', 'infinite', 'lane-add', 'lane-set', 'newRace']) {
+    for (const required of ['lang-en', 'lang-de', 'theme-desert', 'camelCount', 'goalScore', 'infinite', 'lane-add', 'lane-set', 'newRace']) {
       expect(seen.has(required)).toBe(true);
+    }
+  });
+
+  test('theme buttons are keyboard reachable with visible focus and EN label', async ({ page }) => {
+    await gotoGame(page);
+    await expect(page.locator('#themeToggle')).toHaveAttribute('role', 'group');
+    await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', 'Theme');
+    // Reach both theme buttons by real Tab presses (not .focus()) and assert the
+    // :focus-visible outline is painted on each.
+    const reached = {};
+    for (let i = 0; i < 40 && Object.keys(reached).length < 2; i++) {
+      await page.keyboard.press('Tab');
+      const info = await page.evaluate(() => {
+        const el = document.activeElement;
+        const cs = getComputedStyle(el);
+        return { id: el.id, body: el.tagName === 'BODY', solid: cs.outlineStyle === 'solid' && parseFloat(cs.outlineWidth) > 0 };
+      });
+      if (info.body) break;
+      if (info.id === 'theme-desert' || info.id === 'theme-forest') reached[info.id] = info.solid;
+    }
+    expect(reached).toEqual({ 'theme-desert': true, 'theme-forest': true });
+  });
+
+  test('page never scrolls at 1024x768, 1280x720, 1920x1080 in both themes', async ({ page }) => {
+    for (const vp of [{ width: 1024, height: 768 }, { width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
+      await page.setViewportSize(vp);
+      await gotoGame(page);
+      for (const theme of ['desert', 'forest']) {
+        await page.evaluate((th) => GameCore.setTheme(th), theme);
+        await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+        const noScroll = await page.evaluate(() => ({
+          h: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+          v: document.documentElement.scrollHeight <= document.documentElement.clientHeight + 1,
+        }));
+        expect(noScroll, `${theme} @ ${vp.width}x${vp.height}`).toEqual({ h: true, v: true });
+      }
     }
   });
 });

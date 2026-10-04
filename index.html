@@ -39,7 +39,9 @@
   button:hover:not(:disabled) { background:var(--btn-hover); }
   button:disabled { opacity:.45; cursor:not-allowed; }
   button[aria-pressed="true"] { background:var(--accent); color:#1a1208; }
+  .toggles { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .lang button { min-width:44px; }
+  .themes button { min-width:64px; }
   :focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
   .lane { border-top:2px solid var(--border); padding-top:8px; margin-top:8px; }
   .lane:first-child { border-top:0; padding-top:0; margin-top:0; }
@@ -60,9 +62,15 @@
 <div class="app">
   <header>
     <h1 id="title">CAMEL RACE</h1>
-    <div class="lang" role="group" aria-label="Language" id="languageToggle">
-      <button id="lang-en" type="button" aria-pressed="true">EN</button>
-      <button id="lang-de" type="button" aria-pressed="false">DE</button>
+    <div class="toggles">
+      <div class="lang" role="group" aria-label="Language" id="languageToggle">
+        <button id="lang-en" type="button" aria-pressed="true">EN</button>
+        <button id="lang-de" type="button" aria-pressed="false">DE</button>
+      </div>
+      <div class="lang themes" role="group" aria-label="Theme" id="themeToggle">
+        <button id="theme-desert" type="button" aria-pressed="true">Desert</button>
+        <button id="theme-forest" type="button" aria-pressed="false">Forest</button>
+      </div>
     </div>
   </header>
   <main>
@@ -322,7 +330,9 @@ window.GameCore = (function () {
   const KEY = 'camelRace.v1';
   const VERSION = 1;
   // Theme ids known to the core for validation; #app registers the live registry.
-  let themeIds = new Set(['desert', 'forest']);
+  // Empty until #app calls registerThemeIds() at boot: the registry is the
+  // single source of truth, so a missing registration must not be masked here.
+  let themeIds = new Set();
   function registerThemeIds(ids) { themeIds = new Set(ids); }
   function getThemeIds() { return Array.from(themeIds); }
   function setTheme(id) {
@@ -489,8 +499,6 @@ window.GameCore = (function () {
 
   const HORIZON_Y = 120;
   const LANE_BOTTOM = CANVAS_H - 8; // 712
-  const SPRITE_W = 66;
-  const SPRITE_H = 62;
   // Feet rest this many px above the lane bottom at terrain height 0.
   const TERRAIN_FEET_OFFSET = 2;
   const LANE_MARGIN = 4;
@@ -516,6 +524,7 @@ window.GameCore = (function () {
     finishVisible: false,
     goalScreenX: null,
     decorDrawn: 0,
+    decorKinds: [],
     confettiDrawn: 0,
   };
 
@@ -602,6 +611,9 @@ window.GameCore = (function () {
       teamLabel: 'Team',
       validationHint: 'Enter a whole number ≥ 0.',
       canvasLabel: 'Camel race track. Camels race left to right to the goal.',
+      themeLabel: 'Theme',
+      themeDesert: 'Desert',
+      themeForest: 'Forest',
     },
     de: {
       title: 'KAMEL RENNEN',
@@ -616,6 +628,9 @@ window.GameCore = (function () {
       teamLabel: 'Team',
       validationHint: 'Bitte eine ganze Zahl ≥ 0 eingeben.',
       canvasLabel: 'Kamelrennen. Kamele rennen von links nach rechts zum Ziel.',
+      themeLabel: 'Thema',
+      themeDesert: 'Wüste',
+      themeForest: 'Wald',
     },
   };
 
@@ -728,6 +743,11 @@ window.GameCore = (function () {
     document.getElementById('newRace').textContent = t(s.language, 'newRace');
     document.getElementById('lang-en').setAttribute('aria-pressed', String(s.language === 'en'));
     document.getElementById('lang-de').setAttribute('aria-pressed', String(s.language === 'de'));
+    document.getElementById('themeToggle').setAttribute('aria-label', t(s.language, 'themeLabel'));
+    document.getElementById('theme-desert').textContent = t(s.language, 'themeDesert');
+    document.getElementById('theme-forest').textContent = t(s.language, 'themeForest');
+    document.getElementById('theme-desert').setAttribute('aria-pressed', String(s.theme === 'desert'));
+    document.getElementById('theme-forest').setAttribute('aria-pressed', String(s.theme === 'forest'));
     canvas.setAttribute('aria-label', t(s.language, 'canvasLabel'));
     validationEl.textContent = t(s.language, 'validationHint');
 
@@ -828,6 +848,11 @@ window.GameCore = (function () {
   document.getElementById('lang-en').addEventListener('click', function () { core.setLanguage('en'); });
   document.getElementById('lang-de').addEventListener('click', function () { core.setLanguage('de'); });
 
+  // Theme toggle: instant swap (next frame redraws), no score/race reset; the
+  // debounced save persists the choice via the existing subscribe(scheduleSave).
+  document.getElementById('theme-desert').addEventListener('click', function () { core.setTheme('desert'); });
+  document.getElementById('theme-forest').addEventListener('click', function () { core.setTheme('forest'); });
+
   // ---------- art ----------
   // Fixed tones for the decoration sprites. The camel's own
   // palette (below) supplies body/shade/harness/robe/white/skin/blanket.
@@ -838,8 +863,10 @@ window.GameCore = (function () {
     checkerDark: '#1a1a1a',
     flag: '#e8c83a',
   };
+  // Shared flags render in every theme: each carries its own char-keyed palette.
+  const MILESTONE_PAL = { outline: '#1a1208', P: '#d8d8d8', F: '#e8c83a' };
+  const FINISH_PAL = { outline: '#1a1208', P: '#d8d8d8', C: '#f0f0f0', X: '#1a1a1a', F: '#e8c83a' };
 
-  const SKY_BANDS = ['#1a1030', '#241640', '#2e1c4a'];
   const PALM_PAL = { body: '#6b4a2a', shade: '#4a3320', harness: '#2f6b3a' }; // G fronds via the shared harness key
   const CACTUS_PAL = { body: '#2f6b3a', shade: '#1f4a26' };
   const ROCK_PAL = { body: '#6b5570', shade: '#4a3a52' };
@@ -849,10 +876,6 @@ window.GameCore = (function () {
     outline: '#1a1208', body: '#c9803a', shade: '#8a5220', harness: '#53565e',
     robe: robe, white: '#f0ece0', skin: '#d8a878', blanket: '#bfe3ea',
   });
-
-  // Dune lane tokens (sand ribbons under the dark sky).
-  const DUNE = { top: '#c9a25a', shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e' };
-  const BLANKET_DIGIT_COLOR = '#123a44';
 
   // 3x5 digit font for the numbered saddle blanket ('#' lit, '.' transparent).
   const DIGIT_FONT = {
@@ -869,11 +892,6 @@ window.GameCore = (function () {
   };
 
   const SEED = 1337;
-  const DECOR_SPACING = 90;
-  // Above this camera span the window covers too many decoration cells to draw
-  // cheaply (scores are unbounded), so world decor is dropped; the cheap sky and
-  // dune bands still render. 1500 points draws ~18 decorations per frame.
-  const DECOR_MAX_SPAN = 1500;
 
   // Camel v5 66x62, 5 frames: 0 standing (idle), 1-4 walk (contact A, pass A,
   // contact B, pass B). Legend (docs/art/camel-sprite.md): . transparent,
@@ -1367,17 +1385,557 @@ window.GameCore = (function () {
     '....................',
   ];
 
+  // Boar 60x42, 5 frames (docs/art/boar-sprite.md): 0 standing, 1 contact A,
+  // 2 pass A (bob), 3 contact B, 4 pass B (bob). Legend: . transparent,
+  // O outline/hooves, B body, S shade, D bristle/reins/boots, H highlight,
+  // E ear, T tusk, Y eye, G legs, R hunter tunic (per-lane), K skin, C cap,
+  // L saddle blanket. Digit flat area cols 18-23 x rows 18-27 (+1 row on bob).
+  const BOAR = [
+    [ // frame 0 - standing (idle; traced gait, feet row 41)
+      '.......................OOOOO................................',
+      '........................OCO.................................',
+      '.......................OCCCO................................',
+      '.......................OCCCO................................',
+      '......................OKKKKKO......OOO......................',
+      '......................OKKKYKO.....OSESOO....................',
+      '......................OKKKKKO....OSEEESSO...................',
+      '.....................ORRRRRRRO...OSEEEDDSO..................',
+      '.....................ORRRRRRRRO..OSEEEDDSSO.................',
+      '.....................ORRRRRRRROOOOHEEDDSSSSOO...............',
+      '.....................ORRRRRRRROKOHBDDDDSSSSSSO..............',
+      '.....................ORRRRRRRRODDHBBSSSSSSSSSSO.............',
+      '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
+      '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
+      '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
+      '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
+      '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
+      '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
+      '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
+      '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
+      '..OODDOODSSSSSSSSDLLLLLLBBBBBBBBSSSSDDDDDDDOOBHSDDDO........',
+      '.OSSDDSOSSSSSSSSSDDBBBBBBBBBBBSSSSSSSSSSDDOOOHOOOOO.........',
+      '.OSSSSHHSSSSSSSSSDDSBBBBBBBBSSSDDDDSSSSSSOOODO..............',
+      '.OGGGGHHGGGGGGGGGGGGGGGGGGGGGGGGGOGGGGGGGOOOGO..............',
+      '.OGGGGHHGGGGGGGGGOOGGGGGGGGGGGGOOOGGGGGGGOGGO...............',
+      '..OGGGOHGGGGGGGGOOOOOGGGOOGGGGO..OGGGGGGOOGGO...............',
+      '..OHHO.OHGGGGGGGHHOOOGGGOOOOOO....OGGGGGOOGO................',
+      '...OO...OGGGGGGOOOHGGGGGGO........OGGGGGOGGO................',
+      '.........OGGGGO...OGGGGGO.........OGGGGOGGGGO...............',
+      '.........OGGGGO...OGGGGGO........OGGGGGGGGGGGO..............',
+      '..........OGGGO....OGGGGO.......OGGGGGGGGGGGGO..............',
+      '..........OGGGGO....OGGGGO......OGGGGGOOOGGGGO..............',
+      '..........OGGGGGO...OGGGGGO.....OGGGGO...OGGGO..............',
+      '...........OGGGOGO...OGGGOGO....OGGGBO...OGGOGO.............',
+      '...........OGGGGHO....OGGGHO.....OGHO.....OGGHO.............',
+    ],
+    [ // frame 1 - contact A (legs stride wide)
+      '.......................OOOOO................................',
+      '........................OCO.................................',
+      '.......................OCCCO................................',
+      '.......................OCCCO................................',
+      '......................OKKKKKO......OOO......................',
+      '......................OKKKYKO.....OSESOO....................',
+      '......................OKKKKKO....OSEEESSO...................',
+      '.....................ORRRRRRRO...OSEEEDDSO..................',
+      '.....................ORRRRRRRRO..OSEEEDDSSO.................',
+      '.....................ORRRRRRRROOOOHEEDDSSSSOO...............',
+      '.....................ORRRRRRRROKOHBDDDDSSSSSSO..............',
+      '.....................ORRRRRRRRODDHBBSSSSSSSSSSO.............',
+      '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
+      '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
+      '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
+      '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
+      '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
+      '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
+      '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
+      '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
+      '..OODDOODSSSSSSSSDLLLLLLBBBBBBBBSSSSDDDDDDDOOBHSDDDO........',
+      '.OSSDDSOSSSSSSSSSDDBBBBBBBBBBBSSSSSSSSSSDDOOOHOOOOO.........',
+      '.OOOOOOOOOSSSSSSOOOOBBBBBBBBSSSDDDDSSOOOOOOODO..............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '.........OGGGGO......OGGGGO...OGGGGO.....OGGGGO.............',
+      '.........OGGGGO......OGGGGO...OGGGGO......OGGGGO............',
+      '.........OGGGGO......OGGGGO...OGGGGO......OGGGGO............',
+      '........OGGGGO........OGGGGO..OGGGGO......OGGGGO............',
+      '........OGGGGO........OGGGGO.OGGGGO.......OGGGGO............',
+      '........OGGGGO........OGGGGO.OGGGGO.......OGGGGO............',
+      '........OGGGGO........OGGGGO.OGGGGO........OGGGGO...........',
+      '.......OGGGGO..........OGGGGOGGGGO.........OGGGGO...........',
+      '.......OGGGGO..........OGGGGOGGGGO.........OGGGGO...........',
+      '......OOOOOOO.........OOOOOOOOOOOO........OOOOOOO...........',
+    ],
+    [ // frame 2 - pass A (bob: body +1 row; legs vertical)
+      '............................................................',
+      '.......................OOOOO................................',
+      '........................OCO.................................',
+      '.......................OCCCO................................',
+      '.......................OCCCO................................',
+      '......................OKKKKKO......OOO......................',
+      '......................OKKKYKO.....OSESOO....................',
+      '......................OKKKKKO....OSEEESSO...................',
+      '.....................ORRRRRRRO...OSEEEDDSO..................',
+      '.....................ORRRRRRRRO..OSEEEDDSSO.................',
+      '.....................ORRRRRRRROOOOHEEDDSSSSOO...............',
+      '.....................ORRRRRRRROKOHBDDDDSSSSSSO..............',
+      '.....................ORRRRRRRRODDHBBSSSSSSSSSSO.............',
+      '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
+      '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
+      '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
+      '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
+      '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
+      '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
+      '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
+      '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
+      '..OODDOODSSSSSSSSDLLLLLLBBBBBBBBSSSSDDDDDDDOOBHSDDDO........',
+      '.OSSDDSOSSSSSSSSSDDBBBBBBBBBBBSSSSSSSSSSDDOOOHOOOOO.........',
+      '.OOOOOOOOOSSSSSSOOOOBBBBBBOOOOODDDDSSOOOOOOODO..............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '.........OGGGGO......OGGGGO.....OGGGGO....OGGGGO............',
+      '.........OGGGGO......OGGGGO.....OGGGGO....OGGGGO............',
+      '.........OGGGGO......OGGGGO.....OGGGGO....OGGGGO............',
+      '.........OGGGGO......OGGGGO.....OGGGGO....OGGGGO............',
+      '.........OGGGGO......OGGGGO.....OGGGGO....OGGGGO............',
+      '........OOOOOOO.....OOOOOOO....OOOOOOO...OOOOOOO............',
+    ],
+    [ // frame 3 - contact B (opposite stride)
+      '.......................OOOOO................................',
+      '........................OCO.................................',
+      '.......................OCCCO................................',
+      '.......................OCCCO................................',
+      '......................OKKKKKO......OOO......................',
+      '......................OKKKYKO.....OSESOO....................',
+      '......................OKKKKKO....OSEEESSO...................',
+      '.....................ORRRRRRRO...OSEEEDDSO..................',
+      '.....................ORRRRRRRRO..OSEEEDDSSO.................',
+      '.....................ORRRRRRRROOOOHEEDDSSSSOO...............',
+      '.....................ORRRRRRRROKOHBDDDDSSSSSSO..............',
+      '.....................ORRRRRRRRODDHBBSSSSSSSSSSO.............',
+      '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
+      '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
+      '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
+      '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
+      '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
+      '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
+      '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
+      '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
+      '..OODDOODSSSSSSSSDLLLLLLBBBBBBBBSSSSDDDDDDDOOBHSDDDO........',
+      '.OSSDDSOSSSSSSSSSDDBBBBBBBBBBBSSSSSSSSSSDDOOOHOOOOO.........',
+      '.OOOOOOOOOSSSSSSSDDSBBBBBBOOOOODDDDSSSSSSOOODO..............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '...........OGGGGO...OGGGGO......OGGGGO...OGGGGO.............',
+      '...........OGGGGO..OGGGGO.......OGGGGO..OGGGGO..............',
+      '...........OGGGGO..OGGGGO.......OGGGGO..OGGGGO..............',
+      '............OGGGGO.OGGGGO.......OGGGGO..OGGGGO..............',
+      '............OGGGGO.OGGGGO........OGGGGO.OGGGGO..............',
+      '............OGGGGO.OGGGGO........OGGGGO.OGGGGO..............',
+      '............OGGGGOOGGGGO.........OGGGGOOGGGGO...............',
+      '.............OGGGGOGGGGO..........OGGGGOGGGGO...............',
+      '.............OGGGGOGGGGO..........OGGGGOGGGGO...............',
+      '............OOOOOOOOOOOO.........OOOOOOOOOOOO...............',
+    ],
+    [ // frame 4 - pass B (bob: body +1 row; legs vertical)
+      '............................................................',
+      '.......................OOOOO................................',
+      '........................OCO.................................',
+      '.......................OCCCO................................',
+      '.......................OCCCO................................',
+      '......................OKKKKKO......OOO......................',
+      '......................OKKKYKO.....OSESOO....................',
+      '......................OKKKKKO....OSEEESSO...................',
+      '.....................ORRRRRRRO...OSEEEDDSO..................',
+      '.....................ORRRRRRRRO..OSEEEDDSSO.................',
+      '.....................ORRRRRRRROOOOHEEDDSSSSOO...............',
+      '.....................ORRRRRRRROKOHBDDDDSSSSSSO..............',
+      '.....................ORRRRRRRRODDHBBSSSSSSSSSSO.............',
+      '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
+      '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
+      '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
+      '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
+      '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
+      '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
+      '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
+      '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
+      '..OODDOODSSSSSSSSDLLLLLLBBBBBBBBSSSSDDDDDDDOOBHSDDDO........',
+      '.OSSDDSOSSSSSSSSSDDBBBBBBBBBBBSSSSSSSSSSDDOOOHOOOOO.........',
+      '.OOOOOOOOOSSSSSSOOOOBBBBBBOOOOODDDDSSOOOOOOODO..............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO.....OGGGGO....OGGGGO.............',
+      '..........OGGGGO....OGGGGO......OGGGGO....OGGGGO............',
+      '..........OGGGGO....OGGGGO......OGGGGO....OGGGGO............',
+      '...........OGGGGO..OGGGGO.......OGGGGO....OGGGGO............',
+      '...........OGGGGO..OGGGGO.......OGGGGO....OGGGGO............',
+      '...........OGGGGO..OGGGGO........OGGGGO....OGGGGO...........',
+      '...........OGGGGO..OGGGGO........OGGGGO....OGGGGO...........',
+      '...........OGGGGO..OGGGGO........OGGGGO....OGGGGO...........',
+      '..........OOOOOOO.OOOOOOO.......OOOOOOO...OOOOOOO...........',
+    ],
+  ];
+
+  // Boar palette factory (docs/art/boar-sprite.md); only `robe` varies per lane.
+  // `harness` aliases `legs` so the shared camel legend (G -> harness) resolves
+  // the boar's G = legs tone without diverging from the camel palette keys.
+  const BOAR_PAL = (robe) => ({
+    outline: '#16120b', body: '#4c4332', shade: '#3c372a', bristle: '#26221a',
+    highlight: '#5f5745', ear: '#787160', tusk: '#f0ece0', eye: '#14100b',
+    legs: '#2e2918', harness: '#2e2918', robe: robe, skin: '#d8a878', cap: '#2f6b3a', blanket: '#bfe3ea',
+  });
+  const BOAR_ANCHOR = { x: 18, y: 18 }; // pinned by docs/art/boar-sprite.md
+
+  // Forest decor sprites (docs/art/theme-art.md). Legends via CHAR_KEY +
+  // per-sprite palette objects keyed by their own letters.
+  const FOREST_TREE_PAL_CONIFER = { outline: '#1a1208', T: '#2f6b3a', S: '#1f4a2a', B: '#4a3320' };
+  const FOREST_TREE_PAL_DECIDUOUS = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234', B: '#4a3320' };
+  const FOREST_BUSH_PAL = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234' };
+  const MUSHROOM_RED_PAL = { outline: '#1a1208', C: '#c0392b', W: '#f0ece0', T: '#e8dcc0' };
+  const MUSHROOM_BROWN_PAL = { outline: '#1a1208', C: '#8a5a3a', G: '#6b4a2a', T: '#e8dcc0' };
+  const MOSS_PAL = { outline: '#1a1208', M: '#3f7a35', N: '#2f5a28' };
+  const STONE_PAL = { outline: '#1a1208', B: '#8a8a92', S: '#5a5a62' };
+  const NEEDLES_PAL = { outline: '#1a1208', P: '#8a5a3a' };
+
+  // Conifer 40x56.
+  const FOREST_TREE_CONIFER = [
+    '........................................',
+    '........................................',
+    '..................OOOO..................',
+    '.................OTTTTO.................',
+    '.................OTTTTO.................',
+    '................OTTTTTTO................',
+    '...............OTTTTTTTTO...............',
+    '...............OTTTTTTTTO...............',
+    '..............OTTTTTTTTTTO..............',
+    '.............OTTTTTTTSTTTTO.............',
+    '............OTTTTTTTTSSTTTTO............',
+    '............OTTTTTTTTSSTTTTO............',
+    '.............OOOTTTTTSSSOOO.............',
+    '..............OTTTTTTSSSSO..............',
+    '..............OTTTTTTSSSSO..............',
+    '.............OTTTTTTTSSSSSO.............',
+    '..............OTTTTTTSSSSO..............',
+    '.............OTTTTTTTSSSSSO.............',
+    '............OTTTTTTTTSSSSSSO............',
+    '...........OTTTTTTTTTSSSSSSSO...........',
+    '..........OTTTTTTTTTTSSSSSSSSO..........',
+    '.........OTTTTTTTTTTTSSSSSSSSSO.........',
+    '..........OOOOTTTTTTTSSSSSOOOO..........',
+    '...........OOTTTTTTTTSSSSSSOO...........',
+    '..........OTTTTTTTTTTSSSSSSSSO..........',
+    '........OOTTTTTTTTTTTSSSSSSSSSOO........',
+    '.......OTTTTTTTTTTTTTSSSSSSSSSSSO.......',
+    '......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......',
+    '.......OOOOOOTTTTTTTTSSSSSSOOOOOO.......',
+    '.........OOTTTTTTTTTTSSSSSSSSOO.........',
+    '.......OOTTTTTTTTTTTTSSSSSSSSSSOO.......',
+    '......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......',
+    '....OOTTTTTTTTTTTTTTTSSSSSSSSSSSSSOO....',
+    '...OTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO...',
+    '....OOOOOOOOTTTTTTTTTSSSSSSSOOOOOOOO....',
+    '.........OTTTTTTTTTTTSSSSSSSSSO.........',
+    '.......OOTTTTTTTTTTTTSSSSSSSSSSOO.......',
+    '.....OOTTTTTTTTTTTTTTSSSSSSSSSSSSOO.....',
+    '...OOTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSOO...',
+    '..OTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO..',
+    '...OOOOOOOOOOOOOOOBBBBOOOOOOOOOOOOOOO...',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '................OBBBBBBO................',
+    '................OBBBBBBO................',
+    '................OBBBBBBO................',
+    '.................OOOOOO.................',
+    '........................................',
+    '........................................',
+    '........................................',
+  ];
+
+  // Deciduous 40x56.
+  const FOREST_TREE_DECIDUOUS = [
+    '........................................',
+    '..................OOOOO.................',
+    '................OOTTTTTOO...............',
+    '...............OTTTTTTTTTO..............',
+    '..............OTTTTTTTTTTTO.............',
+    '..............OTTTTTTTTTTTO.............',
+    '..........OOOOTTTTTTTTTTTTTO............',
+    '.........OTTTTTTTTTTTTTTTTTSOOO.........',
+    '........OTTTTTTTTTTTTTTTTTTTTTTO........',
+    '.......OTTTTTTTTTTTTTTTTTTTTTTTTO.......',
+    '......OTTTTTTTTTTTTTTTTTTTTTTTTTTO......',
+    '......OTTTTTTTTTTTTTTTTTTTTTTTTTTTO.....',
+    '......OTTTTTTTTTTTTTTTTTTTTTTTTTTTO.....',
+    '......OTTTTTTTTTTTTTTTTTTTTTTTTTTTO.....',
+    '......OTTTTTTTTTTTTTTTTTTTTTTTTTTTO.....',
+    '.....OTTTTTTTTTTTTTTTSSTTTTTTTTTTTSO....',
+    '.....OTTTTTTTTTTTTTTTSSSTTTTTTTTTSSO....',
+    '.....OTTTTTTTTTTTTTTTSSSSTTTTTTTSSSO....',
+    '.....OTTTTTTTTTTTTTTTSSSSSTTTTTSSSSO....',
+    '.....OTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO....',
+    '....OTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO...',
+    '.....OSSSSSSSSSSSSSSSSSSTTTTTSSSSSSO....',
+    '.....OSSSSSSSTTTTTSSSSSTTTTTTTSSSSSO....',
+    '.....OSSSSSSTTTTTTTSSSTTTTTTTTTSSSSO....',
+    '.....OSSSSSTTTTTTTTTSTTTTTTTTTTTSSSO....',
+    '.....OSSSSTTTTTTTTTTTTTTTTTTTTTTSSSO....',
+    '......OSSSTTTTTTTTTTTTTTTTTTTTTTSSO.....',
+    '......OSSSTTTTTTTTTTTTTTTTTTTTTTSSO.....',
+    '.......OSSTTTTTTTTTTTTTTTTTTTTTTSO......',
+    '.......OSSTTTTTTTTTTTSTTTTTTTTTSSO......',
+    '........OSSTTTTTTTTTSSSTTTTTTTSSO.......',
+    '.........OSSTTTTTTTSSSSSTTTTTSSO........',
+    '..........OSSTTTTTSSSSSSSSSSSSO.........',
+    '...........OOSSSSSSSSSSSSSSSOO..........',
+    '.............OOSSSSSSSSSSSOO............',
+    '...............OOOBBSBBOOO..............',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '..................OBBBBO................',
+    '...................OOOO.................',
+    '........................................',
+  ];
+
+  // Bush 28x20.
+  const FOREST_BUSH = [
+    '............................',
+    '............................',
+    '..............O.............',
+    '........OOOOOOTOOOOO........',
+    '.......OTTTTTTTSSSSSOO......',
+    '.....OOTTTTTTTTSSTTTTTOO....',
+    '....OTTTTTTTTTTSTTTTTTTSO...',
+    '....OTTTTTTTTTTTTTTTTTTTO...',
+    '...OTTTTTTTTTTTTTTTTTTTTSO..',
+    '...OTTTTTTTTTTTTTTTTTTTTSO..',
+    '..OTTTTTTTTTTTTTTTTTTTTTSSO.',
+    '...OTTTTTTTTTTTTTTTTTTTTSO..',
+    '...OTTTTTTTTTTTSTTTTTTTSSO..',
+    '....OTTTTTTTTTTSSTTTTTSSO...',
+    '....OTTTTTTTTTTSSSSSSSSSO...',
+    '.....OOTTTTTTTTSSSSSSSOO....',
+    '.......OOTTTTTTSSSSSOO......',
+    '.........OOOOOTOOOOO........',
+    '..............O.............',
+    '............................',
+  ];
+
+  // Mushroom red 12x12.
+  const MUSHROOM_RED = [
+    '............',
+    '......O.....',
+    '.....OCO....',
+    '....OWCCO...',
+    '...OCCCCWO..',
+    '...OWCCCCO..',
+    '..OCCTTCCCO.',
+    '...OOTTOOO..',
+    '....OTTO....',
+    '....OTTO....',
+    '.....OO.....',
+    '............',
+  ];
+
+  // Mushroom brown 12x12.
+  const MUSHROOM_BROWN = [
+    '............',
+    '......O.....',
+    '.....OCO....',
+    '....OCCCO...',
+    '...OCCCCCO..',
+    '...OCCCCCO..',
+    '..OGGTTGGGO.',
+    '...OOTTOOO..',
+    '....OTTO....',
+    '....OTTO....',
+    '.....OO.....',
+    '............',
+  ];
+
+  // Moss 20x8.
+  const MOSS = [
+    '....................',
+    '......OOOOOOOO......',
+    '....OONMMNMMNMOOO...',
+    '...OMNMMNMMNMMNMMO..',
+    '..OMNMMNMMNMMNMMNMO.',
+    '.OMNMMNMMNMMNMMNMMO.',
+    '..OOOOOOOOOOOOOOOO..',
+    '....................',
+  ];
+
+  // Stone 16x10.
+  const STONE = [
+    '................',
+    '.....OOOOOO.....',
+    '...OOBBBBBBOO...',
+    '..OBBBBBBBBBBO..',
+    '.OBBBBBBBBBBBBO.',
+    '.OBBBBBBSSSSSSO.',
+    '.OBBBBBBSSSSSSO.',
+    '.OBBBBBBBBBBBBO.',
+    '..OOOOOOOOOOOO..',
+    '................',
+  ];
+
+  // Stone alt 12x8.
+  const STONE_ALT = [
+    '............',
+    '....OOOO....',
+    '..OOBBBBOO..',
+    '.OBBBBBBBBO.',
+    '.OBBBBBBBBO.',
+    '.OBBBBBBBBO.',
+    '..OOOOOOOO..',
+    '............',
+  ];
+
+  // Pine needles 24x8.
+  const PINE_NEEDLES = [
+    '........................',
+    '.......OOOOOOO.OOOOO....',
+    '.....OOPPPPPPPOPPPPPO...',
+    '....OPPPPOPPOPPPPPPPO...',
+    '....OOPOOPPOOOPOOPOO....',
+    '...OPPOOPOOOPPOOPO......',
+    '....OO..O...OO..O.......',
+    '........................',
+  ];
+
+  // ---------- theme registry (single source of truth for per-theme art) ----------
+  // Some fields are declarative-only (shape fixed by docs/art/theme-art.md) and are
+  // not read by the renderer; each is marked below.
+  const CAMEL_ANCHOR = { x: 24, y: 36 }; // docs/art/camel-sprite.md v5 digit anchor
+  const THEMES = {
+    desert: {
+      id: 'desert',
+      label: { en: 'Desert', de: 'W\u00fcste' }, // declarative-only (DOM i18n labels the buttons)
+      palette: { sky: ['#1a1030', '#241640', '#2e1c4a'], sun: '#e8a03a', sunRim: '#f0c060', accent: '#e8c83a', distant: ['#3a2a4a', '#4a3550'] }, // accent: declarative-only
+      ground: { top: '#c9a25a', shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e' },
+      decor: {
+        spacing: 90, maxSpan: 1500,
+        kinds: [
+          { kind: 'palm', layer: 'background', weight: 0.34, sprite: PALM, pal: PALM_PAL, yOffset: -40 },
+          { kind: 'cactus', layer: 'background', weight: 0.33, sprite: CACTUS, pal: CACTUS_PAL, yOffset: -32 },
+          { kind: 'rock', layer: 'background', weight: 0.33, sprite: ROCK, pal: ROCK_PAL, yOffset: -16 },
+        ],
+      },
+      animal: {
+        id: 'camel', sprite: CAMEL, pal: CAMEL_PAL, w: 66, h: 62, rider: 'turban', // rider: declarative-only
+        blanket: { anchor: CAMEL_ANCHOR, w: 6, h: 10, digitColor: '#123a44' }, bobOffset: 2,
+      },
+      laneFit: { spriteHMax: 70, laneMinPx: 74 }, // declarative-only (bounds documented, not enforced at runtime)
+    },
+    forest: {
+      id: 'forest',
+      label: { en: 'Forest', de: 'Wald' }, // declarative-only (DOM i18n labels the buttons)
+      palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: [] }, // accent: declarative-only
+      ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018' },
+      decor: {
+        spacing: 90, maxSpan: 1500,
+        // Family-level `kind` names (docs/art/theme-art.md uses per-sprite names):
+        // trees → FOREST_TREE_CONIFER/DECIDUOUS/BUSH, mushrooms → MUSHROOM_RED/BROWN,
+        // moss → MOSS, stones → STONE/STONE_ALT, pine_needles → PINE_NEEDLES.
+        kinds: [
+          { kind: 'trees', layer: 'background', weight: 0.20, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_CONIFER, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.15, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_DECIDUOUS, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.12, sprite: FOREST_BUSH, pal: FOREST_BUSH_PAL, yOffset: -20 },
+          { kind: 'mushrooms', layer: 'floor', weight: 0.10, sprite: MUSHROOM_RED, pal: MUSHROOM_RED_PAL, yOffset: -12 },
+          { kind: 'mushrooms', layer: 'floor', weight: 0.04, sprite: MUSHROOM_BROWN, pal: MUSHROOM_BROWN_PAL, yOffset: -12 },
+          { kind: 'moss', layer: 'floor', weight: 0.13, sprite: MOSS, pal: MOSS_PAL, yOffset: -8 },
+          { kind: 'stones', layer: 'floor', weight: 0.10, sprite: STONE, pal: STONE_PAL, yOffset: -10 },
+          { kind: 'stones', layer: 'floor', weight: 0.04, sprite: STONE_ALT, pal: STONE_PAL, yOffset: -8 },
+          { kind: 'pine_needles', layer: 'floor', weight: 0.12, sprite: PINE_NEEDLES, pal: NEEDLES_PAL, yOffset: -8 },
+        ],
+      },
+      animal: {
+        id: 'boar', sprite: BOAR, pal: BOAR_PAL, w: 60, h: 42, rider: 'hunter', // rider: declarative-only
+        blanket: { anchor: BOAR_ANCHOR, w: 6, h: 10, digitColor: '#123a44' }, bobOffset: 1,
+      },
+      laneFit: { spriteHMax: 70, laneMinPx: 74 }, // declarative-only (bounds documented, not enforced at runtime)
+    },
+  };
+
+  let theme = THEMES.desert;
+  let SPRITE_W = theme.animal.w;
+  let SPRITE_H = theme.animal.h;
+  function syncTheme() {
+    const s = core.getState();
+    theme = THEMES[s.theme] || THEMES.desert;
+    SPRITE_W = theme.animal.w;
+    SPRITE_H = theme.animal.h;
+  }
+
   const MILESTONE_STEP = 50;
   const CONFETTI_COUNT = 60;
   const CONFETTI_SEED = 99;
   const CONFETTI_COLORS = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a', '#f0f0f0'];
 
-  // Every legend char resolves through the sprite's own palette (falling back to
-  // the fixed COL tones). The camel v5 uses no H/E; the finish flag uses X = checker-dark.
+  // Every legend char resolves through the sprite's own palette first (forest
+  // decor sprites key by their own letters), then the shared semantic CHAR_KEY.
   const CHAR_KEY = {
     O: 'outline', B: 'body', S: 'shade', G: 'harness', R: 'robe',
     W: 'white', K: 'skin', L: 'blanket',
-    P: 'pole', C: 'checkerLight', X: 'checkerDark', F: 'flag',
+    D: 'bristle', H: 'highlight', E: 'ear', T: 'tusk', Y: 'eye', C: 'cap',
+    P: 'pole', X: 'checkerDark', F: 'flag',
   };
 
   function drawSprite(rows, x, y, palette) {
@@ -1386,32 +1944,38 @@ window.GameCore = (function () {
     for (let ry = 0; ry < rows.length; ry++) {
       const row = rows[ry];
       for (let rx = 0; rx < row.length; rx++) {
-        const key = CHAR_KEY[row[rx]];
-        if (!key) continue;
-        const color = (palette && palette[key]) || COL[key];
-        if (!color) continue;
+        const ch = row[rx];
+        if (ch === '.') continue;
+        const key = CHAR_KEY[ch];
+        let color;
+        if (palette && palette[ch] !== undefined) color = palette[ch];
+        else if (palette && key && palette[key] !== undefined) color = palette[key];
+        else if (key && COL[key] !== undefined) color = COL[key];
+        if (color === undefined) continue;
         ctx.fillStyle = color;
         ctx.fillRect(ox + rx, oy + ry, 1, 1);
       }
     }
   }
 
-  // Draw the camel's 1-based lane digit on its saddle blanket (6x10, anchored
-  // at sprite-local (24,36)) in the dark blanket-number ink, after the sprite
-  // pass. The 6x10 glyph is the exact 2x nearest-neighbour upscale of the 3x5
-  // DIGIT_FONT above (single source of truth). The blanket (and digit) drop
-  // 2 px with the body on the bob frames (2, 4).
+  // Draw the animal's 1-based lane digit on its saddle blanket, in the theme's
+  // blanket-number ink, after the sprite pass. The 6x10 glyph is the exact 2x
+  // nearest-neighbour upscale of the 3x5 DIGIT_FONT above (single source of
+  // truth). The blanket (and digit) drop `bobOffset` rows with the body on the
+  // bob frames (2, 4).
   function drawBlanketNumber(left, top, laneIndex, frameIndex) {
     let n = laneIndex + 1;
     if (n > 9) n = 0; // unreachable safety fallback: lane count is capped at 8
     const glyph = DIGIT_FONT[String(n)];
     if (!glyph) return;
-    const rowOffset = (frameIndex === 2 || frameIndex === 4) ? 2 : 0;
-    ctx.fillStyle = BLANKET_DIGIT_COLOR;
+    const blanket = theme.animal.blanket;
+    const anchor = blanket.anchor;
+    const rowOffset = (frameIndex === 2 || frameIndex === 4) ? theme.animal.bobOffset : 0;
+    ctx.fillStyle = blanket.digitColor;
     for (let ry = 0; ry < 5; ry++) {
       const row = glyph[ry];
       for (let rx = 0; rx < 3; rx++) {
-        if (row[rx] === '#') ctx.fillRect(Math.round(left) + 24 + rx * 2, Math.round(top) + 36 + rowOffset + ry * 2, 2, 2);
+        if (row[rx] === '#') ctx.fillRect(Math.round(left) + anchor.x + rx * 2, Math.round(top) + anchor.y + rowOffset + ry * 2, 2, 2);
       }
     }
   }
@@ -1434,18 +1998,21 @@ window.GameCore = (function () {
   }
 
   function drawSky() {
-    const bandH = Math.ceil(HORIZON_Y / SKY_BANDS.length);
-    for (let i = 0; i < SKY_BANDS.length; i++) {
-      ctx.fillStyle = SKY_BANDS[i];
+    const bands = theme.palette.sky;
+    const bandH = Math.ceil(HORIZON_Y / bands.length);
+    for (let i = 0; i < bands.length; i++) {
+      ctx.fillStyle = bands[i];
       ctx.fillRect(0, i * bandH, CANVAS_W, bandH);
     }
   }
 
-  function drawSun() {
-    const cx = 1020, cy = 76, r = 32;
+  // Celestial disc in the sky: the desert sun and the forest dusk moon share this
+  // slot (centre 1020,76 r32), so the name is theme-neutral.
+  function drawCelestial() {
+    const cx = 1020, cy = 76, r = 32; // 2x for the 120px sky
     for (let dy = -r; dy <= r; dy++) {
       const span = Math.floor(Math.sqrt(r * r - dy * dy));
-      ctx.fillStyle = (Math.abs(dy) > r - 6) ? '#f0c060' : '#e8a03a';
+      ctx.fillStyle = (Math.abs(dy) > r - 6) ? theme.palette.sunRim : theme.palette.sun;
       ctx.fillRect(cx - span, cy + dy, span * 2 + 1, 1);
     }
   }
@@ -1461,39 +2028,69 @@ window.GameCore = (function () {
   }
 
   function drawDunes(win) {
-    drawDuneBand(HORIZON_Y - 18, (win.min * 0.3) % 120, '#3a2a4a');
-    drawDuneBand(HORIZON_Y - 6, (win.min * 0.6) % 90, '#4a3550');
+    // Distant background silhouettes just above the horizon; per-theme colors
+    // (desert dunes / forest hillside). Forest ships none (pure sky + treeline).
+    const distant = theme.palette.distant;
+    if (!distant || distant.length < 2) return;
+    drawDuneBand(HORIZON_Y - 18, (win.min * 0.3) % 120, distant[0]);
+    drawDuneBand(HORIZON_Y - 6, (win.min * 0.6) % 90, distant[1]);
   }
 
-  function drawDecor(win) {
-    // Zoomed out past DECOR_MAX_SPAN the window spans too many decoration cells
-    // to draw cheaply; skip world decor (sky/dunes stay, they are cheap bands).
-    if ((win.max - win.min) > DECOR_MAX_SPAN) { runtime.decorDrawn = 0; return; }
+  // Draw one decor layer ('background' = horizon treeline/dunes; 'floor' = on-lane
+  // ground cover). Called twice per frame — background BEFORE drawLanes, floor
+  // AFTER — so floor sprite pixels land on top of the opaque lane fill instead of
+  // being overpainted. Placement is byte-identical to the former single pass:
+  // every cell reseeds via hash2(SEED, k), so both passes compute the same
+  // roll/point/kind; a cell is simply skipped when its kind's layer is not the
+  // one being drawn (and the floor lane rng draw only runs for floor cells).
+  function drawDecor(win, layer) {
+    const decor = theme.decor;
+    // Bookkeeping spans BOTH layers: reset on the background pass, accumulate on
+    // the floor pass, so getScene().decorKinds/decorDrawn still describe the
+    // whole frame (all 5 forest families).
+    if (layer === 'background') { runtime.decorKinds = []; runtime.decorDrawn = 0; }
+    // Zoomed out past maxSpan the window spans too many decoration cells
+    // to draw cheaply; skip world decor (sky/ground stay, they are cheap bands).
+    if ((win.max - win.min) > decor.maxSpan) return;
     // Cull in world space: mapX clamps to [0,CANVAS_W], so an on-screen cull would
     // leave off-window decorations piled at the edges. Margin keeps sprites that
     // straddle the window edge.
     const margin = (win.max - win.min) * (16 / CANVAS_W);
-    const startK = Math.floor((win.min - DECOR_SPACING) / DECOR_SPACING);
-    const endK = Math.ceil((win.max + DECOR_SPACING) / DECOR_SPACING);
+    const spacing = decor.spacing;
+    const startK = Math.floor((win.min - spacing) / spacing);
+    const endK = Math.ceil((win.max + spacing) / spacing);
+    const kinds = decor.kinds;
+    const total = kinds.reduce(function (a, k) { return a + k.weight; }, 0);
+    const laneCount = core.getState().camels.length;
     let drawn = 0;
     for (let k = startK; k <= endK; k++) {
       const rng = mulberry32(hash2(SEED, k));
-      const roll = rng();
-      const point = k * DECOR_SPACING + Math.floor(rng() * 40 - 20);
+      const roll = rng() * total;
+      const point = k * spacing + Math.floor(rng() * 40 - 20);
       if (point < win.min - margin || point > win.max + margin) continue;
+      let acc = 0, chosen = kinds[kinds.length - 1];
+      for (const kind of kinds) { acc += kind.weight; if (roll <= acc) { chosen = kind; break; } }
+      if (chosen.layer !== layer) continue;
       const cx = mapX(point, win);
-      if (roll < 0.34) { drawSprite(PALM, cx - PALM[0].length / 2, HORIZON_Y - 40, PALM_PAL); drawn++; }
-      else if (roll < 0.67) { drawSprite(CACTUS, cx - CACTUS[0].length / 2, HORIZON_Y - 32, CACTUS_PAL); drawn++; }
-      else { drawSprite(ROCK, cx - ROCK[0].length / 2, HORIZON_Y - 16, ROCK_PAL); drawn++; }
+      // Background kinds base on the horizon; floor kinds sit on a lane surface
+      // (one extra rng draw selects the lane deterministically).
+      let anchorY = HORIZON_Y;
+      if (chosen.layer === 'floor' && laneCount > 0) {
+        const lane = Math.floor(rng() * laneCount);
+        anchorY = laneSurfaceY(lane, laneCount, point);
+      }
+      drawSprite(chosen.sprite, cx - chosen.sprite[0].length / 2, anchorY + chosen.yOffset, chosen.pal);
+      if (runtime.decorKinds.indexOf(chosen.kind) < 0) runtime.decorKinds.push(chosen.kind);
+      drawn++;
     }
-    runtime.decorDrawn = drawn;
+    runtime.decorDrawn += drawn;
   }
 
   function drawMilestones(win) {
-    // Milestones are world decor: past DECOR_MAX_SPAN the window spans too many
-    // 50-point cells to iterate cheaply (scores are unbounded), so drop them like
-    // drawDecor does. Below the bound this is <= 30 iterations per frame.
-    if ((win.max - win.min) > DECOR_MAX_SPAN) return;
+    // Milestones are world decor: past the theme's decor maxSpan the window
+    // spans too many 50-point cells to iterate cheaply (scores are unbounded),
+    // so drop them like drawDecor does. Below the bound this is <= 30 iterations.
+    if ((win.max - win.min) > theme.decor.maxSpan) return;
     ctx.font = '12px monospace';
     ctx.textBaseline = 'top';
     const start = Math.max(MILESTONE_STEP, Math.ceil(win.min / MILESTONE_STEP) * MILESTONE_STEP);
@@ -1502,7 +2099,7 @@ window.GameCore = (function () {
       if (x < -24 || x > CANVAS_W + 24) continue;
       // Stand the flag on the terrain at its world position (20x28 sprite).
       const flagY = HORIZON_Y - 28 - Math.round(core.terrainHeightAt(m));
-      drawSprite(MILESTONE, x, flagY, COL);
+      drawSprite(MILESTONE, x, flagY, MILESTONE_PAL);
       // At high-but-allowed zoom a 50-point step can be narrower than the label,
       // so skip the number (flag still drawn) to avoid colliding labels.
       const label = String(m);
@@ -1521,7 +2118,7 @@ window.GameCore = (function () {
     // Stand the pole on the terrain at the goal's world position.
     const poleTop = HORIZON_Y - Math.round(core.terrainHeightAt(s.goalScore));
     const x = Math.round(runtime.goalScreenX) - 6;
-    drawSprite(FINISH_FLAG, x, poleTop - 28, COL);
+    drawSprite(FINISH_FLAG, x, poleTop - 28, FINISH_PAL);
     const stripeX = x + 8;
     // Checker parity is relative to the pole top so the stripe alternates
     // light/dark from its first row (matching the flag's checkered look).
@@ -1604,10 +2201,11 @@ window.GameCore = (function () {
     for (let i = 0; i < n; i++) {
       const top = Math.round(laneTopY(i, n));
       const bottom = Math.round(laneBottomY(i, n));
-      // Base sand fills the whole lane so there are never gaps between lanes.
-      ctx.fillStyle = DUNE.top;
+      // Base ground fills the whole lane so there are never gaps between lanes.
+      const ground = theme.ground;
+      ctx.fillStyle = ground.top;
       ctx.fillRect(0, top, CANVAS_W, bottom - top);
-      ctx.fillStyle = DUNE.edge;
+      ctx.fillStyle = ground.edge;
       ctx.fillRect(0, bottom - 1, CANVAS_W, 1);
       for (let x = 0; x < CANVAS_W; x++) {
         const h = heights[x];
@@ -1615,14 +2213,14 @@ window.GameCore = (function () {
         // drawn later overlap it), never poking above the horizon sky.
         let crest = Math.max(HORIZON_Y, top - h);
         if (crest > bottom - 2) crest = bottom - 2;
-        ctx.fillStyle = DUNE.rim;
+        ctx.fillStyle = ground.rim;
         ctx.fillRect(x, crest, 1, 1);
-        ctx.fillStyle = DUNE.shade;
+        ctx.fillStyle = ground.shade;
         ctx.fillRect(x, crest + 3, 1, 2);
       }
     }
     // Paint the rows below the last lane so no transparent strip remains.
-    ctx.fillStyle = DUNE.edge;
+    ctx.fillStyle = theme.ground.edge;
     ctx.fillRect(0, LANE_BOTTOM, CANVAS_W, CANVAS_H - LANE_BOTTOM);
   }
 
@@ -1633,7 +2231,7 @@ window.GameCore = (function () {
       const left = (v == null) ? camelTargetLeft(c.score, win) : v;
       const frameIndex = (now < c.animUntil) ? (Math.floor(now / ANIM_FRAME_MS) % 4) + 1 : 0;
       const top = camelTopY(i, n, c.score);
-      drawSprite(CAMEL[frameIndex], left, top, CAMEL_PAL(c.color));
+      drawSprite(theme.animal.sprite[frameIndex], left, top, theme.animal.pal(c.color));
       drawBlanketNumber(left, top, i, frameIndex);
     });
   }
@@ -1692,13 +2290,14 @@ window.GameCore = (function () {
 
   function drawScene(s, win, now) {
     drawSky();
-    drawSun();
+    drawCelestial();
     drawDunes(win);
-    drawDecor(win);
+    drawDecor(win, 'background');
     drawMilestones(win);
     drawLanes(s, win);
-    drawFinish(s, win);
+    drawDecor(win, 'floor');
     drawCamels(s, win, now);
+    drawFinish(s, win);
     drawConfetti();
     drawBanner(s);
   }
@@ -1707,6 +2306,7 @@ window.GameCore = (function () {
   let frameErrorLogged = false; // rate-limit: one log per error occurrence
   function frame(now) {
     try {
+      syncTheme();
       const dt = Math.min(50, now - last);
       last = now;
       const s = core.getState();
@@ -1765,8 +2365,12 @@ window.GameCore = (function () {
         return Math.abs(v - camelTargetLeft(c.score, win)) <= 0.5;
       });
     },
+    getTheme: function () {
+      syncTheme();
+      return { id: theme.id, animalId: theme.animal.id, w: theme.animal.w, h: theme.animal.h };
+    },
     getScene: function () {
-      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, confettiDrawn: runtime.confettiDrawn };
+      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, decorKinds: (runtime.decorKinds || []).slice(), confettiDrawn: runtime.confettiDrawn };
     },
   };
 
@@ -1792,6 +2396,9 @@ window.GameCore = (function () {
     if (document.visibilityState === 'hidden') flushSave();
   });
 
+  // registerThemeIds must run before load() so a persisted `forest` theme
+  // validates against the live registry (single source of truth).
+  GameCore.registerThemeIds(Object.keys(THEMES));
   // Restore before building/refreshing the DOM and before the first frame, so
   // no default theme/language flashes. load() emits with no subscribers yet.
   if (storageOk) GameStorage.load();
@@ -1802,6 +2409,7 @@ window.GameCore = (function () {
   core.subscribe(syncDom);
   core.subscribe(scheduleSave); // never fires on load (no emit after subscribe)
   hideValidation();
+  syncTheme();
   syncDom(core.getState());
 
   window.requestAnimationFrame(frame);

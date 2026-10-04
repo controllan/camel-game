@@ -148,8 +148,7 @@ test.describe('Persistence (HTTP origin)', () => {
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().confettiDrawn)).toBe(0);
   });
 
-  // enabled by Task 10 (theme selector)
-  test.fixme('theme + language applied before first paint; load does not steal focus', async ({ page }) => {
+  test('theme + language applied before first paint; load does not steal focus', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('camelRace.v1', JSON.stringify({
         version: 1, camelCount: 2, camels: [{ name: 'Team 1', score: 0 }, { name: 'Team 2', score: 0 }],
@@ -160,6 +159,30 @@ test.describe('Persistence (HTTP origin)', () => {
     await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#lang-de')).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => document.activeElement.tagName)).toBe('BODY');
+  });
+
+  test('theme + language are already applied when DOMContentLoaded fires (no flash)', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('camelRace.v1', JSON.stringify({
+        version: 1, camelCount: 2, camels: [{ name: 'Team 1', score: 0 }, { name: 'Team 2', score: 0 }],
+        goalScore: 200, infinite: false, language: 'de', theme: 'forest', raceOver: false, winnerId: null,
+      }));
+    });
+    // Capture the earliest well-defined checkpoint on the reload: if the restore
+    // ran after first paint, the toggle would still show the default en/desert
+    // here. This is what "before first paint" means in practice.
+    await page.addInitScript(() => {
+      window.__firstCheckpoint = null;
+      document.addEventListener('DOMContentLoaded', () => {
+        window.__firstCheckpoint = {
+          theme: document.getElementById('theme-forest').getAttribute('aria-pressed'),
+          lang: document.getElementById('lang-de').getAttribute('aria-pressed'),
+          focus: document.activeElement.tagName,
+        };
+      }, { once: true });
+    });
+    await page.reload();
+    expect(await page.evaluate(() => window.__firstCheckpoint)).toEqual({ theme: 'true', lang: 'true', focus: 'BODY' });
   });
 
   test('storage blocked: playable, no errors, no writes', async ({ page }) => {
