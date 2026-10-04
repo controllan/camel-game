@@ -16,6 +16,10 @@ playwright-report/
 # OS junk
 .DS_Store
 
+# User-provided art references (copyright: kept out of git on purpose)
+wildschwein-pixelart.jpeg
+docs/reference/
+
 # Editor dirs/junk
 .vscode/
 .idea/
