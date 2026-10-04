@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+test-results
+tests
+docs
+playwright.config.js
+package.json
+pnpm-lock.yaml
+*.log
+*.md
+.DS_Store
+Dockerfile
+docker-compose.yml
+.dockerignore

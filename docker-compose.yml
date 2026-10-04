@@ -1,0 +1,8 @@
+services:
+  camel-game:
+    build: .
+    image: camel-game:latest
+    container_name: camel-game
+    ports:
+      - "6666:6666"
+    restart: unless-stopped

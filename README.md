@@ -20,6 +20,21 @@ All camels always stay visible on the canvas, even at large score spreads or in 
 
 Out of scope: sound, persistence, multiplayer, betting.
 
+## Deploy with Docker
+
+Serves the game on port **6666** via nginx (static file, no backend). Forward your subdomain to `host:6666` — plain HTTP upstream, TLS at your reverse proxy. No websockets or special headers needed.
+
+```bash
+docker compose up -d --build
+```
+
+Or without compose:
+
+```bash
+docker build -t camel-game .
+docker run -d --name camel-game -p 6666:6666 --restart unless-stopped camel-game
+```
+
 ## Test (dev only)
 
 Requires [pnpm](https://pnpm.io/). Tests drive the game over `file://` — no HTTP server.
