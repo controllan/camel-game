@@ -187,7 +187,7 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 - Milestone flags every 50 points, each with a 6px monospace numeric label drawn inside buffer. Required (not optional).
 - Camel sprite 33×31: brown two-hump Bactrian (`#c9803a` body, `#8a5220` shade, fixed `#53565e` harness, `#1a1208` outline) with a lane-coloured robe rider (white turban, skin tone) and a numbered light-blue saddle blanket (3×5 pixel digit, sprite-local anchor col 11 / row 12, +1 row on bob frames 2/4). 1 standing + 4 distinct walk frames. Details: [`../art/camel-sprite.md`](../art/camel-sprite.md).
 - Lanes are undulating sand dune ribbons (`#c9a25a` top, `#a8813f` shade, `#6e4f2a` edge, `#523a1e` rim); camels, the goal pole, and milestone flags stand on the shared dune profile `GameCore.terrainHeightAt(x)` (`1.2·sin(2πx/160)+0.8·sin(2πx/130+1.7)`, clamped ±2 px).
-- User art references (not loaded at runtime): [`../reference/camel-pixel-art.png`](../reference/camel-pixel-art.png), [`../reference/real-life-camel-race.png`](../reference/real-life-camel-race.png).
+- User art references (pixel-art and fairground-photo, removed from repo for copyright reasons; not loaded at runtime).
 - Idle camel bob: NOT required. Do not add.
 - Confetti: small pixel squares, per-particle velocity/gravity, spawned from winner position, cleared on New race. Renderer-owned; core only exposes winner + reset.
 

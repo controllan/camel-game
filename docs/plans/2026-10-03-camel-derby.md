@@ -1888,7 +1888,7 @@ Review-driven deviations from this plan's original code/numbers. Evidence: commi
 
 ### v2 upgrade (post-approval)
 
-User-requested v2, shipped but uncommitted. Evidence: current `index.html`, `tests/`, `docs/art/`, `docs/reference/`.
+User-requested v2, shipped but uncommitted. Evidence: current `index.html`, `tests/`, `docs/art/`.
 
 | Area | v1 | v2 (shipped) |
 |---|---|---|
@@ -1900,7 +1900,7 @@ User-requested v2, shipped but uncommitted. Evidence: current `index.html`, `tes
 | Names | auto `Camel {n}` | per-lane editable `Team` field (`maxlength 16`), default `Team {n}`, session-only, not translated, `textContent`-sanitized; drives lane header, winner banner, `aria-live` |
 | i18n | `winnerBanner` `Camel {n} wins!`; `camelName` `Camel {n}` | `winnerBanner` `{name} wins!` / `{name} gewinnt!`; new `teamLabel` `Team`; `camelName` `Team {n}` |
 | Layout scale | `max-width` cap | fills wrapper `min(availW/512, availH/288)`, cap `4`, nearest-integer snap within `8%` if it fits; no lower clamp (only `SCALE_EPSILON=0.05`), so the canvas is never larger than its wrapper; page never scrolls |
-| Docs | — | `docs/art/camel-sprite.md`, `docs/reference/camel-pixel-art.png`, `docs/reference/real-life-camel-race.png` added |
+| Docs | — | `docs/art/camel-sprite.md` added (user-provided pixel-art and fairground-photo references removed from repo for copyright reasons) |
 | Tests | 72 | 91+ (`pnpm test`) |
 
 ### v3 upgrade (post-review)

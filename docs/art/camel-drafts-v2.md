@@ -16,7 +16,7 @@ plus `contact-bare.png`, `contact-dressed.png`, `strip-1x-sand.png` (#c9a25a),
 
 ## T0 method — pixel-exact trace (read first)
 
-`docs/reference/camel-pixel-art.png` is 626×626 RGBA. Block-grid detection:
+Source pixel-art reference was 626×626 RGBA (design note; file removed from repo for copyright reasons). Block-grid detection:
 8-px-period edge-energy test peaked at **B=8** (X ratio 3.55, Y ratio 3.16, best of
 4–16); 8×8-uniformity sweep over origins was flat (~36% everywhere — the file is
 soft/AA'd, not hard blocks), so origin **(3,1)** taken from the inner-variance

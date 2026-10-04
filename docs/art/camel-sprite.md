@@ -29,12 +29,10 @@ distinct racer at a glance.
 
 ## Reference art
 
-Moved into the repo for future reference (not loaded at runtime — art stays procedural):
+User-provided pixel-art and fairground-photo references informed the palette/silhouette (removed from repo for copyright reasons; art stays procedural):
 
-- ![camel pixel art](../reference/camel-pixel-art.png) — `../reference/camel-pixel-art.png`
-  (brown dromedary, dark shading, black outline — the approved silhouette/colour source).
-- ![real life camel race](../reference/real-life-camel-race.png) — `../reference/real-life-camel-race.png`
-  (Volksfest mechanical race: coloured riders, white/light-blue numbered blankets, undulating sand lanes).
+- Pixel-art camel (brown dromedary, dark shading, black outline — the approved silhouette/colour source).
+- Fairground photo (Volksfest mechanical race: coloured riders, white/light-blue numbered blankets, undulating sand lanes).
 
 ## Refinements over drafts-v2 T2
 
