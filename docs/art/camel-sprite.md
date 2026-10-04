@@ -44,8 +44,7 @@ Deltas vs the drafts-v2 standing matrix (bare-standing similarity 0.9844):
 - **Enclosure pass** — ~13–17 exterior-adjacent fill cells per frame recolored to
   `O` (hump-crest edge, harness right edge, thigh-band fringes); silhouette kept.
 - **Ear tip** — the lone `G` cell at (24,0) capped to `O` (was unenclosed grey).
-- **Legs (walk)** — hock-down rows 23–30 redrawn per frame: 3-wide `O`/`S`/`O`
-  shanks + 5-wide `O` hooves; thigh rows 19–22 kept from the trace.
+- **Legs (standing)** — frame 0 legs thinned to match walk frames (user request): hock-down rows 23–30 redrawn as straight `OSO` shanks + 5-wide `OOOOO` hooves, same as the walk-frame style.
 - **Gait** — head/neck block shifts ±1 px on contacts; body+bob 1 px on pass
   frames; hooves stride ±3 px; tail tuft flicks; no `H`/`E` (reference models
   light with bright `B`; eye reads via outline).
@@ -148,13 +147,13 @@ forms exist 1:1 under the dressed overlays (same body/legs, no rider/blanket).
       '..OOOSSSSSSO....OSSSSO...........',
       '..O.SSSSSSO.....OSSSO............',
       '...OSSSSSSO.....OSSSO............',
-      '...OSSSSSO......OSSSSO...........',
-      '...OSSSSSO......OSSSSO...........',
-      '....OSSSSSO.....OSSSSO...........',
-      '....OSSSSSO.....OSSSSO...........',
-      '....OSSSSSSO....OSSSSSO..........',
-      '.....OSSSSSO....OSSSSSO..........',
-      '.....OOOOOOO....OOOOOOO..........',
+      '....OSSSSO.....OSSSO.............',
+      '.....OSSSO......OSSO.............',
+      '......OSO........OSO.............',
+      '......OSO........OSO.............',
+      '......OSO........OSO.............',
+      '......OSO........OSO.............',
+      '.....OOOOO......OOOOO............',
     ],
 ```
 
@@ -191,13 +190,13 @@ the body on the bob frames (2, 4).
       '..OOOSSSSSSO....OSSSSO...........',
       '..O.SSSSSSO.....OSSSO............',
       '...OSSSSSSO.....OSSSO............',
-      '...OSSSSSO......OSSSSO...........',
-      '...OSSSSSO......OSSSSO...........',
-      '....OSSSSSO.....OSSSSO...........',
-      '....OSSSSSO.....OSSSSO...........',
-      '....OSSSSSSO....OSSSSSO..........',
-      '.....OSSSSSO....OSSSSSO..........',
-      '.....OOOOOOO....OOOOOOO..........',
+      '....OSSSSO.....OSSSO.............',
+      '.....OSSSO......OSSO.............',
+      '......OSO........OSO.............',
+      '......OSO........OSO.............',
+      '......OSO........OSO.............',
+      '......OSO........OSO.............',
+      '.....OOOOO......OOOOO............',
     ],
     [ // frame 1 — contact A
       '.......................OOO.......',
@@ -515,7 +514,7 @@ blocks; the script itself is not kept), **all frames pass**:
 | outline encloses body (no fill 4-adjacent to exterior `.`) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | no stray pixels / no fill on the canvas border | ✓ | ✓ | ✓ | ✓ | ✓ |
 | single 4-connected blob (no isolated pixels) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| feet present on the bottom row (row 30) | ✓ (14/10/10/10/10 cells) | ✓ | ✓ | ✓ | ✓ |
+| feet present on the bottom row (row 30) | ✓ (10/10/10/10/10 cells) | ✓ | ✓ | ✓ | ✓ |
 | bounding box ≤ 33 × 31 | 30×31 | 31×31 | 30×30 | 29×31 | 30×30 |
 | all 5 poses distinct (sim < 0.98) | ✓ | ✓ | ✓ | ✓ | ✓ |
 
@@ -524,11 +523,11 @@ dressed set — 1.000 = identical; bare set matches within 0.001):
 
 ```
               stand  cA     pA     cB     pB
-standing      1.000  0.848  0.735  0.867  0.738
-contactA      0.848  1.000  0.769  0.877  0.723
-passA         0.735  0.769  1.000  0.761  0.921
-contactB      0.867  0.877  0.761  1.000  0.777
-passB         0.738  0.723  0.921  0.777  1.000
+standing      1.000  0.861  0.749  0.882  0.762
+contactA      0.861  1.000  0.769  0.877  0.723
+passA         0.749  0.769  1.000  0.761  0.921
+contactB      0.882  0.877  0.761  1.000  0.777
+passB         0.762  0.723  0.921  0.777  1.000
 ```
 
 Closest pair is **pass A vs pass B = 0.921** (< 0.98) — the two pass poses differ in
