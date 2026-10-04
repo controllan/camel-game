@@ -67,7 +67,7 @@
   </header>
   <main>
     <div id="canvasWrap">
-      <canvas id="game" width="512" height="288"
+      <canvas id="game" width="640" height="360"
         aria-label="Camel race track. Camels race left to right to the goal."></canvas>
     </div>
     <aside id="panel" aria-label="Controls">
@@ -309,7 +309,7 @@ window.GameCore = (function () {
 
   function mapScoreToScreenX(score, window, canvasWidth) {
     const w = window || { min: 0, max: MIN_WINDOW };
-    const width = (typeof canvasWidth === 'number' && canvasWidth > 0) ? canvasWidth : 512;
+    const width = (typeof canvasWidth === 'number' && canvasWidth > 0) ? canvasWidth : 640;
     const span = w.max - w.min;
     if (span <= 0) return 0;
     const x = ((score - w.min) / span) * width;
@@ -342,13 +342,13 @@ window.GameCore = (function () {
   const canvasWrap = document.getElementById('canvasWrap');
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  const CANVAS_W = canvas.width;   // 512
-  const CANVAS_H = canvas.height;  // 288
+  const CANVAS_W = canvas.width;   // 640
+  const CANVAS_H = canvas.height;  // 360
 
-  const HORIZON_Y = 70;
-  const LANE_BOTTOM = CANVAS_H - 4; // 284
-  const SPRITE_W = 34;
-  const SPRITE_H = 24;
+  const HORIZON_Y = 88;
+  const LANE_BOTTOM = CANVAS_H - 4; // 356
+  const SPRITE_W = 33;
+  const SPRITE_H = 31;
   // Feet rest this many px above the lane bottom at terrain height 0.
   const TERRAIN_FEET_OFFSET = 2;
   const LANE_MARGIN = 2;
@@ -428,7 +428,7 @@ window.GameCore = (function () {
     return laneBottomY(i, n) - TERRAIN_FEET_OFFSET - Math.round(core.terrainHeightAt(score));
   }
   // Sprite top so the feet land on the surface, clamped inside the lane (an
-  // 8-lane track is ~26.75 px tall, only ~2.75 px of slack for a 24 px sprite).
+  // 8-lane track is ~33.5 px tall, only ~2.5 px of slack for a 31 px sprite).
   function camelTopY(i, n, score) {
     const min = Math.round(laneTopY(i, n));
     const max = Math.round(laneBottomY(i, n) - SPRITE_H);
@@ -689,11 +689,10 @@ window.GameCore = (function () {
   syncDom(core.getState());
 
   // ---------- art ----------
-  // Fixed tones for outline/eye and the decoration sprites. The camel's own
-  // palette (below) supplies body/shade/highlight/robe/white/skin/blanket.
+  // Fixed tones for the decoration sprites. The camel's own
+  // palette (below) supplies body/shade/harness/robe/white/skin/blanket.
   const COL = {
     outline: '#1a1208',
-    eye: '#0a0a0a',
     pole: '#d8d8d8',
     checkerLight: '#f0f0f0',
     checkerDark: '#1a1a1a',
@@ -701,14 +700,14 @@ window.GameCore = (function () {
   };
 
   const SKY_BANDS = ['#1a1030', '#241640', '#2e1c4a'];
-  const PALM_PAL = { body: '#6b4a2a', grass: '#2f6b3a' };
+  const PALM_PAL = { body: '#6b4a2a', harness: '#2f6b3a' }; // G fronds via the shared harness key
   const CACTUS_PAL = { body: '#2f6b3a' };
   const ROCK_PAL = { body: '#6b5570' };
 
   // Camel palette factory: only `robe` varies per lane; everything else fixed.
   const CAMEL_PAL = (robe) => ({
-    outline: '#1a1208', body: '#c9803a', shade: '#8a5220', highlight: '#e0a45f',
-    robe: robe, white: '#f0ece0', skin: '#d8a878', blanket: '#bfe3ea', eye: '#0a0a0a',
+    outline: '#1a1208', body: '#c9803a', shade: '#8a5220', harness: '#53565e',
+    robe: robe, white: '#f0ece0', skin: '#d8a878', blanket: '#bfe3ea',
   });
 
   // Dune lane tokens (sand ribbons under the dark sky).
@@ -736,141 +735,176 @@ window.GameCore = (function () {
   // dune bands still render. 1500 points draws ~18 decorations per frame.
   const DECOR_MAX_SPAN = 1500;
 
-  // Camel 34x24, 5 frames: 0 standing (idle), 1-4 walk. Legend (docs/art/camel-sprite.md):
-  // . transparent, O outline, B body, S shade, H highlight, R robe (per-lane colour),
-  // W white (turban), K skin (face), L saddle blanket, E eye. Blanket flat area is
-  // rows 9-14 x cols 9-15 (rows 10-15 on the bob frames 2, 4); the lane digit is
-  // drawn by code at sprite-local (10,10), +1 row on the bob frames.
+  // Camel 33x31, 5 frames: 0 standing (idle), 1-4 walk. Legend (docs/art/camel-sprite.md):
+  // . transparent, O outline, B body, S shade, G harness (fixed), R robe (per-lane colour),
+  // W white (turban), K skin (face), L saddle blanket. Blanket flat area is
+  // rows 12-17 x cols 10-15 (rows 13-18 on the bob frames 2, 4); the lane digit is
+  // drawn by code at sprite-local (11,12), +1 row on the bob frames.
   const CAMEL = [
     [ // frame 0 — standing (idle)
-      '...........................OO.....',
-      '..........OOOOOO..........OOOOO...',
-      '..........OWWWWO.........OOHHHOO..',
-      '..........OWWWWO.........OOHEHHO..',
-      '..........OWWKKO..........OHHHOOO.',
-      '..........OKKKKOO........OOHHOO...',
-      '..........ORRRRRO........OHHOO....',
-      '..........ORRRRRO......OOOHOO.....',
-      '..........ORRRRROO....OOHHOO......',
-      '.........OOLLLLLHOOOO.OHHOO.......',
-      '........OOLLLLLLBBBBOOOBOO........',
-      '......OOOLLLLLLLBBBBBBBBO.........',
-      '...OOOOBBLLLLLLLBBBBBBBBOO........',
-      '...O.OBBBLLLLLLLBBBBBBBBBO........',
-      '...O.OOOBLLLLLLLBBBBBBBBOO........',
-      '...O...OOBOOOBOOOOBOOOBOO.........',
-      '...O....OSO.OBO..OSO.OBO..........',
-      '...O....OSO.OBO..OSO.OBO..........',
-      '..OO....OSO.OBO..OSO.OBO..........',
-      '..OO....OSO.OBO..OSO.OBO..........',
-      '........OSO.OBO..OSO.OBO..........',
-      '........OSO.OBO..OSO.OBO..........',
-      '........OSO.OBO..OSO.OBO..........',
-      '........OOO.OOO..OOO.OOO..........',
+      '......................OOO........',
+      '..........OOOOOO......OSSOO......',
+      '..........OWWWWO....OOSBBBBO.....',
+      '..........OWWWWO....OSBSSSBBOOO..',
+      '..........OWWWWO....OBBBBBBBGBBO.',
+      '..........OOKKOO.....OBBBBBGBBBO.',
+      '........OOORRRRO.....OSBSSSGOSSO.',
+      '.......OOBORRRROOO...OSBBBSGOOOO.',
+      '........OOORRRROBBO...OSBBBGO....',
+      '.......OBBORRRROBBBO..OSBBBGO....',
+      '.......OBSORRRROSSBO..OSBBBO.....',
+      '......OBSSORRRROSSBBOOSBBBGO.....',
+      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
+      '....OOBBSSOLLLLOSSSSSSSSGGO......',
+      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSO........',
+      '...O..OSSSOOOOOOSSSSSSSOO........',
+      '...OO.OSSSSSSSSSSSSSSSO..........',
+      '..O.OOSSSSSSSOOOSSSSSO...........',
+      '..O.OSSSSSSSO...OSSSSO...........',
+      '..OOOSSSSSSO....OSSSSO...........',
+      '..O.SSSSSSO.....OSSSO............',
+      '...OSSSSSSO.....OSSSO............',
+      '...OSSSSSO......OSSSSO...........',
+      '...OSSSSSO......OSSSSO...........',
+      '....OSSSSSO.....OSSSSO...........',
+      '....OSSSSSO.....OSSSSO...........',
+      '....OSSSSSSO....OSSSSSO..........',
+      '.....OSSSSSO....OSSSSSO..........',
+      '.....OOOOOOO....OOOOOOO..........',
     ],
     [ // frame 1 — contact A
-      '............................OO....',
-      '..........OOOOOO...........OOOOO..',
-      '..........OWWWWO..........OOHHHOO.',
-      '..........OWWWWO..........OOHEHHO.',
-      '..........OWWKKO...........OHHOOOO',
-      '..........OKKKKOO........OOOHOO...',
-      '..........ORRRRRO........OHHOO....',
-      '..........ORRRRRO......OOOHOO.....',
-      '..........ORRRRROO....OOHHOO......',
-      '.........OOLLLLLHOOOO.OHHOO.......',
-      '........OOLLLLLLBBBBOOOBOO........',
-      '......OOOLLLLLLLBBBBBBBBO.........',
-      '...OOOOBBLLLLLLLBBBBBBBBOO........',
-      '...O.OBBBLLLLLLLBBBBBBBBBO........',
-      '...O.OOOBLLLLLLLBBBBBBBBOO........',
-      '...O...OOBOOOBOOOOBOOOBOO.........',
-      '...O....OSO.OBO..OSO.OBO..........',
-      '..OO....OSO.OBO..OSO.OBO..........',
-      '..OO....OOO.OOO..OOO.OOO..........',
-      '..OO.....OOOOO..OOO...OOO.........',
-      '.........OSBBO..OSO...OBO.........',
-      '.........OSBBO..OSO...OBO.........',
-      '.........OSBBO..OSO...OBO.........',
-      '.........OOOOO..OOO...OOO.........',
+      '.......................OOO.......',
+      '..........OOOOOO.......OSSOO.....',
+      '..........OWWWWO.....OOSBBBBO....',
+      '..........OWWWWO.....OSBSSSBBOOO.',
+      '..........OWWWWO.....OBBBBBBBGBBO',
+      '..........OOKKOO......OBBBBBGBBBO',
+      '........OOORRRRO......OSBSSSGOSSO',
+      '.......OOBORRRROOO....OSBBBSGOOOO',
+      '........OOORRRROBBO...OSBBBGO....',
+      '.......OBBORRRROBBBO..OSBBBGO....',
+      '.......OBSORRRROSSBO..OSBBBO.....',
+      '......OBSSORRRROSSBBOOSBBBGO.....',
+      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
+      '....OOBBSSOLLLLOSSSSSSSSGGO......',
+      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSO........',
+      '...O..OSSSOOOOOOSSSSSSSOO........',
+      '...OO.OSSSSSSSSSSSSSSSO..........',
+      '..O.OOSSSSSSSOOOSSSSSO...........',
+      '..O.OSSSSSSSO...OSSSSO...........',
+      '..OOOSSSSSSO....OSSSSO...........',
+      '..O.OOSSSOO.....OOOSO............',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '.....OSO............OSO..........',
+      '.....OSO............OSO..........',
+      '....OSO..............OSO.........',
+      '...OSO................OSO........',
+      '..OOOOO..............OOOOO.......',
     ],
     [ // frame 2 — pass A (bob)
-      '..................................',
-      '...........................OO.....',
-      '..........OOOOOO..........OOOOO...',
-      '..........OWWWWO.........OOHHHOO..',
-      '..........OWWWWO.........OOHEHHO..',
-      '..........OWWKKO..........OHHHOOO.',
-      '..........OKKKKOO........OOHHOO...',
-      '..........ORRRRRO........OHHOO....',
-      '..........ORRRRRO......OOOHOO.....',
-      '..........ORRRRROO....OOHHOO......',
-      '.........OOLLLLLHOOOO.OHHOO.......',
-      '........OOLLLLLLBBBBOOOBOO........',
-      '...O..OOOLLLLLLLBBBBBBBBO.........',
-      '...OOOOBBLLLLLLLBBBBBBBBOO........',
-      '..OO.OBBBLLLLLLLBBBBBBBBBO........',
-      '..OO.OOOBLLLLLLLBBBBBBBBOO........',
-      '..OO...OOBOOOBOOOOBOOOBOO.........',
-      '..OO....OSO.OBO..OSO.OBO..........',
-      '..OO....OSO.OBO..OSO.OBO..........',
-      '..OO....OSO.OBO..OSO.OBO..........',
-      '........OSO.OBO..OSO.OBO..........',
-      '........OSO.OBO..OSO.OBO..........',
-      '........OSO.OBO..OSO.OBO..........',
-      '........OOO.OOO..OOO.OOO..........',
+      '.................................',
+      '......................OOO........',
+      '..........OOOOOO......OSSOO......',
+      '..........OWWWWO....OOSBBBBO.....',
+      '..........OWWWWO....OSBSSSBBOOO..',
+      '..........OWWWWO....OBBBBBBBGBBO.',
+      '..........OOKKOO.....OBBBBBGBBBO.',
+      '........OOORRRRO.....OSBSSSGOSSO.',
+      '.......OOBORRRROOO...OSBBBSGOOOO.',
+      '........OOORRRROBBO...OSBBBGO....',
+      '.......OBBORRRROBBBO..OSBBBGO....',
+      '.......OBSORRRROSSBO..OSBBBO.....',
+      '......OBSSORRRROSSBBOOSBBBGO.....',
+      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
+      '....OOBBSSOLLLLOSSSSSSSSGGO......',
+      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSO........',
+      '...O..OSSSOOOOOOSSSSSSSOO........',
+      '..OOO.OSSSSSSSSSSSSSSSO..........',
+      '..O.OOSSSSSSSOOOSSSSSO...........',
+      '..O.OSSSSSSSO...OSSSSO...........',
+      '..OOOOSSSOOO....OOOSSO...........',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '.....OSO............OSO..........',
+      '.....OSO............OSO..........',
+      '....OOOOO..........OOOOO.........',
     ],
-    [ // frame 3 — contact B (near/far legs swapped)
-      '..........................OO......',
-      '..........OOOOOO.........OOOOO....',
-      '..........OWWWWO........OOHHHOO...',
-      '..........OWWWWO........OOHEHHO...',
-      '..........OWWKKO.........OHHHHOO..',
-      '..........OKKKKOO........OHHHOO...',
-      '..........ORRRRRO........OHHOO....',
-      '..........ORRRRRO......OOOHOO.....',
-      '..........ORRRRROO....OOHHOO......',
-      '.........OOLLLLLHOOOO.OHHOO.......',
-      '........OOLLLLLLBBBBOOOBOO........',
-      '......OOOLLLLLLLBBBBBBBBO.........',
-      '...OOOOBBLLLLLLLBBBBBBBBOO........',
-      '...O.OBBBLLLLLLLBBBBBBBBBO........',
-      '...O.OOOBLLLLLLLBBBBBBBBOO........',
-      '...O...OOBOOOBOOOOBOOOBOO.........',
-      '...O....OBO.OSO..OBO.OSO..........',
-      '...OO...OBO.OSO..OBO.OSO..........',
-      '...OO...OOO.OOO..OOO.OOO..........',
-      '...OO..OOO...OOO..OOOOO...........',
-      '.......OBO...OSO..OBSSO...........',
-      '.......OBO...OSO..OBSSO...........',
-      '.......OBO...OSO..OBSSO...........',
-      '.......OOO...OOO..OOOOO...........',
+    [ // frame 3 — contact B
+      '.....................OOO.........',
+      '..........OOOOOO.....OSSOO.......',
+      '..........OWWWWO...OOSBBBBO......',
+      '..........OWWWWO...OSBSSSBBOOO...',
+      '..........OWWWWO...OBBBBBBBGBBO..',
+      '..........OOKKOO....OBBBBBGBBBO..',
+      '........OOORRRRO....OSBSSSGOSSO..',
+      '.......OOBORRRROOO..OOBBBSGOOOO..',
+      '........OOORRRROBBO...OSBBBGO....',
+      '.......OBBORRRROBBBO..OSBBBGO....',
+      '.......OBSORRRROSSBO..OSBBBO.....',
+      '......OBSSORRRROSSBBOOSBBBGO.....',
+      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
+      '....OOBBSSOLLLLOSSSSSSSSGGO......',
+      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSO........',
+      '...O..OSSSOOOOOOSSSSSSSOO........',
+      '...OO.OSSSSSSSSSSSSSSSO..........',
+      '..O.OOSSSSSSSOOOSSSSSO...........',
+      '..O.OSSSSSSSO...OSSSSO...........',
+      '..OOOSSSSSSO....OSSSSO...........',
+      '..O.OOSSSOO.....OOOSO............',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '......OSO..........OSO...........',
+      '.......OSO........OSO............',
+      '.......OSO........OSO............',
+      '........OSO......OSO.............',
+      '.........OSO....OSO..............',
+      '........OOOOO..OOOOO.............',
     ],
-    [ // frame 4 — pass B (bob, near/far legs swapped vs frame 2)
-      '..................................',
-      '...........................OO.....',
-      '..........OOOOOO..........OOOOO...',
-      '..........OWWWWO.........OOHHHOO..',
-      '..........OWWWWO.........OOHEHHO..',
-      '..........OWWKKO..........OHHHOOO.',
-      '..........OKKKKOO........OOHHOO...',
-      '..........ORRRRRO........OHHOO....',
-      '..........ORRRRRO......OOOHOO.....',
-      '..........ORRRRROO....OOHHOO......',
-      '.........OOLLLLLHOOOO.OHHOO.......',
-      '........OOLLLLLLBBBBOOOBOO........',
-      '...O..OOOLLLLLLLBBBBBBBBO.........',
-      '...OOOOBBLLLLLLLBBBBBBBBOO........',
-      '...OSBBBBLLLLLLLBBBBBBBBBO........',
-      '...OOOOOBLLLLLLLBBBBBBBBOO........',
-      '...OO..OOBOOOBOOOOBOOOBOO.........',
-      '...OO...OBO.OSO..OBO.OSO..........',
-      '...OO...OBO.OSO..OBO.OSO..........',
-      '...OO...OBO.OSO..OBO.OSO..........',
-      '........OBO.OSO..OBO.OSO..........',
-      '........OBO.OSO..OBO.OSO..........',
-      '........OBO.OSO..OBO.OSO..........',
-      '........OOO.OOO..OOO.OOO..........',
+    [ // frame 4 — pass B (bob)
+      '.................................',
+      '......................OOO........',
+      '..........OOOOOO......OSSOO......',
+      '..........OWWWWO....OOSBBBBO.....',
+      '..........OWWWWO....OSBSSSBBOOO..',
+      '..........OWWWWO....OBBBBBBBGBBO.',
+      '..........OOKKOO.....OBBBBBGBBBO.',
+      '........OOORRRRO.....OSBSSSGOSSO.',
+      '.......OOBORRRROOO...OSBBBSGOOOO.',
+      '........OOORRRROBBO...OSBBBGO....',
+      '.......OBBORRRROBBBO..OSBBBGO....',
+      '.......OBSORRRROSSBO..OSBBBO.....',
+      '......OBSSORRRROSSBBOOSBBBGO.....',
+      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
+      '....OOBBSSOLLLLOSSSSSSSSGGO......',
+      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
+      '...O.OBSSSOLLLLOSSSSSSSSO........',
+      '...O..OSSSOOOOOOSSSSSSSOO........',
+      '...OOOOSSSSSSSSSSSSSSSO..........',
+      '..O.OOSSSSSSSOOOSSSSSO...........',
+      '..O.OSSSSSSSO...OSSSSO...........',
+      '..OOOOOSSSOO....OOSSSO...........',
+      '.......OSO........OSO............',
+      '.......OSO........OSO............',
+      '.......OSO........OSO............',
+      '.......OSO........OSO............',
+      '.......OSO........OSO............',
+      '........OSO......OSO.............',
+      '........OSO......OSO.............',
+      '.......OOOOO....OOOOO............',
     ],
   ];
 
@@ -972,12 +1006,11 @@ window.GameCore = (function () {
   const CONFETTI_COLORS = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a', '#f0f0f0'];
 
   // Every legend char resolves through the sprite's own palette (falling back to
-  // the fixed COL tones), so the old H=hoof / K=checker clashes are gone:
-  // camel H = highlight, K = skin; the finish flag uses X = checker-dark.
+  // the fixed COL tones). V4 uses no H/E; the finish flag uses X = checker-dark.
   const CHAR_KEY = {
-    O: 'outline', B: 'body', S: 'shade', H: 'highlight', R: 'robe',
-    W: 'white', K: 'skin', L: 'blanket', E: 'eye',
-    G: 'grass', P: 'pole', C: 'checkerLight', X: 'checkerDark', F: 'flag',
+    O: 'outline', B: 'body', S: 'shade', G: 'harness', R: 'robe',
+    W: 'white', K: 'skin', L: 'blanket',
+    P: 'pole', C: 'checkerLight', X: 'checkerDark', F: 'flag',
   };
 
   function drawSprite(rows, x, y, palette) {
@@ -997,7 +1030,7 @@ window.GameCore = (function () {
   }
 
   // Draw the camel's 1-based lane digit on its saddle blanket (3x5, anchored at
-  // sprite-local (10,10)) in the dark blanket-number ink, after the sprite pass.
+  // sprite-local (11,12)) in the dark blanket-number ink, after the sprite pass.
   // The blanket (and digit) drop 1 px with the body on the bob frames (2, 4).
   function drawBlanketNumber(left, top, laneIndex, frameIndex) {
     let n = laneIndex + 1;
@@ -1009,7 +1042,7 @@ window.GameCore = (function () {
     for (let ry = 0; ry < 5; ry++) {
       const row = glyph[ry];
       for (let rx = 0; rx < 3; rx++) {
-        if (row[rx] === '#') ctx.fillRect(Math.round(left) + 10 + rx, Math.round(top) + 10 + rowOffset + ry, 1, 1);
+        if (row[rx] === '#') ctx.fillRect(Math.round(left) + 11 + rx, Math.round(top) + 12 + rowOffset + ry, 1, 1);
       }
     }
   }
@@ -1040,7 +1073,7 @@ window.GameCore = (function () {
   }
 
   function drawSun() {
-    const cx = 408, cy = 30, r = 13;
+    const cx = 510, cy = 38, r = 16;
     for (let dy = -r; dy <= r; dy++) {
       const span = Math.floor(Math.sqrt(r * r - dy * dy));
       ctx.fillStyle = (Math.abs(dy) > r - 3) ? '#f0c060' : '#e8a03a';
@@ -1100,7 +1133,7 @@ window.GameCore = (function () {
       if (x < -12 || x > CANVAS_W + 12) continue;
       // Stand the flag on the terrain at its world position.
       const flagY = HORIZON_Y - 14 - Math.round(core.terrainHeightAt(m));
-      drawSprite(MILESTONE, x, flagY, { body: '#6b4a2a', shade: '#4a3320', grass: '#6b4a2a' });
+      drawSprite(MILESTONE, x, flagY, { body: '#6b4a2a', shade: '#4a3320', harness: '#6b4a2a' });
       // At high-but-allowed zoom a 50-point step can be narrower than the label,
       // so skip the number (flag still drawn) to avoid colliding labels.
       const label = String(m);
@@ -1183,7 +1216,7 @@ window.GameCore = (function () {
   }
 
   // Terrain height per canvas column, independent of lane: precompute once per
-  // frame so 8 lanes do not each re-evaluate ~512 sin pairs (pixel-identical).
+  // frame so 8 lanes do not each re-evaluate ~640 sin pairs (pixel-identical).
   function terrainHeights(win) {
     const span = Math.max(1e-6, win.max - win.min);
     const heights = new Array(CANVAS_W);

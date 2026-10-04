@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { gotoGame } = require('./helpers');
 
-// Count exact-RGB pixels in a horizontal band of the single 512x288 canvas
+// Count exact-RGB pixels in a horizontal band of the single 640x360 canvas
 // buffer. Used to prove that Task 4 art is actually rasterised, not merely that
 // a state flag flipped.
 async function countColor(page, hex, y0, y1) {
@@ -12,7 +12,7 @@ async function countColor(page, hex, y0, y1) {
   ];
   return page.evaluate(({ rgb, y0, y1 }) => {
     const d = document.getElementById('game').getContext('2d')
-      .getImageData(0, y0, 512, y1 - y0).data;
+      .getImageData(0, y0, 640, y1 - y0).data;
     let n = 0;
     for (let i = 0; i < d.length; i += 4) {
       if (d[i] === rgb[0] && d[i + 1] === rgb[1] && d[i + 2] === rgb[2]) n += 1;
@@ -28,7 +28,7 @@ async function countColor(page, hex, y0, y1) {
 async function countLabelInk(page, y0, y1) {
   return page.evaluate(({ y0, y1 }) => {
     const d = document.getElementById('game').getContext('2d')
-      .getImageData(0, y0, 512, y1 - y0).data;
+      .getImageData(0, y0, 640, y1 - y0).data;
     let n = 0;
     for (let i = 0; i < d.length; i += 4) {
       const r = d[i], g = d[i + 1], b = d[i + 2];
@@ -36,6 +36,22 @@ async function countLabelInk(page, y0, y1) {
     }
     return n;
   }, { y0, y1 });
+}
+
+// Rect-scoped variant of countLabelInk: samples the same bright, warm
+// off-white ink counter inside a canvas sub-box so label absence can be
+// proven spill-free (decor spill elsewhere in the band cannot leak in).
+async function countLabelInkIn(page, x0, x1, y0, y1) {
+  return page.evaluate(({ x0, x1, y0, y1 }) => {
+    const d = document.getElementById('game').getContext('2d')
+      .getImageData(x0, y0, x1 - x0, y1 - y0).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      if (r > 140 && g > 140 && b > 140 && !(r === g && g === b)) n += 1;
+    }
+    return n;
+  }, { x0, x1, y0, y1 });
 }
 
 async function settle(page) {
@@ -99,7 +115,7 @@ test.describe('Goal end state and infinite mode', () => {
     const bounds = await page.evaluate(() => GameDebug.getCamelSpriteBounds());
     for (const b of bounds) {
       expect(b.left).toBeGreaterThanOrEqual(0);
-      expect(b.right).toBeLessThanOrEqual(512);
+      expect(b.right).toBeLessThanOrEqual(640);
     }
   });
 
@@ -114,7 +130,7 @@ test.describe('Goal end state and infinite mode', () => {
   test('winner banner is rasterised on the canvas and cleared by New race', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(200); GameCore.resetRace(); });
     await settle(page);
-    // Banner gold lives in the top strip; milestones (56-70) and camels (>=70)
+    // Banner gold lives in the top strip; milestones (74-88) and camels (>=88)
     // are outside it, so a hit here is the banner itself.
     expect(await countColor(page, '#e8c83a', 6, 22)).toBe(0);
 
@@ -133,14 +149,14 @@ test.describe('Goal end state and infinite mode', () => {
     await settle(page);
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().goalScreenX)).toBeGreaterThan(0);
     // #1a1a1a (checkerDark) is used only by the finish art in the track band.
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBeGreaterThan(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 88, 360)).toBeGreaterThan(0);
 
     await page.locator('#infinite').check();
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().finishVisible)).toBe(false);
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBe(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 88, 360)).toBe(0);
 
     await page.locator('#infinite').uncheck();
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBeGreaterThan(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 88, 360)).toBeGreaterThan(0);
   });
 
   test('finish line stays hidden while the goal is outside the camera window', async ({ page }) => {
@@ -152,7 +168,7 @@ test.describe('Goal end state and infinite mode', () => {
     const win = await page.evaluate(() => GameDebug.getCameraWindow());
     expect(200 < win.min || 200 > win.max).toBe(true);
     // #1a1a1a (checkerDark) is drawn only by the finish art in the track band.
-    expect(await countColor(page, '#1a1a1a', 70, 288)).toBe(0);
+    expect(await countColor(page, '#1a1a1a', 88, 360)).toBe(0);
 
     // Bring the goal into the window: the finish raster reappears.
     await page.evaluate(() => { GameCore.setScore('camel-0', 180); });
@@ -161,7 +177,7 @@ test.describe('Goal end state and infinite mode', () => {
       const w = await page.evaluate(() => GameDebug.getCameraWindow());
       return w.min <= 200 && 200 <= w.max;
     }).toBe(true);
-    await expect.poll(() => countColor(page, '#1a1a1a', 70, 288)).toBeGreaterThan(0);
+    await expect.poll(() => countColor(page, '#1a1a1a', 88, 360)).toBeGreaterThan(0);
   });
 
   test('milestone flags render at normal spread and drop past DECOR_MAX_SPAN', async ({ page }) => {
@@ -169,8 +185,8 @@ test.describe('Goal end state and infinite mode', () => {
     await settle(page);
     const normalWin = await page.evaluate(() => GameDebug.getCameraWindow());
     expect(normalWin.max - normalWin.min).toBeLessThanOrEqual(1500);
-    // Milestone flags share the banner gold but sit at the horizon (y 56-70).
-    await expect.poll(() => countColor(page, '#e8c83a', 56, 70)).toBeGreaterThan(0);
+    // Milestone flags share the banner gold but sit at the horizon (y 74-88).
+    await expect.poll(() => countColor(page, '#e8c83a', 74, 88)).toBeGreaterThan(0);
 
     await page.evaluate(() => { GameCore.setScore('camel-1', 4000); });
     await expect.poll(async () => {
@@ -179,7 +195,7 @@ test.describe('Goal end state and infinite mode', () => {
     }).toBe(true);
     // Two real frames at the huge span, so the guard is exercised now.
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-    expect(await countColor(page, '#e8c83a', 56, 70)).toBe(0);
+    expect(await countColor(page, '#e8c83a', 74, 88)).toBe(0);
   });
 
   test('milestone numbers rasterise, but are skipped when the step cannot fit the label', async ({ page }) => {
@@ -190,17 +206,26 @@ test.describe('Goal end state and infinite mode', () => {
     const normalWin = await page.evaluate(() => GameDebug.getCameraWindow());
     expect(normalWin.max - normalWin.min).toBeLessThanOrEqual(1500);
     // Milestone 50 sits in-window with a wide 50-point step: its label must draw.
-    await expect.poll(() => countLabelInk(page, 56, 70)).toBeGreaterThan(0);
+    await expect.poll(() => countLabelInk(page, 74, 88)).toBeGreaterThan(0);
 
-    // Large-but-allowed spread (1480 <= DECOR_MAX_SPAN): flags stay, but the
-    // ~16px 50-point step is below a 4-digit label's width + 4, so numbers skip.
-    await page.evaluate(() => { GameCore.setScore('camel-0', 1000); GameCore.setScore('camel-1', 2440); });
+    // Five-digit spread at the 1500 cap (1460 <= DECOR_MAX_SPAN): flags stay,
+    // but the ~21.3px step is below a 5-digit label's width + 4 (~22px), so
+    // numbers skip while flags still draw.
+    await page.locator('#infinite').check();
+    await page.evaluate(() => { GameCore.setScore('camel-0', 10000); GameCore.setScore('camel-1', 11460); });
     await settle(page);
     const wideWin = await page.evaluate(() => GameDebug.getCameraWindow());
     expect(wideWin.max - wideWin.min).toBeLessThanOrEqual(1500);
     expect(wideWin.max - wideWin.min).toBeGreaterThan(1000);
-    await expect.poll(() => countColor(page, '#e8c83a', 56, 70)).toBeGreaterThan(0); // flags still present
-    expect(await countLabelInk(page, 56, 70)).toBe(0); // labels skipped
+    await expect.poll(() => countColor(page, '#e8c83a', 74, 88)).toBeGreaterThan(0); // flags still present
+    // Spill-free sub-box centred on milestone 10700's label slot: the label
+    // is the only ink the skip guard removes, so emptiness here proves the
+    // guard fired (0 spill pixels observed at this slot in the probe runs).
+    const labelCx = await page.evaluate(() => {
+      const w = GameDebug.getCameraWindow();
+      return Math.round(GameCore.mapScoreToScreenX(10700, w, 640) + 17);
+    });
+    expect(await countLabelInkIn(page, labelCx - 15, labelCx + 15, 74, 88)).toBe(0); // label skipped
   });
 
   test('winner burst spawns confetti that animates, and New race clears it', async ({ page }) => {
@@ -373,7 +398,7 @@ test.describe('Goal end state and infinite mode', () => {
     const { light, dark } = await page.evaluate(({ gx }) => {
       const stripeX = Math.round(gx) - 6 + 4;
       const img = document.getElementById('game').getContext('2d')
-        .getImageData(stripeX, 70, 4, 288 - 70).data;
+        .getImageData(stripeX, 88, 4, 360 - 88).data;
       let light = 0, dark = 0;
       for (let i = 0; i < img.length; i += 4) {
         if (img[i] === 240 && img[i + 1] === 240 && img[i + 2] === 240) light += 1;

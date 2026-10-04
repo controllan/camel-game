@@ -90,15 +90,15 @@ test.describe('App-level: errors, network, responsive, a11y', () => {
     });
   }
 
-  test('1920x1080 scales the 512px buffer to at least 3x', async ({ page }) => {
+  test('1920x1080 scales the 640px buffer up (integer snap where it fits)', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await gotoGame(page);
     const l = await page.evaluate(() => GameDebug.getCanvasLayout());
     // The binding dimension is width here (panel beside the canvas): the real
-    // fill snaps to a crisp 3x (3 * 512 = 1536px) without overflowing.
-    expect(l.bufferWidth).toBe(512);
-    expect(l.bufferHeight).toBe(288);
-    expect(l.cssWidth).toBeGreaterThanOrEqual(1536);
+    // fill snaps to a crisp 2x (2 * 640 = 1280px) without overflowing.
+    expect(l.bufferWidth).toBe(640);
+    expect(l.bufferHeight).toBe(360);
+    expect(l.cssWidth).toBeGreaterThanOrEqual(1280);
   });
 
   test('8 camels scroll inside the panel while the page itself never scrolls', async ({ page }) => {
