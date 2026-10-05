@@ -15,7 +15,7 @@ This doc is the authoritative source for the **decor / sky / font** sprites;
 | `LANE_BOTTOM` | **712** (`720 − 8`) |
 | lane region | **592** |
 | `laneHeight(8)` | **74.0** |
-| Decor spacing / cull | **90** / **1500** world points (`SEED = 1337`) |
+| Decor spacing / cull | **32 / 48 / 20** (background / midground / floor, world points) / **1500** (`SEED = 1337`) |
 | Themes | `desert` (camel + dunes), `forest` (boar + grass/treeline) |
 | Previews | gitignored `test-results/ux-tmp/` (see [Previews](#6-previews)) |
 | Reference | `camel-sprite.md` dune tokens + the shipped `640×360` art in `index.html` |
@@ -421,7 +421,8 @@ Placement is byte-identical to today (same `SEED=1337`, `mulberry32(hash2(SEED,k
 
 ## 3. Forest theme (new)
 
-Dusk sky + moon over grass lanes with a treeline and four floor decor kinds.
+Dusk sky + moon over grass lanes with a treeline, midground trees standing in the
+track, and dense procedural floor cover (grass carpet + sprites).
 
 ### 3.1 Dusk sky bands + moon
 
@@ -461,28 +462,40 @@ identical, so lane geometry / fit are untouched.
 `ground.top` vs `ground.shade`, `ground.edge`, `ground.rim` all separate cleanly
 (darker greens); grass reads as a continuous band with a `#1c3018` crest line.
 
-### 3.3 Decor set — inventory, sizes, weights
+### 3.3 Decor set — inventory, sizes, legends
 
 Every forest sprite has a 1 px **transparent margin on all four sides** (clean border,
 no clipping); sprites are a single 4-connected blob, fully `O`-enclosed. `yOffset`:
 **background** kinds (trees/bush) base on `HORIZON_Y`; **floor** kinds anchor on the
 lane's `terrainSurfaceY` (negative = up).
 
-| kind | sprite | matrix | legend | weight | layer | `yOffset` |
-|---|---|---|---|---|---|---|
-| `tree-conifer` | `FOREST_TREE_CONIFER` | `40 × 56` | `O T S B` | 0.20 | background | −56 |
-| `tree-deciduous` | `FOREST_TREE_DECIDUOUS` | `40 × 56` | `O T S B` | 0.15 | background | −56 |
-| `bush` | `FOREST_BUSH` | `28 × 20` | `O T S` | 0.12 | background | −20 |
-| `mushroom-red` | `MUSHROOM_RED` | `12 × 12` | `O C W T` | 0.10 | floor | −12 |
-| `mushroom-brown` | `MUSHROOM_BROWN` | `12 × 12` | `O C G T` | 0.04 | floor | −12 |
-| `moss` | `MOSS` | `20 × 8` | `O M N` | 0.13 | floor | −8 |
-| `stone` | `STONE` | `16 × 10` | `O B S` | 0.10 | floor | −10 |
-| `stone-alt` | `STONE_ALT` | `12 × 8` | `O B S` | 0.04 | floor | −8 |
-| `pine-needles` | `PINE_NEEDLES` | `24 × 8` | `O P` | 0.12 | floor | −8 |
+| kind | sprite | matrix | legend | layer | `yOffset` |
+|---|---|---|---|---|---|
+| `tree-conifer` | `FOREST_TREE_CONIFER` | `40 × 56` | `O T S B` | background | −56 |
+| `tree-deciduous` | `FOREST_TREE_DECIDUOUS` | `40 × 56` | `O T S B` | background | −56 |
+| `tree-broad` | `FOREST_TREE_BROAD` | `44 × 60` | `O T S B R` | background **and** midground | −60 |
+| `bush` | `FOREST_BUSH` | `28 × 20` | `O T S` | background | −20 |
+| `tree-tall` | `FOREST_TREE_TALL` | `48 × 72` | `O T S B R` | midground | −72 |
+| `grass-tuft-a` | `GRASS_TUFT_A` | `10 × 8` | `O G H` | floor | −8 |
+| `grass-tuft-b` | `GRASS_TUFT_B` | `12 × 8` | `O G H` | floor | −8 |
+| `fern` | `FERN` | `16 × 12` | `O G H` | floor | −12 |
+| `leaf-litter` | `LEAF_LITTER` | `14 × 6` | `O L H` | floor | −6 |
+| `mushroom-red` | `MUSHROOM_RED` | `12 × 12` | `O C W T` | floor | −12 |
+| `mushroom-brown` | `MUSHROOM_BROWN` | `12 × 12` | `O C G T` | floor | −12 |
+| `moss` | `MOSS` | `20 × 8` | `O M N` | floor | −8 |
+| `stone` | `STONE` | `16 × 10` | `O B S` | floor | −10 |
+| `stone-alt` | `STONE_ALT` | `12 × 8` | `O B S` | floor | −8 |
+| `pine-needles` | `PINE_NEEDLES` | `24 × 8` | `O P` | floor | −8 |
 
-Weights sum to **1.00**. Legend chars (forest): `.` transparent, `O` outline;
-`T` canopy light, `S` canopy/stone shade, `B` trunk / stone body; `C` mushroom cap,
-`W` cap spot, `G` gills, `M` moss light, `N` moss dark, `P` pine needles.
+Sizes are exact (validated, §5). `yOffset` is signed from the anchor: background
+kinds from `HORIZON_Y`, midground/floor kinds from the lane `terrainSurfaceY`
+(negative = up). **Weights are per placement stream** (background / midground /
+floor), not global — see §3.4.1.
+
+Legend chars (forest): `.` transparent, `O` outline; `T` canopy light,
+`S` canopy/stone shade, `B` trunk / stone body, `R` root/base dark; `C` mushroom
+cap, `W` cap spot, `G` blade-mid / frond-rib / gills, `H` blade/frond/leaf light,
+`L` leaf body, `M` moss light, `N` moss dark, `P` pine needles.
 
 ```js
 const FOREST_TREE_PAL_CONIFER   = { outline:'#1a1208', T:'#2f6b3a', S:'#1f4a2a', B:'#4a3320' };
@@ -493,6 +506,13 @@ const MUSHROOM_BROWN_PAL= { outline:'#1a1208', C:'#8a5a3a', G:'#6b4a2a', T:'#e8d
 const MOSS_PAL          = { outline:'#1a1208', M:'#3f7a35', N:'#2f5a28' };
 const STONE_PAL         = { outline:'#1a1208', B:'#8a8a92', S:'#5a5a62' };
 const NEEDLES_PAL       = { outline:'#1a1208', P:'#8a5a3a' };
+// --- new floor cover (grass tufts / fern share the floor-green legend O G H) ---
+const GRASS_TUFT_PAL  = { outline:'#1a1208', G:'#2f6b3a', H:'#7ac25a' };
+const FERN_PAL        = { outline:'#1a1208', G:'#2f6b3a', H:'#7ac25a' };
+const LEAF_LITTER_PAL = { outline:'#1a1208', L:'#8a5a3a', H:'#b07a4a' };
+// --- new trees (R = dark root/base tone so the trunk reads as standing) ---
+const FOREST_TREE_TALL_PAL  = { outline:'#1a1208', T:'#2f6b3a', S:'#1f4a2a', B:'#4a3320', R:'#2a1c10' };
+const FOREST_TREE_BROAD_PAL = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', B:'#4a3320', R:'#2a1c10' };
 ```
 
 **`FOREST_TREE_CONIFER` — `const FOREST_TREE_CONIFER` (`40 × 56`)**
@@ -730,43 +750,318 @@ const NEEDLES_PAL       = { outline:'#1a1208', P:'#8a5a3a' };
 ........................
 ```
 
-### 3.4 Deterministic placement rule
+**`GRASS_TUFT_A` — `const GRASS_TUFT_A` (`10 × 8`)** — 2-blade cluster; mid tone `G`, light blade `H` so it reads on the `#4a7a3a` floor.
 
-Same seeded scheme as desert — **no `Math.random`**. Per decor cell `k`:
-
-```js
-function hash2(a, b) { /* same as index.html */ }
-function mulberry32(seed) { /* same as index.html */ }
-const SEED = 1337, DECOR_SPACING = 90, DECOR_MAX_SPAN = 1500;
-
-if ((win.max - win.min) > DECOR_MAX_SPAN) { runtime.decorDrawn = 0; return; }
-const startK = Math.floor((win.min - DECOR_SPACING) / DECOR_SPACING);
-const endK   = Math.ceil((win.max + DECOR_SPACING) / DECOR_SPACING);
-for (let k = startK; k <= endK; k++) {
-  const rng = mulberry32(hash2(SEED, k));
-  const total = /* sum of kind weights */;
-  const roll   = rng() * total;                       // weighted kind selector
-  const point  = k * DECOR_SPACING + Math.floor(rng() * 40 - 20); // world jitter ±20
-  // cull against the camera window (same margin rule as desert), then pick kind
-  // by the cumulative weights in §3.3; background kinds base on HORIZON_Y,
-  // floor kinds on the lane terrainSurfaceY (one more rng() draw selects the lane).
-}
+```
+..........
+....OO....
+...OGGO...
+...OGHO...
+.OOGHGGOO.
+.OGGGGGGO.
+..OOOOOO..
+..........
 ```
 
-Draw order is **roll-then-point** (the kind roll is the first `rng()` draw, the
-jitter the second), matching `index.html` `drawDecor` — a different order shifts every
-cell's placement.
+**`GRASS_TUFT_B` — `const GRASS_TUFT_B` (`12 × 8`)** — taller 3-blade cluster, same `O G H` legend.
 
-**Background vs floor split:** kinds in
-`{ tree-conifer, tree-deciduous, bush }` render along the horizon (treeline, base at
-`HORIZON_Y`); the rest render inside a lane at `terrainSurfaceY - spriteH`.
-`yOffset` is the signed offset from that anchor. Trees may rise above `HORIZON_Y`
-into the sky band (base `120`, top `64`) — the sky is drawn first, so the treeline
-overlaps it correctly. Floor decor always sits fully inside a lane.
+```
+............
+...OO...OO..
+..OGGO.OGGO.
+..OGHO.OGHO.
+.OOGHGOOGGO.
+.OGGGGGGGGO.
+..OOOOOOOO..
+............
+```
 
-**Bounded cost:** at `DECOR_MAX_SPAN = 1500` and `spacing 90`, per-frame cells
-`≈ 1500/90 + 2 ≈ 19` — the same bound as desert, so the perf budget is unchanged
-(one sprite per cell, no nested loops).
+**`FERN` — `const FERN` (`16 × 12`)** — arching frond (rib `G`, pinnae `H`), deliberately asymmetric so it never reads as a mini-conifer.
+
+```
+................
+.............OO.
+...........OOHO.
+.........OOHHHO.
+.......OOHHHHO..
+.....OOHHGHHO...
+...OOHHGHHOO....
+..OHHGHHOO......
+..OHGHOO........
+..OOOO..........
+................
+................
+```
+
+**`LEAF_LITTER` — `const LEAF_LITTER` (`14 × 6`)** — a few fallen leaves, legend `O L H` (leaf body / leaf light); readable at 1×.
+
+```
+..............
+..OO..OOO.....
+.OLLOOLLHO....
+.OLLLLLLHO....
+..OOOOOOO.....
+..............
+```
+
+**`FOREST_TREE_TALL` — `const FOREST_TREE_TALL` (`48 × 72`)** — the **midground** conifer: tall layered canopy (`T`/`S`), a visible 6-px trunk (`B`), root flare in the dark base tone `R` `#2a1c10` so the base reads as standing on the ground.
+
+```
+................................................
+................................................
+......................OOO.......................
+......................OTO.......................
+.....................OTTSO......................
+.....................OTTSO......................
+....................OOTTSOO.....................
+......................OTO.......................
+...................OOOTTSOOO....................
+...................OTTTTSSSO....................
+...................OTTTTSSSO....................
+..................OTTTTTSSSSO...................
+..................OTTTTTSSSSO...................
+...................OTTTTSSSO....................
+.................OOTTTTTSSSSOO..................
+.................OTTTTTTSSSSSO..................
+................OTTTTTTTSSSSSSO.................
+................OTTTTTTTSSSSSSO.................
+...............OOTTTTTTTSSSSSSOO................
+.................OTTTTTTSSSSSO..................
+..............OOOTTTTTTTSSSSSSOOO...............
+..............OTTTTTTTTTSSSSSSSSO...............
+..............OTTTTTTTTTSSSSSSSSO...............
+.............OTTTTTTTTTTSSSSSSSSSO..............
+.............OTTTTTTTTTTSSSSSSSSSO..............
+..............OTTTTTTTTTSSSSSSSSO...............
+............OOTTTTTTTTTTSSSSSSSSSOO.............
+...........OTTTTTTTTTTTTSSSSSSSSSSSO............
+...........OTTTTTTTTTTTTSSSSSSSSSSSO............
+...........OTTTTTTTTTTTTSSSSSSSSSSSO............
+..........OOTTTTTTTTTTTTSSSSSSSSSSSOO...........
+............OTTTTTTTTTTTSSSSSSSSSSO.............
+.........OOOTTTTTTTTTTTTSSSSSSSSSSSOOO..........
+.........OTTTTTTTTTTTTTTSSSSSSSSSSSSSO..........
+.........OTTTTTTTTTTTTTTSSSSSSSSSSSSSO..........
+........OTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO.........
+........OTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO.........
+.........OTTTTTTTTTTTTTTSSSSSSSSSSSSSO..........
+.......OOTTTTTTTTTTTTTTTSSSSSSSSSSSSSSOO........
+......OTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO.......
+......OTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO.......
+......OTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO.......
+.....OOTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSOO......
+.......OTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO........
+....OOOTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSOOO.....
+....OTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....
+....OTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....
+...OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+...OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+....OTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....
+..OOTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSOO...
+..OOOOOOOOOOOOOOOOOOOTTTSSSOOOOOOOOOOOOOOOOOO...
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+.....................OBBBBO.....................
+....................ORRRRRRO....................
+...................ORRRRRRRRO...................
+..................ORRRRRRRRRRO..................
+..................OOOOOOOOOOOO..................
+................................................
+................................................
+```
+
+**`FOREST_TREE_BROAD` — `const FOREST_TREE_BROAD` (`44 × 60`)** — broad upright tree with branch stubs; same `O T S B R` legend, used for background variety **and** as the midground minority.
+
+```
+............................................
+............................................
+............................................
+...............OOOOOOOOOOOOO................
+...............OTTTTTTTTSSSO................
+............OOOTTTTTTTTTSSSSOOO.............
+...........OTTTTTTTTTTTTSSSSSSSO............
+.........OOTTTTTTTTTTTTTSSSSSSSSOO..........
+........OTTTTTTTTTTTTTTTSSSSSSSSSSO.........
+.......OTTTTTTTTTTTTTTTTSSSSSSSSSSSO........
+......OTTTTTTTTTTTTTTTTTSSSSSSSSSSSSO.......
+.....OTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSO......
+.....OTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSO......
+....OTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO.....
+....OTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO.....
+...OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO....
+...OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO....
+...OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO....
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO...
+..OSSSSSSTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO....
+...OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO....
+...OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO....
+....OTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO.....
+....OTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO.....
+.....OTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSOOOO..
+.....OTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSO......
+......OTTTTTTTTTTTTTTTTTSSSSSSSSSSSSO.......
+.......OTTTTTTTTTTTTTTTTSSSSSSSSSSSO........
+........OTTTTTTTTTTTTTTTSSSSSSSSSSO.........
+.........OOTTTTTTTTTTTTTSSSSSSSSOO..........
+...........OTTTTTTTTTTTTSSSSSSSO............
+............OOOTTTTTTTTTSSSSOOO.............
+...............OTTTTTTTTSSSO................
+...............OOOOTTTTTSOOO................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+...................OBBBBO...................
+..................ORRRRRRO..................
+.................ORRRRRRRRO.................
+.................OOOOOOOOOO.................
+............................................
+```
+
+### 3.4 Deterministic placement — per-layer streams
+
+Each layer draws from its **own** seeded candidate stream
+(`mulberry32(hash2(SEED ^ DECOR_STREAM[layer], key))`, **no `Math.random`**),
+world-anchored and deterministic. The key is `k` for background/midground and
+`k*8 + L` for the floor's per-lane streams; distinct salts keep the three
+densities independent:
+
+```js
+const SEED = 1337, DECOR_MAX_SPAN = 1500, FLOOR_LANES = 8;
+const DECOR_STREAM  = { background: 0x11, midground: 0x22, floor: 0x33 };
+const DECOR_SPACING = { background: 32,      midground: 48,      floor: 20 };
+const DECOR_CAP     = { background: 14,      midground: 10,      floor: 120 };
+
+function streamRng(layer, key) { return mulberry32(hash2(SEED ^ DECOR_STREAM[layer], key)); }
+```
+
+For each layer, iterate candidate index `k` from `startK = ⌊(win.min − spacing)/spacing⌋`
+to `endK = ⌈(win.max + spacing)/spacing⌉` **inclusive** (the loop reaches one spacing
+beyond each window edge, so it spans `⌊W/spacing⌋` interior cells **plus edge cells**):
+
+- **background / midground:** `key = k`; `point = k*spacing + ⌊rng()*(spacing/2) − spacing/4⌋`
+  (jitter ±8 / ±12 world points).
+- **floor:** one stream **per lane** `L` (`0 ≤ L < laneCount ≤ 8`); `key = k*8 + L`;
+  `point = k*20 + ⌊rng()*10 − 5⌋` (±5) in lane `L`.
+
+Per-cell draw order is **roll → jitter(point) → lane** (`roll` = weighted kind pick
+= first `rng()` draw; the lane is the third draw, floor/midground only) — the same
+order as the shipped `drawDecor`, so a stream reproduces i to i.
+
+**Cull / cap:** skip a candidate whose `point` is outside `[win.min − margin, win.max +
+margin]`, `margin = (win.max − win.min)*(16/CANVAS_W)`. The floor cap is spread per
+lane (`perLaneCap = ⌊120/L⌋` = `15` at `L=8`); each lane keeps at most `perLaneCap`
+props and samples every `step = max(1, ⌈cells/perLaneCap⌉)`-th cell, so capped props
+spread across the whole window instead of bunching at the left edge, and
+`background / midground` stop at their cap (14 / 10). `perLaneCap * lanes ≤ cap`, so the
+total stays `≤ 120`. Past `DECOR_MAX_SPAN` all world decor is culled (sky, ground and
+the carpet stay).
+
+**Anchors:** background kinds base on `HORIZON_Y + yOffset`; midground and floor
+kinds base on `laneSurfaceY(lane, laneCount, point) + yOffset`.
+
+#### 3.4.1 Stream weights (each column sums to 1.00)
+
+| layer | kind | weight |
+|---|---|---|
+| background | `FOREST_TREE_CONIFER` | 0.30 |
+| background | `FOREST_TREE_DECIDUOUS` | 0.26 |
+| background | `FOREST_TREE_BROAD` | 0.22 |
+| background | `FOREST_BUSH` | 0.22 |
+| midground | `FOREST_TREE_TALL` | 0.65 |
+| midground | `FOREST_TREE_BROAD` | 0.35 |
+| floor | `GRASS_TUFT_A` | 0.22 |
+| floor | `GRASS_TUFT_B` | 0.20 |
+| floor | `FERN` | 0.12 |
+| floor | `MOSS` | 0.12 |
+| floor | `PINE_NEEDLES` | 0.10 |
+| floor | `LEAF_LITTER` | 0.08 |
+| floor | `MUSHROOM_RED` | 0.08 |
+| floor | `MUSHROOM_BROWN` | 0.03 |
+| floor | `STONE` | 0.04 |
+| floor | `STONE_ALT` | 0.01 |
+
+Floor is grass-tuft dominated (0.42), then moss/fern/needles (0.34), then
+leaf/mushroom (0.19), stones rarest (0.05).
+
+#### 3.4.2 Grass carpet (procedural, not sprites)
+
+Per lane, stamp **1–2** `1×1` specks between the lane crest `+5` and the lane bottom
+`−2`, at seeded positions (`mulberry32(hash2(SEED ^ 0x44, k*8 + lane))`); tone
+alternates `ground.speckle #5a8a48` (lighter) / `ground.shade #3a6030` (darker).
+Spacing is derived from the current window
+(`worldSpacing = (win.max − win.min)/CANVAS_W × 10`) and cells are seeded by world
+index, so at a fixed zoom the columns hold the ~10 screen px pitch and stay
+world-anchored (scrolling with the ground); a zoom change re-spaces them. This is a
+plain `fillRect` loop (≈128 columns × 2 × lanes per frame), **not** `drawSprite`, so it stays cheap
+*and* survives the zoom-out cull (props thin out, the carpet stays), keeping the
+floor reading as grass at every zoom.
+
+#### 3.4.3 Renderer pass order
+
+```
+drawSky → drawCelestial → drawDunes
+→ drawDecor('background') → drawMilestones        // behind the lanes
+→ drawLanes
+→ drawDecor('floor') → drawDecor('midground')     // on the lanes
+→ drawCamels                                       // boars pass IN FRONT
+→ drawFinish → drawConfetti → drawBanner
+```
+
+`drawDecor('background')` resets frame bookkeeping (`decorKinds`, `decorDrawn`);
+the `floor` and `midground` passes accumulate, so `getScene()` still reports every
+kind drawn. Midground trees stand on the track and are over-painted by the animals,
+so boars read in the foreground.
+
+#### 3.4.4 Expected on-screen counts (per frame)
+
+Let `W = win.max − win.min`, `L` = lane count (default 4, max 8):
+
+| layer | candidates | cap | at `W=100` | at `W=250` |
+|---|---|---|---|---|
+| background | `⌊W/32⌋` + edge | 14 | ≈4 (L-independent) | ≈8 |
+| midground | `⌊W/48⌋` + edge | 10 | ≈3 | ≈5 |
+| floor | `(⌊W/20⌋ + edge) × L` | 120 (`15`/lane at `L=8`) | 20 (L4) / 40 (L8) | 50 (L4) / 100 (L8) |
+| carpet specks | `≈128 × 2 × L` rects | — | 1024 (L4) | 1024 (L4, W-independent) |
+
+At the default camera (`MIN_WINDOW = 100`, 4 lanes) expect **≈4 background trees,
+≈3 midground trees, ≈20 floor props**; the approved "≈8–30 floor props visible at
+default zoom" holds for `L ≤ 6`, `W ≤ 150`. The carpet is always present. The old
+world-point spacing of `90` (≈1 item per screen) is **superseded** by this per-layer
+model.
+
+Candidate counts iterate the inclusive `k` range `⌊(win.min − spacing)/spacing⌋ …
+⌈(win.max + spacing)/spacing⌉` (`+edge`, one spacing past each window edge). Floor
+props are capped per lane (`⌊120/L⌋`, `15` at `L=8`) and stride-sampled across the
+window (§3.4).
 
 ### 3.5 Size budget at `1280×720`
 
@@ -774,10 +1069,12 @@ overlaps it correctly. Floor decor always sits fully inside a lane.
 |---|---|
 | lane region | `712 − 120 = 592` px |
 | `laneHeight(8)` | `74.0` px |
-| tallest floor decor | `MUSHROOM_* 12` px (≪ 74, no lane overflow) |
-| tallest background decor | `FOREST_TREE_* 56` px (base `120`, top `64`, inside sky) |
+| tallest floor decor | `FERN 16×12` px (≪ 74, no lane overflow) |
+| tallest background decor | `FOREST_TREE_BROAD 44×60` px (base `120`, top `60`, inside sky) |
+| midground tree | `FOREST_TREE_TALL 48×72` px — ≈ one 8-lane lane tall, stands on the surface |
 | boar lane fit | `≤76×70` incl. bob; slack `74 − 70 = 4` px (unchanged) |
-| max decor sprites / frame | `≈ 19` |
+| max decor sprites / frame | `background 14 + midground 10 + floor 120 = 144` (worst case; typical ≈25) |
+| grass carpet | `≈128 × 2 × L` `fillRect` specks/frame (no sprite loop) |
 
 ### 3.6 Forest palette table (every token)
 
@@ -807,36 +1104,62 @@ overlaps it correctly. Floor decor always sits fully inside a lane.
 | stone light | `#8a8a92` | `B` |
 | stone shade | `#5a5a62` | `S` |
 | pine needles | `#8a5a3a` | `P` |
+| blade/frond light | `#7ac25a` | `H` (grass tuft / fern) |
+| leaf body | `#8a5a3a` | `L` (leaf litter; = pine-needle tone) |
+| leaf light | `#b07a4a` | `H` (leaf litter) |
+| tree base dark | `#2a1c10` | `R` (root flare / base grounding) |
+| carpet speckle | `#5a8a48` | grass-carpet light speck (dark speck = `ground.shade`) |
 | outline | `#1a1208` | `O` (all sprites) |
 
 Contrast spot checks: spot `#f0ece0` on cap `#c0392b` = **4.60** ✓ AA;
-outline `#1a1208` on grass = **3.65** ≥ 3:1 (silhouettes); moon on sky = **10.99** ✓.
-`moss`/`pine-needles` are intentionally low-contrast floor texture (decoration, not UI).
+outline `#1a1208` on grass = **3.65** ≥ 3:1 (silhouettes); moon on sky = **10.99** ✓;
+blade light `#7ac25a` on grass `#4a7a3a` = **1.83**, blade mid `#2f6b3a` on grass = **1.21**
+(grass tufts are silhouetted by the `O` outline, so they read despite the low fill
+contrast). `moss`/`pine-needles`/carpet are intentionally low-contrast floor texture.
 
 ### 3.7 Forest `THEMES.forest` wiring (excerpt)
 
 ```js
 palette: { sky:['#241a3a','#3a2450','#5a3050','#7a3f4a'], sun:'#f0e8c0', sunRim:'#d8c890', accent:'#e8c83a', distant:[] },
-ground:  { top:'#4a7a3a', shade:'#3a6030', edge:'#26401f', rim:'#1c3018' },
-decor: { spacing:90, maxSpan:1500, kinds: [
-  { kind:'trees',        layer:'background', weight:0.20, sprite:FOREST_TREE_CONIFER,   pal:FOREST_TREE_PAL_CONIFER,   yOffset:-56 },
-  { kind:'trees',        layer:'background', weight:0.15, sprite:FOREST_TREE_DECIDUOUS, pal:FOREST_TREE_PAL_DECIDUOUS, yOffset:-56 },
-  { kind:'trees',        layer:'background', weight:0.12, sprite:FOREST_BUSH,           pal:FOREST_BUSH_PAL,           yOffset:-20 },
-  { kind:'mushrooms',    layer:'floor',      weight:0.10, sprite:MUSHROOM_RED,          pal:MUSHROOM_RED_PAL,          yOffset:-12 },
-  { kind:'mushrooms',    layer:'floor',      weight:0.04, sprite:MUSHROOM_BROWN,        pal:MUSHROOM_BROWN_PAL,        yOffset:-12 },
-  { kind:'moss',         layer:'floor',      weight:0.13, sprite:MOSS,                  pal:MOSS_PAL,                  yOffset:-8  },
-  { kind:'stones',       layer:'floor',      weight:0.10, sprite:STONE,                 pal:STONE_PAL,                 yOffset:-10 },
-  { kind:'stones',       layer:'floor',      weight:0.04, sprite:STONE_ALT,             pal:STONE_PAL,                 yOffset:-8  },
-  { kind:'pine_needles', layer:'floor',      weight:0.12, sprite:PINE_NEEDLES,          pal:NEEDLES_PAL,               yOffset:-8  },
-]},
+ground:  { top:'#4a7a3a', shade:'#3a6030', edge:'#26401f', rim:'#1c3018', speckle:'#5a8a48' },
+decor: {
+  maxSpan: 1500,
+  streams: {
+    background: { spacing: 32, cap: 14 },
+    midground:  { spacing: 48, cap: 10 },
+    floor:      { spacing: 20, cap: 120 },
+  },
+  kinds: [
+    // background (base on HORIZON_Y + yOffset)
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,   pal:FOREST_TREE_PAL_CONIFER,   yOffset:-56, weight:0.30 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS, pal:FOREST_TREE_PAL_DECIDUOUS, yOffset:-56, weight:0.26 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_BROAD,     pal:FOREST_TREE_BROAD_PAL,     yOffset:-60, weight:0.22 },
+    { kind:'trees',        layer:'background', sprite:FOREST_BUSH,           pal:FOREST_BUSH_PAL,           yOffset:-20, weight:0.22 },
+    // midground (base on lane terrainSurfaceY + yOffset)
+    { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_TALL,      pal:FOREST_TREE_TALL_PAL,      yOffset:-72, weight:0.65 },
+    { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_BROAD,     pal:FOREST_TREE_BROAD_PAL,     yOffset:-60, weight:0.35 },
+    // floor (per lane)
+    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_A,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.22 },
+    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_B,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.20 },
+    { kind:'fern',         layer:'floor',      sprite:FERN,                  pal:FERN_PAL,                  yOffset:-12, weight:0.12 },
+    { kind:'moss',         layer:'floor',      sprite:MOSS,                  pal:MOSS_PAL,                  yOffset:-8,  weight:0.12 },
+    { kind:'pine_needles', layer:'floor',      sprite:PINE_NEEDLES,          pal:NEEDLES_PAL,               yOffset:-8,  weight:0.10 },
+    { kind:'leaf_litter',  layer:'floor',      sprite:LEAF_LITTER,           pal:LEAF_LITTER_PAL,           yOffset:-6,  weight:0.08 },
+    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_RED,          pal:MUSHROOM_RED_PAL,          yOffset:-12, weight:0.08 },
+    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_BROWN,        pal:MUSHROOM_BROWN_PAL,        yOffset:-12, weight:0.03 },
+    { kind:'stones',       layer:'floor',      sprite:STONE,                 pal:STONE_PAL,                 yOffset:-10, weight:0.04 },
+    { kind:'stones',       layer:'floor',      sprite:STONE_ALT,             pal:STONE_PAL,                 yOffset:-8,  weight:0.01 },
+  ],
+},
 ```
 
-**Kind names are family-level.** The shipped `THEMES.forest.decor.kinds[].kind` uses the
-family names above (not the per-sprite labels in §3.3), each carrying `layer`, `sprite`,
-`pal`, `yOffset` and the same weights. Mapping:
-`trees` → `tree-conifer` / `tree-deciduous` / `bush`; `mushrooms` → `mushroom-red` /
-`mushroom-brown`; `moss` → `moss`; `stones` → `stone` / `stone-alt`; `pine_needles` →
-`pine-needles`.
+**Kind names are family-level.** The `kind` field uses the family names above
+(not the per-sprite labels in §3.3); `weight` is resolved **within its own layer's
+stream** (§3.4.1). Mapping: `trees` → `tree-conifer` / `tree-deciduous` / `tree-broad`
+/ `bush`; `midground` → `tree-tall` / `tree-broad`; `grass_tufts` → `grass-tuft-a` /
+`grass-tuft-b`; `fern` → `fern`; `mushrooms` → `mushroom-red` / `mushroom-brown`;
+`moss` → `moss`; `stones` → `stone` / `stone-alt`; `pine_needles` → `pine-needles`;
+`leaf_litter` → `leaf-litter`.
 
 ---
 
@@ -848,8 +1171,12 @@ flowchart TD
   T -->|forest| F["Grass ribbon + 4 bands<br/>moon r=32 @ (1020,76)"]
   D --> DP["palm 32×40"] & DC["cactus 24×32"] & DR["rock 24×16"]
   F --> FB["background (base on HORIZON_Y)"]
-  F --> FF["floor (base on lane terrainSurfaceY)"]
-  FB --> FC["tree-conifer 40×56"] & FD["tree-deciduous 40×56"] & FBU["bush 28×20"]
+  F --> FM["midground (base on lane surface; drawn before animals)"]
+  F --> FF["floor (per lane, base on lane surface)"]
+  F --> CARP["grass carpet (procedural fillRect speckle, every ~10 px/lane)"]
+  FB --> FC["tree-conifer 40×56"] & FD["tree-deciduous 40×56"] & FBRO["tree-broad 44×60"] & FBU["bush 28×20"]
+  FM --> FT["tree-tall 48×72"] & FBRO
+  FF --> FGA["grass-tuft-a 10×8"] & FGB["grass-tuft-b 12×8"] & FFN["fern 16×12"] & FLL["leaf-litter 14×6"]
   FF --> FM1["mushroom-red 12×12"] & FM2["mushroom-brown 12×12"]
   FF --> FMOS["moss 20×8"] & FST["stone 16×10"] & FST2["stone-alt 12×8"] & FPN["pine-needles 24×8"]
   T --> SHARED["shared (both themes):<br/>milestone 20×28 + 12px label,<br/>finish 24×28 checker, confetti 4×4,<br/>digit font 6×10, 8-colour palette"]
@@ -860,23 +1187,24 @@ flowchart TD
 ## 5. Validation
 
 Throwaway generator/validator (not committed):
-`test-results/ux-tmp/gen-theme-art.py` (+ `previews.py`), run as
-`python3 test-results/ux-tmp/gen-theme-art.py --previews`. `test-results/` is
-gitignored and **wiped by every `pnpm test` run** — copy any needed PNG out before
-running the suite.
+`test-results/ux-tmp/gen-theme-art.py` (+ `previews.py`) for the base set, and
+`test-results/ux-tmp/gen-forest-art.py` for the dense-forest extension (floor
+sprites, tall/broad trees, mock previews). Run either with plain `python3`.
+`test-results/` is gitignored and **wiped by every `pnpm test` run** — copy any
+needed PNG out before running the suite.
 
 Checks (all pass):
 
 | Check | Scope |
 |---|---|
-| exact dims (`dims_ok`) | every matrix (`32×40 … 24×8`) |
+| exact dims (`dims_ok`) | every matrix (`32×40 … 10×8`) |
 | legend-only chars | every matrix vs its own legend |
 | single 4-connected blob | every sprite |
 | outline / enclosure (no fill 4-adjacent to exterior `.`) | every sprite |
 | clean transparent border, no stray/border pixels | every sprite |
 | no isolated fill pixels | every sprite |
 | digit derivation `upscale2x(3×5) === 6×10` | all `0–9` |
-| determinism | pure functions; placement seeded `mulberry32(hash2(1337,k))`, no `Math.random` |
+| determinism | pure functions; placement seeded `mulberry32(hash2(SEED ^ salt, k))`, no `Math.random` |
 
 Expected output:
 
@@ -895,6 +1223,12 @@ MOSS: 20x8 cells=87
 STONE: 16x10 cells=96
 STONE_ALT: 12x8 cells=50
 PINE_NEEDLES: 24x8 cells=82
+GRASS_TUFT_A: 10x8 cells=32
+GRASS_TUFT_B: 12x8 cells=48
+FERN: 16x12 cells=54
+LEAF_LITTER: 14x6 cells=30
+FOREST_TREE_TALL: 48x72 cells=1272
+FOREST_TREE_BROAD: 44x60 cells=1285
 ALL OK
 digits 6x10: derivation equality OK (upscale2x(src) == glyph for 0-9)
 ```
@@ -916,6 +1250,8 @@ Written to the gitignored `test-results/ux-tmp/`:
 | `test-results/ux-tmp/theme-forest-8x.png` | all forest decor variants at **8×** (conifer, deciduous, bush, both mushrooms, moss, both stones, pine needles) |
 | `test-results/ux-tmp/theme-forest-floor.png` | **1280×720** mock: dusk sky + moon, grass lanes, seeded decor placement, and a magenta **boar silhouette placeholder** rectangle (`76×70`, label `BOAR 76x70`) in lane 1 |
 | `test-results/ux-tmp/digits-6x10.png` | digits `1–8` at **1×** and **4×**, on blanket `#bfe3ea` + the 8 wild lane colours |
+| `test-results/ux-tmp/forest-new-sprites.png` | the six new forest sprites (`GRASS_TUFT_A/B`, `FERN`, `LEAF_LITTER`, `FOREST_TREE_TALL`, `FOREST_TREE_BROAD`) at **8×** with grid + a **1×** strip on the grass floor `#4a7a3a` |
+| `test-results/ux-tmp/forest-floor-dense.png` | **1280×720** mock of the dense forest: dusk sky + moon, grass lanes + carpet, a dense floor-prop pass (per-lane spacing `20`), background trees (spacing `32`) and midground trees (spacing `48`) with magenta **boar placeholders** (`76×70`) drawn in front in lanes 0 and 2 |
 
 > `pnpm test` wipes `test-results/`. Move any PNG needed for human review out of
 > `test-results/ux-tmp/` first.
@@ -937,24 +1273,32 @@ Written to the gitignored `test-results/ux-tmp/`:
 5. **Desert decor** — `PALM`/`CACTUS`/`ROCK` bounding boxes are exactly `32×40`,
    `24×32`, `24×16`; placed deterministically for seed `1337`, spacing `90`, at
    `HORIZON_Y + yOffset`.
-6. **Forest decor kinds** — `getScene().decorKinds` (or equivalent) reports only
-   the nine forest kinds; all four floor kinds (`mushroom*`, `moss`, `stone*`,
-   `pine-needles`) plus a tree can appear across a run.
-7. **Forest sizes** — conifer/deciduous bbox `40×56`, bush `28×20`, mushrooms `12×12`,
-   moss `20×8`, stones `16×10`/`12×8`, needles `24×8`; each fits its layer budget
-   (floor ≤ lane height, background inside the sky).
+6. **Forest decor kinds** — `getScene().decorKinds` (or equivalent) reports the
+   forest families; every floor family (`grass_tufts`, `fern`, `leaf_litter`,
+   `mushroom*`, `moss`, `stones`, `pine_needles`) plus a tree can appear across a run.
+7. **Forest sizes** — conifer/deciduous bbox `40×56`, broad `44×60`, tall `48×72`,
+   bush `28×20`, grass tufts `10×8`/`12×8`, fern `16×12`, leaf litter `14×6`,
+   mushrooms `12×12`, moss `20×8`, stones `16×10`/`12×8`, needles `24×8`; each fits
+   its layer budget (floor ≤ lane height, background inside the sky, tall ≈ one lane).
 8. **Placement determinism** — two identical runs produce identical decor positions;
    `Math.random` is never called for decor; past `maxSpan 1500` world decor is culled
-   while sky + ground still render; ≤ ~19 decor sprites per frame.
-9. **Milestone** — sprite `20×28`, label font `12px monospace`, label at
-   `(x+20, flagY+8)` in `#e8e0d0`, skipped when the step is narrower than the label.
-10. **Finish** — sprite `24×28`; code stripe `8×8` checker starting `x+8`,
+   while sky + ground + carpet still render.
+9. **Density** — at a 4-lane, `W ≈ 100` window expect ≈3 background trees, ≈2
+   midground trees and ≈20 floor props (carpet always on); caps respected
+   (background ≤14, midground ≤10, floor ≤120).
+10. **Midground layering** — a midground `FOREST_TREE_TALL` on a lane is over-painted
+    by a boar at the same screen x (boar passes in front).
+11. **Grass carpet** — grass lanes carry procedural speckle (`#5a8a48`/`#3a6030`
+    `fillRect`s, ~every 10 px per lane) that survives the zoom-out cull.
+12. **Milestone** — sprite `20×28`, label font `12px monospace`, label at
+    `(x+20, flagY+8)` in `#e8e0d0`, skipped when the step is narrower than the label.
+13. **Finish** — sprite `24×28`; code stripe `8×8` checker starting `x+8`,
     alternating light/dark from `poleTop` to `LANE_BOTTOM`.
-11. **Confetti** — particle `4×4`, gravity `280`, spawn speed ≈2× (vx ±120,
+14. **Confetti** — particle `4×4`, gravity `280`, spawn speed ≈2× (vx ±120,
     vy `−60…−120`), `CONFETTI_COUNT = 60`.
-12. **Theme switch** — toggling swaps decor + sky + ground within one frame and does
+15. **Theme switch** — toggling swaps decor + sky + ground within one frame and does
     not change scores (shared with the animals' theme tests).
-13. **No new assets** — art is procedural; no image request is made; `theme-art.md`
+16. **No new assets** — art is procedural; no image request is made; `theme-art.md`
     only carries matrices.
 
 ---
@@ -963,22 +1307,34 @@ Written to the gitignored `test-results/ux-tmp/`:
 
 **Constants to add / change in `index.html`** (`#app` art section):
 `SKY_BANDS` (desert, unchanged) + `FOREST_SKY`; `HORIZON_Y = 120`,
-`LANE_BOTTOM = 712`, `DECOR_SPACING = 90`, `DECOR_MAX_SPAN = 1500`;
+`LANE_BOTTOM = 712`, `DECOR_MAX_SPAN = 1500`; per-layer
+`DECOR_SPACING = { background:32, midground:48, floor:20 }`,
+`DECOR_CAP = { background:14, midground:10, floor:120 }`,
+`DECOR_STREAM = { background:0x11, midground:0x22, floor:0x33 }`;
 sun/moon `cx 1020, cy 76, r 32`; milestone font `12px`, finish stripe `8×8`,
 confetti `4×4`, banner `16px`.
 
 **Sprite constant names:** `PALM`, `CACTUS`, `ROCK`, `MILESTONE`, `FINISH_FLAG`
-(desert, 2×) and `FOREST_TREE_CONIFER`, `FOREST_TREE_DECIDUOUS`, `FOREST_BUSH`,
-`MUSHROOM_RED`, `MUSHROOM_BROWN`, `MOSS`, `STONE`, `STONE_ALT`, `PINE_NEEDLES`
-(forest) — paste matrices verbatim, register `T/S/B/C/W/G/M/N/P` in `CHAR_KEY`.
+(desert, 2×); `FOREST_TREE_CONIFER`, `FOREST_TREE_DECIDUOUS`, `FOREST_TREE_BROAD`,
+`FOREST_BUSH`, `FOREST_TREE_TALL`, `GRASS_TUFT_A`, `GRASS_TUFT_B`, `FERN`,
+`LEAF_LITTER`, `MUSHROOM_RED`, `MUSHROOM_BROWN`, `MOSS`, `STONE`, `STONE_ALT`,
+`PINE_NEEDLES` (forest) — paste matrices verbatim, register `T/S/B/R/C/W/G/H/L/M/N/P`
+in `CHAR_KEY` (per-sprite palettes win first, so shared letters are safe).
 
 **Palette keys** (`THEMES[id].palette` / `ground`): `sky[]`, `sun`, `sunRim`,
-`accent`; `ground.{top,shade,edge,rim}`. Per-sprite palettes as in §2.3 / §3.3.
+`accent`; `ground.{top,shade,edge,rim,speckle}`. Per-sprite palettes as in
+§2.3 / §3.3 (`GRASS_TUFT_PAL`, `FERN_PAL`, `LEAF_LITTER_PAL`,
+`FOREST_TREE_TALL_PAL`, `FOREST_TREE_BROAD_PAL` added).
 
-**Decor generator wiring** (`THEMES[id].decor.kinds`): fill `{kind,weight,sprite,pal,yOffset}`
-tables from §2.7 / §3.7; `yOffset` is signed from `HORIZON_Y` for background kinds
-and from the lane `terrainSurfaceY` for floor kinds; pick kind by cumulative weight.
+**Decor generator wiring** (`THEMES[id].decor`): store per-layer
+`{spacing,cap}` streams (§3.4) and one `kinds` list with
+`{kind,layer,sprite,pal,yOffset,weight}`; pick the kind by cumulative weight
+**within its own layer's stream**; background anchors `HORIZON_Y + yOffset`,
+midground/floor anchor `laneSurfaceY + yOffset`; render passes
+`background → lanes → floor → midground → animals` (§3.4.3); draw the grass carpet
+as a per-lane `fillRect` speckle pass (§3.4.2).
 
-**Size budgets:** floor decor ≤ `12` px (lane `74` px at 8 lanes); background trees
-`56` px tall basing at `HORIZON_Y`; ≤ ~19 decor sprites/frame; boar `≤76×70`
-unchanged. Art only — no game code, tests, or commits in this task.
+**Size budgets:** floor decor ≤ `12` px tall (lane `74` px at 8 lanes); background
+trees ≤ `60` px basing at `HORIZON_Y`; midground tree `72` px (≈ one lane); worst-case
+`14 + 10 + 120 = 144` decor sprites/frame (typical ≈25) plus the carpet `fillRect`
+pass; boar `≤76×70` unchanged. Art only — no game code, tests, or commits in this task.
