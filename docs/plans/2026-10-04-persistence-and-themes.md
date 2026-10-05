@@ -56,7 +56,7 @@
 - `window.GameCore` (NEW): `serialize()`, `deserialize(raw) → {fields, writeBack}`, `applyFields(fields)`, `setTheme(id)`, `getThemeIds() → string[]`, `registerThemeIds(ids)`, `storageAvailable()`, constants `KEY="camelRace.v1"`, `VERSION=1`.
 - `window.GameStorage`: `{ KEY, VERSION, available(), load(), save(), clear() }`.
 - `GameCore.getState()` now also returns `theme` (`'desert'|'forest'`).
-- `window.GameDebug` (existing): `getState`, `getCameraWindow`, `getCanvasSize`, `getCanvasLayout`, `getCamelSpriteBounds`, `isSettled`, `getScene`. NEW: `getTheme() → {id, animalId, w, h}`; `getScene()` additionally returns `decorKinds: string[]`.
+- `window.GameDebug` (existing): `getState`, `getCameraWindow`, `getCanvasSize`, `getCanvasLayout`, `getCamelSpriteBounds`, `isSettled`, `getScene`. NEW: `getTheme() → {id, animalId, w, h}`; `getScene()` additionally returns `decorKinds: string[]` and `teamLabels: [{id, name, x, y, w, h}]` (drawn team-label geometry, one entry per lane — the label's name text and canvas box, used to assert label placement/follow/rename behaviour).
 - `THEMES[id]` shape (both entries identical): `{ id, label:{en,de}, palette:{sky:[hex,...], sun, sunRim, accent}, ground:{top,shade,edge,rim}, decor:{spacing,maxSpan,kinds:[{kind,weight,sprite,pal,yOffset}]}, animal:{id,sprite,pal,w,h,rider,blanket:{anchor:{x,y},w,h,digitColor},bobOffset}, laneFit:{spriteHMax,laneMinPx} }`.
 - `I18N` NEW keys: `themeLabel`, `themeDesert`, `themeForest`.
 - DOM ids NEW: `#themeToggle` (`role="group"` + `aria-label`), `#theme-desert`, `#theme-forest`.
@@ -1769,6 +1769,7 @@ plan's Task 8–9 code/numbers. Evidence: `index.html`, `docs/art/theme-art.md`,
 | Boar face art | single tusk `T`, dark eye `Y` | v6, 2026-10-04 user request: larger tusks `T`, eye-white `W`, pupil `Y` (`docs/art/boar-sprite.md`) |
 | Title | fixed `title` i18n key for header + tab (`CAMEL RACE` / `KAMEL RENNEN`) | theme-driven: registry `titleKey` selects `titleCamel` (desert) / `titleBoar` (forest); new EN/DE `titleBoar` = `BOAR RACE` / `WILDSCHWEIN RENNEN`; header `#title` + `document.title` switch with theme + language (2026-10-04 user request) |
 | Default theme | `desert` (Task 5 default field; Task 6 first-paint fallback) | `forest` — the game opens in the forest theme as `BOAR RACE` / `WILDSCHWEIN RENNEN`; a persisted valid `theme` (desert included) still overrides the default |
+| Team labels | not in Task 8–9 plan | Canvas label with each lane's `Team` name drawn above its animal (moving with it, live on rename, light text on a dark pill, 12 px monospace, clamped to the canvas); debug surface `GameDebug.getScene().teamLabels` → `[{id, name, x, y, w, h}]` |
 
 **Final test total (verified): `146` tests in `8` files** — `144` in the `chromium`
 project + `2` in the `perf` project (`pnpm exec playwright test --list`).

@@ -13,7 +13,7 @@ Open `index.html` in a browser — double-click it or drag it into a tab. No ser
 - **Camels** — set the count, 2–8 (default 4).
 - **Goal** — set a target score, 1–10000 (default 200), or tick **∞** for an endless race. The two are mutually exclusive.
 - **Move** — per camel use `+1` / `+5` / `+10`, or type an exact score (integer ≥ 0) and press **Set**. Lowering a score moves the camel left.
-- **Teams** — each lane has a **Team** field (max 16 characters). Typing renames that lane: it updates the lane header, the winner banner, and the live announcement. Names are session-only and never translated.
+- **Teams** — each lane has a **Team** field (max 16 characters). Typing renames that lane: it updates the lane header, the winner banner, the live announcement, and the label drawn above the animal on the canvas (moves with the animal, updates live). Names are session-only and never translated.
 - **Finish** — first camel to reach the goal score wins: the race stops, a winner banner and pixel confetti appear, and all score inputs lock.
 - **New race** — resets scores and re-enables controls; keeps camel count, goal, and language.
 - **Language** — the `EN` / `DE` toggle in the header switches every string. Default EN.

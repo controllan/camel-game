@@ -124,6 +124,7 @@ are exactly 2× the current dimensions (more internal detail allowed).
 | `MILESTONE` | `10×14` | **`20×28`** | `O P F` |
 | `FINISH_FLAG` | `12×14` | **`24×28`** | `O P C X` |
 | Milestone label | `6px` mono | **`12px` mono** | — |
+| Team label | — | **`12px` mono** `#e8e0d0` | — |
 | Winner banner | `8px` mono | **`16px` mono** | — |
 | Confetti particle | `2×2` | **`4×4`** | — |
 
@@ -1032,7 +1033,7 @@ drawSky → drawCelestial → drawDunes
 → drawDecor('background') → drawMilestones        // behind the lanes
 → drawLanes
 → drawDecor('floor') → drawDecor('midground')     // on the lanes
-→ drawCamels                                       // boars pass IN FRONT
+→ drawCamels → drawTeamLabels                      // boars pass IN FRONT; labels over animals
 → drawFinish → drawConfetti → drawBanner
 ```
 
@@ -1040,6 +1041,10 @@ drawSky → drawCelestial → drawDunes
 the `floor` and `midground` passes accumulate, so `getScene()` still reports every
 kind drawn. Midground trees stand on the track and are over-painted by the animals,
 so boars read in the foreground.
+
+`drawTeamLabels` overlays one team-name label per lane above its animal: a dark
+pill + light text anchored to the animal's lerped visual x, `4 px` above the sprite
+top, clamped to the canvas.
 
 #### 3.4.4 Expected on-screen counts (per frame)
 

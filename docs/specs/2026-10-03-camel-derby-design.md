@@ -273,6 +273,8 @@ if (goalScore != null && (goalScore - wMin) <= (span + 80)) {
 
 Team names are user-editable per lane (added by user request). Default `Team 1…8` in both languages; the core trims the input, and empty or >16-char input is rejected with state unchanged. Names are session-only, not translated, and rendered with `textContent`.
 
+The team name is also rendered as a label above the animal on the canvas, moving with the animal and updating live on rename (light text on a dark pill, 12 px monospace, clamped to the canvas).
+
 ## i18n String Table
 
 Complete. Both languages. Switch every visible UI string. No mixed-language UI.
