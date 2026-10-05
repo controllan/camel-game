@@ -1745,3 +1745,28 @@ Evidence: `index.html`, `docs/art/theme-art.md`, `tests/`.
 | 7 | Milestone label `x + 20, flagY + 6` | `x + 20, flagY + 8`; flag `flagY = HORIZON_Y − 28` (art-doc `20×28` sprite) |
 | 7 | Finish checker stripes `6 px` wide/tall | `8×8` cells, `stripeX = x + 8` (`index.html` `drawFinish`) |
 | 7 | Perf check inline with the functional suite | `tests/perf.spec.js` isolated via a dedicated Playwright project with warm-up frames before measurement |
+
+## Implementation Deltas (Tasks 8–11)
+
+Deviations of the shipped themes implementation (`index.html` at `507ef5e`) from this
+plan's Task 8–9 code/numbers. Evidence: `index.html`, `docs/art/theme-art.md`,
+`docs/art/boar-sprite.md`, `tests/`.
+
+| # | Planned (Tasks 8–9) | As implemented |
+|---|---|---|
+| Boar size/anchor/bob | `≤76×70`, `BOAR_ANCHOR {x:0,y:0}`, `bobOffset: 2`, `w:76, h:70` | `60×42`, anchor `(18,18)`, `bobOffset: 1`, `w:60, h:42` (`THEMES.forest.animal`) |
+| Forest ground `top` | `#3f6b3a` | `#4a7a3a` (`THEMES.forest.ground`) |
+| Decor jitter / cull margin | `⌊rng()*80−40⌋` (±40), `32 / CANVAS_W` | `⌊rng()*40−20⌋` (±20), `16 / CANVAS_W` (`drawDecor`) |
+| Registry shape | `decor.kinds[].{kind,weight,sprite,pal,yOffset}`; `palette` without `distant` | adds `decor.kinds[].layer` (`'background' \| 'floor'`) and `palette.distant` |
+| Decor kind names | per-sprite (`tree-conifer`, `mushroom-red`, …) | family-level `trees`/`mushrooms`/`moss`/`stones`/`pine_needles`, mapped to per-sprite art-doc names in `docs/art/theme-art.md` §3.7 |
+| Milestone / finish palettes | inline per-call colours | shared `MILESTONE_PAL`, `FINISH_PAL` |
+| `CHAR_KEY` | camel-only keys | re-keyed: `C` → `cap` (was `checkerLight`), `W` `white` → `eyeWhite`; added `D`/`H`/`E`/`T`/`Y` |
+| Sprite draw | semantic-key only | palette-char-first: `drawSprite` tries `palette[ch]` before `CHAR_KEY[ch]`, then `COL` |
+| `themeIds` | default `new Set(['desert','forest'])` (Task 5) | initialised empty; `registerThemeIds(Object.keys(THEMES))` at boot is the single source of truth |
+| Draw order | finish pole before animals (pre-theme) | deliberate camels-before-finish: `drawScene` → `drawCamels` then `drawFinish` |
+| Decor layering | single pass | two passes: `drawDecor(win,'background')` before `drawLanes`, `drawDecor(win,'floor')` after |
+| Perf harness | inline in functional suite | isolated `perf` Playwright project (own worker), 10 warm-up frames before sampling (`180` sampled, `≥120` required) |
+| Boar face art | single tusk `T`, dark eye `Y` | v6, 2026-10-04 user request: larger tusks `T`, eye-white `W`, pupil `Y` (`docs/art/boar-sprite.md`) |
+
+**Final test total (verified): `146` tests in `8` files** — `144` in the `chromium`
+project + `2` in the `perf` project (`pnpm exec playwright test --list`).

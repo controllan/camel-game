@@ -744,14 +744,18 @@ const startK = Math.floor((win.min - DECOR_SPACING) / DECOR_SPACING);
 const endK   = Math.ceil((win.max + DECOR_SPACING) / DECOR_SPACING);
 for (let k = startK; k <= endK; k++) {
   const rng = mulberry32(hash2(SEED, k));
-  const jitter = Math.floor(rng() * 40 - 20);        // world jitter ±20
-  const roll   = rng();                              // [0,1) kind selector
-  const point  = k * DECOR_SPACING + jitter;         // world-anchored
-  // cull against the camera window (same margin rule as desert) then pick kind
+  const total = /* sum of kind weights */;
+  const roll   = rng() * total;                       // weighted kind selector
+  const point  = k * DECOR_SPACING + Math.floor(rng() * 40 - 20); // world jitter ±20
+  // cull against the camera window (same margin rule as desert), then pick kind
   // by the cumulative weights in §3.3; background kinds base on HORIZON_Y,
   // floor kinds on the lane terrainSurfaceY (one more rng() draw selects the lane).
 }
 ```
+
+Draw order is **roll-then-point** (the kind roll is the first `rng()` draw, the
+jitter the second), matching `index.html` `drawDecor` — a different order shifts every
+cell's placement.
 
 **Background vs floor split:** kinds in
 `{ tree-conifer, tree-deciduous, bush }` render along the horizon (treeline, base at
@@ -812,20 +816,27 @@ outline `#1a1208` on grass = **3.65** ≥ 3:1 (silhouettes); moon on sky = **10.
 ### 3.7 Forest `THEMES.forest` wiring (excerpt)
 
 ```js
-palette: { sky:['#241a3a','#3a2450','#5a3050','#7a3f4a'], sun:'#f0e8c0', sunRim:'#d8c890', accent:'#e8c83a' },
+palette: { sky:['#241a3a','#3a2450','#5a3050','#7a3f4a'], sun:'#f0e8c0', sunRim:'#d8c890', accent:'#e8c83a', distant:[] },
 ground:  { top:'#4a7a3a', shade:'#3a6030', edge:'#26401f', rim:'#1c3018' },
 decor: { spacing:90, maxSpan:1500, kinds: [
-  { kind:'tree-conifer',   weight:0.20, sprite:FOREST_TREE_CONIFER,   pal:FOREST_TREE_PAL_CONIFER,   yOffset:-56 },
-  { kind:'tree-deciduous', weight:0.15, sprite:FOREST_TREE_DECIDUOUS, pal:FOREST_TREE_PAL_DECIDUOUS, yOffset:-56 },
-  { kind:'bush',           weight:0.12, sprite:FOREST_BUSH,           pal:FOREST_BUSH_PAL,           yOffset:-20 },
-  { kind:'mushroom-red',   weight:0.10, sprite:MUSHROOM_RED,   pal:MUSHROOM_RED_PAL,   yOffset:-12 },
-  { kind:'mushroom-brown', weight:0.04, sprite:MUSHROOM_BROWN, pal:MUSHROOM_BROWN_PAL, yOffset:-12 },
-  { kind:'moss',           weight:0.13, sprite:MOSS,           pal:MOSS_PAL,           yOffset:-8  },
-  { kind:'stone',          weight:0.10, sprite:STONE,          pal:STONE_PAL,          yOffset:-10 },
-  { kind:'stone-alt',      weight:0.04, sprite:STONE_ALT,      pal:STONE_PAL,          yOffset:-8  },
-  { kind:'pine-needles',   weight:0.12, sprite:PINE_NEEDLES,   pal:NEEDLES_PAL,        yOffset:-8  },
+  { kind:'trees',        layer:'background', weight:0.20, sprite:FOREST_TREE_CONIFER,   pal:FOREST_TREE_PAL_CONIFER,   yOffset:-56 },
+  { kind:'trees',        layer:'background', weight:0.15, sprite:FOREST_TREE_DECIDUOUS, pal:FOREST_TREE_PAL_DECIDUOUS, yOffset:-56 },
+  { kind:'trees',        layer:'background', weight:0.12, sprite:FOREST_BUSH,           pal:FOREST_BUSH_PAL,           yOffset:-20 },
+  { kind:'mushrooms',    layer:'floor',      weight:0.10, sprite:MUSHROOM_RED,          pal:MUSHROOM_RED_PAL,          yOffset:-12 },
+  { kind:'mushrooms',    layer:'floor',      weight:0.04, sprite:MUSHROOM_BROWN,        pal:MUSHROOM_BROWN_PAL,        yOffset:-12 },
+  { kind:'moss',         layer:'floor',      weight:0.13, sprite:MOSS,                  pal:MOSS_PAL,                  yOffset:-8  },
+  { kind:'stones',       layer:'floor',      weight:0.10, sprite:STONE,                 pal:STONE_PAL,                 yOffset:-10 },
+  { kind:'stones',       layer:'floor',      weight:0.04, sprite:STONE_ALT,             pal:STONE_PAL,                 yOffset:-8  },
+  { kind:'pine_needles', layer:'floor',      weight:0.12, sprite:PINE_NEEDLES,          pal:NEEDLES_PAL,               yOffset:-8  },
 ]},
 ```
+
+**Kind names are family-level.** The shipped `THEMES.forest.decor.kinds[].kind` uses the
+family names above (not the per-sprite labels in §3.3), each carrying `layer`, `sprite`,
+`pal`, `yOffset` and the same weights. Mapping:
+`trees` → `tree-conifer` / `tree-deciduous` / `bush`; `mushrooms` → `mushroom-red` /
+`mushroom-brown`; `moss` → `moss`; `stones` → `stone` / `stone-alt`; `pine_needles` →
+`pine-needles`.
 
 ---
 

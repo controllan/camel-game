@@ -7,6 +7,9 @@ user-mirrored to face right). No image files at runtime: the matrices below driv
 (legend discipline, `O`-enclosure pass, single 4-connected blob, feet on the bottom
 row, 1 standing + 4 walk frames, digit-on-blanket, per-lane robe char `R`).
 
+> **Change log.** 2026-10-04 (user request): enlarged tusks (near canine + a
+> smaller far-side tusk) and white-sclera eyes with a black pupil dot.
+
 > **Reference is copyrighted & gitignored.** `.gitignore` keeps
 > `wildschwein-pixelart.jpeg` out of git. It is **never committed, never linked or
 > embedded in docs, never loaded at runtime**. Only the matrices below are shipped.
@@ -60,8 +63,9 @@ Contrast ratios are WCAG (luminance method).
 | `bristle` | `D` | `#26221a` | dark bristle ridge + reins + boots |
 | `highlight` | `H` | `#5f5745` | lit bristle bands |
 | `ear` | `E` | `#787160` | pale ear |
-| `tusk` | `T` | `#f0ece0` | single visible tusk (cream) |
-| `eye` | `Y` | `#14100b` | small dark eye |
+| `tusk` | `T` | `#f0ece0` | tusks — near canine + smaller far-side (cream) |
+| `eyeWhite` | `W` | `#f0ece0` | eye sclera (white; same hex as tusk, distinct char) |
+| `pupil` | `Y` | `#14100b` | eye pupil (also the hunter's eye) |
 | `legs` | `G` | `#2e2918` | darker legs |
 | `robe` | `R` | **lane colour** | hunter tunic (per-lane) |
 | `skin` | `K` | `#d8a878` | hunter face + hand |
@@ -94,8 +98,9 @@ Every char routes through the sprite's palette object (`BOAR_PAL`, see
 | `D` | bristle / reins / boots | `#26221a` | no |
 | `H` | bristle highlight | `#5f5745` | no |
 | `E` | pale ear | `#787160` | no |
-| `T` | single tusk | `#f0ece0` | no |
-| `Y` | small dark eye | `#14100b` | no |
+| `T` | tusks (near + far) | `#f0ece0` | no |
+| `W` | eye-white sclera | `#f0ece0` | no |
+| `Y` | eye pupil (+ hunter eye) | `#14100b` | no |
 | `G` | legs | `#2e2918` | no |
 | `R` | hunter tunic (robe) | lane colour | **yes** |
 | `K` | hunter skin | `#d8a878` | no |
@@ -129,15 +134,15 @@ const BOAR = [
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -173,15 +178,15 @@ const BOAR = [
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -218,15 +223,15 @@ const BOAR = [
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -261,15 +266,15 @@ const BOAR = [
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -306,15 +311,15 @@ const BOAR = [
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -340,6 +345,8 @@ const BOAR = [
 
 Body + traced legs, no rider/blanket/reins. Painted bbox **57 × 38**
 (x 1–57, y 4–41); IoU against the trace is measured on this silhouette.
+This is the **raw trace** form (small dark eye, single traced tusk); the shipped
+dressed `BOAR` above carries the enlarged-tusk / white-eye art tweak.
 
 ```
       '............................................................',
@@ -388,10 +395,13 @@ Body + traced legs, no rider/blanket/reins. Painted bbox **57 × 38**
 
 ## Anatomy (shared)
 
-- **Snout** lower-right (`S`/`B` bulk, `O` rim); **single tusk** `T` at
-  `cols 47–48, rows 19–23`, pointing up past the lip.
+- **Snout** lower-right (`S`/`B` bulk, `O` rim); **tusks** `T` (cream): the
+  **near canine** `cols 47–48, rows 19–23` (2 px wide, tip on row 19) dominates;
+  a **smaller far-side tusk** sits at `col 46, rows 21–22` (1 × 2). Enlarged so
+  both read at 1×.
 - **Pale ear** `E` — pointed patch `cols 35–37, rows 5–9`, `O`-capped.
-- **Small dark eye** `Y` at `cols 44–45, rows 15–16`.
+- **Eye** `cols 44–45, rows 15–16`: white sclera `W` (3 px) with a 1 px dark
+  pupil `Y` at `col 45, row 15` (round-ish 2 × 2 white, pupil forward/up-right).
 - **Bristle ridge** `D`/`H` bands along the spine (`rows 8–14`, `cols 9–45`).
 - **Tail** thin `S`/`O` line from the rump (left).
 - **Legs** `G` shanks with `O` edges, `O` hoof blocks on **row 41** (4 legs).
@@ -466,7 +476,7 @@ excluded) to its painted bbox `57 × 38`, resize the reference boar mask to `57 
 ## Validation (throwaway script; all frames pass)
 
 **Dims & legend:** every frame exactly **42 rows × 60 chars**; only legend chars
-`. O B S H D E T Y G R K C L`.
+`. O B S H D E T W Y G R K C L`.
 
 | Check | frame 0 | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|---|
@@ -477,13 +487,18 @@ excluded) to its painted bbox `57 × 38`, resize the reference boar mask to `57 
 | feet on bottom row (row 41) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | painted bbox ≤ 57 × 42 | 57×42 | 57×42 | 57×41 | 57×42 | 57×41 |
 | digit area flat `L` (6×10, +1 row bob) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| tusk pixels `T` | 11 | 11 | 11 | 11 | 11 |
+| eye-white pixels `W` | 3 | 3 | 3 | 3 | 3 |
+| pupil/eye pixels `Y` (1 boar + 1 hunter) | 2 | 2 | 2 | 2 | 2 |
 
 - **All 5 poses distinct.** Closest pair similarity = **0.943** (< 0.98); no duplicate
   frames. `pass A` vs `pass B` differ in hoof placement and stride.
 - Enclosure method: fill adjacent to exterior `.` → `O` (concave notches and inter-leg
   gaps stay open; border fill banned). Hooves are already `O`.
 - Runner script (throwaway, not committed) reproduced dims / legend / enclosure /
-  blob / feet / distinct / blanket-flat, then the IoU above.
+  blob / feet / distinct / blanket-flat, plus per-frame `T` / `W` / `Y` counts,
+  then the IoU above. Both counts by frame: `T` 11, `W` 3, `Y` 2 (1 boar pupil at
+  `col 45 / row 15` [+1 row on bob frames 2, 4] + 1 hunter eye at `col 26 / row 5`).
 
 ## Implementer notes
 
@@ -494,14 +509,16 @@ excluded) to its painted bbox `57 × 38`, resize the reference boar mask to `57 
   ```js
   const BOAR_PAL = (laneColor) => ({
     outline:'#16120b', body:'#4c4332', shade:'#3c372a', bristle:'#26221a',
-    highlight:'#5f5745', ear:'#787160', tusk:'#f0ece0', eye:'#14100b',
-    legs:'#2e2918', robe: laneColor, skin:'#d8a878', cap:'#2f6b3a', blanket:'#bfe3ea',
+    highlight:'#5f5745', ear:'#787160', tusk:'#f0ece0', eyeWhite:'#f0ece0',
+    eye:'#14100b', legs:'#2e2918', robe: laneColor, skin:'#d8a878', cap:'#2f6b3a',
+    blanket:'#bfe3ea',
   });
   ```
 
 - **`drawSprite` legend** (char → palette key):
-  `O→outline, B→body, S→shade, D→bristle, H→highlight, E→ear, T→tusk, Y→eye,
-  G→legs, R→robe, K→skin, C→cap, L→blanket` (`.` skipped). Route every char through
+  `O→outline, B→body, S→shade, D→bristle, H→highlight, E→ear, T→tusk,
+  W→eyeWhite, Y→eye, G→legs, R→robe, K→skin, C→cap, L→blanket` (`.` skipped).
+  Route every char through
   the sprite's palette object; keep the fallback `COL` for decoration sprites.
 - **Per-frame data**: bob on frames `2, 4` (upper body + rider + blanket `+1 row`);
   feet always on row 41; hooves are `O` blocks and never move with the bob.
@@ -531,6 +548,9 @@ needed for human review out of `test-results/` before running the suite.
 - `test-results/ux-tmp/boar-hires-vs-trace.png` — standing boar 8× beside the downsampled reference silhouette at matched bbox scale
 - `test-results/ux-tmp/boar-hires-dressed.png` — 3 robe colours (red/blue/green) × digits 1–8
 - `test-results/ux-tmp/boar-hires-1x.png` — 1× strip on forest-floor green
+- `test-results/ux-tmp/boar-tusks-frames.png` — 5 frames 8× + grid (tusk/eye tweak)
+- `test-results/ux-tmp/boar-tusks-1x.png` — 1× strip on forest-floor green (tusk/eye tweak)
+- `test-results/ux-tmp/boar-tusks-eye-detail.png` — 16× head zoom (eye + tusk)
 
 ## Acceptance criteria (Playwright-testable)
 
@@ -541,5 +561,6 @@ needed for human review out of `test-results/` before running the suite.
 5. **Bob** — on frames 2 and 4 the upper body + rider + blanket sit exactly `1 px` lower than on frames 0/1/3; the hoof blocks stay on the bottom row.
 6. **Palette-swap** — blanket pixels are `#bfe3ea`; tunic pixels (`R`) equal the lane colour (`#e84a3a` for lane 0, `#3a6ae8` for lane 1, …); cap is `#2f6b3a`; outline/hooves are `#16120b` in every lane.
 7. **Number** — pixels at sprite-relative `cols 18–23 / rows 18–27` (`+1` row on bob frames 2, 4) match the `6 × 10` glyph for the boar's 1-based lane number, colour `#123a44`.
-8. **Fixed tones** — body `#4c4332`, tusk `#f0ece0`, ear `#787160`, legs `#2e2918` in every lane; only `R` changes with lane colour.
+8. **Fixed tones** — body `#4c4332`, tusk `#f0ece0`, eye-white `#f0ece0`, pupil `#14100b`, ear `#787160`, legs `#2e2918` in every lane; only `R` changes with lane colour.
 9. **Distinct poses** — all 5 frames pairwise distinct (IoU `< 0.98`); the 4 walk frames alternate contact/pass.
+10. **Boar face reads** — every frame has exactly 11 `T` (tusk), 3 `W` (eye-white) and 1 boar `Y` (pupil) at fixed sprite-relative cells: `W` `(15,44),(16,44),(16,45)`, pupil `(15,45)` (all `+1` row on bob frames 2, 4); tusk near canine `cols 47–48 / rows 19–23`, far tusk `col 46 / rows 21–22` (same `+1` row on bob frames).

@@ -15,10 +15,32 @@ Open `index.html` in a browser — double-click it or drag it into a tab. No ser
 - **Finish** — first camel to reach the goal score wins: the race stops, a winner banner and pixel confetti appear, and all score inputs lock.
 - **New race** — resets scores and re-enables controls; keeps camel count, goal, and language.
 - **Language** — the `EN` / `DE` toggle in the header switches every string. Default EN.
+- **Theme** — the `Desert` / `Forest` toggle in the header, next to the language toggle, swaps the art instantly. Default Desert.
 
-All camels always stay visible on the canvas, even at large score spreads or in infinite mode. Camels ride the undulating sand dune lanes; each is a brown camel with a colored rider and a numbered light-blue saddle blanket.
+All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride grass lanes under a treeline. Each animal carries a colored rider and a numbered light-blue saddle blanket.
 
-Out of scope: sound, persistence, multiplayer, betting.
+Out of scope: sound, cross-device sync, multiplayer, betting.
+
+## Persistence
+
+Progress is saved to `localStorage` under the key `camelRace.v1` (single JSON string,
+`version: 1`). A page refresh restores the whole game: camel count, each lane's name and
+score, goal score, infinite flag, language, theme, race-over flag, and winner. New race
+resets scores, the race-over flag, and the winner but keeps count, names, goal, language,
+and theme.
+
+Persistence is **per-origin and per-device** — state is not synced across devices or
+browsers. Where `localStorage` is unavailable or restricted (private mode, opaque
+`file://` origins, disabled storage), the game still plays fully in memory and raises no
+errors.
+
+## Themes
+
+Two themes: **Desert** (camel + dunes) and **Forest** (wild boar with visible tusks and
+eye detail + hunter rider, grass floor, trees/mushrooms/moss/stones/pine needles, moon).
+Switch with the theme toggle in the header next to the language toggle — the swap is
+instant, does not reset scores, and the selection is persisted. Both themes share one
+score set, the lane colours, and the numbered blanket.
 
 ## Deploy with Docker
 

@@ -191,9 +191,9 @@ flowchart TD
 THEMES[id] = {
   id,                                   // 'desert' | 'forest'
   label: { en, de },                    // display name per language
-  palette: { sky: [hex,…], sun / moon, accent },  // sky + celestial tokens
+  palette: { sky: [hex,…], sun / moon, accent, distant: [hex,…] },  // sky + celestial + distant-silhouette tokens
   ground: { top, shade, edge, rim },    // lane-band tokens
-  decor: { spacing, maxSpan, kinds: [ { kind, weight, sprite, pal, yOffset } ] },
+  decor: { spacing, maxSpan, kinds: [ { kind, layer, weight, sprite, pal, yOffset } ] },
   animal: {
     id, sprite, pal,                    // frame matrix table + palette factory(laneColor)
     w, h,                               // sprite budget px (see geometry)
@@ -237,9 +237,15 @@ THEMES[id] = {
   (`mulberry32(hash2(SEED, k))`, `SEED = 1337`):
   - background **trees** along the horizon (treeline),
   - 4 floor kinds: **mushrooms**, **moss**, **stones**, **pine needles**.
+  - `decor.kinds[].kind` is family-level: `trees` (conifer/deciduous/bush),
+    `mushrooms` (red/brown), `moss`, `stones` (stone/stone-alt), `pine_needles`; each
+    entry carries `layer: 'background' | 'floor'` (`background` bases on the horizon,
+    `floor` on the lane's terrain surface).
   - Bounded exactly like current decor: `decor.spacing = 90` world points and the
     `decor.maxSpan = 1500` points cull gate; past the gate world decor is skipped
-    (sky + ground bands still draw). Per-frame decor count stays bounded.
+    (sky + ground bands still draw). Per-frame decor count stays bounded. Placement
+    jitter is `⌊rng()*40−20⌋` (±20 world points, drawn after the kind roll) and the
+    cull margin is `(win.max − win.min) * (16 / CANVAS_W)` (`16` px at full width).
 
 ---
 
@@ -273,7 +279,7 @@ THEMES[id] = {
 | Animal | Size (w×h px) | Notes |
 |---|---|---|
 | Camel v5 | **66 × 62** | budget ceiling; art doc fixes the exact matrix, painted bbox `≤ 66×62` |
-| Boar | **≤ 76 × 70** | height cap **70 px incl. 1 px bob**; traced from the reference; art doc fixes exact matrix |
+| Boar | **cap ≤ 76 × 70; shipped 60 × 42** | height cap **70 px incl. 1 px bob**; shipped boar is **`60 × 42`** (blanket anchor `(18,18)`, `1 px` bob); traced from the reference; art doc fixes exact matrix |
 
 **8-lane fit proof.** Slack at 8 lanes = `laneHeight(8) − 70 = 74 − 70 = 4 px`.
 With `TERRAIN_FEET_OFFSET = 2` and terrain `∈ [−2, +2]`:
