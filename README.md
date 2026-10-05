@@ -1,6 +1,8 @@
-# Camel Race / Kamel Rennen
+# Race Game
 
-Single-file pixel-art camel race game. One `index.html`, zero runtime dependencies, no build step. Works offline from `file://`.
+Pixel-art race game with two selectable themes: **Forest (wild boar, default)** and **Desert (camel)**; German titles *Wildschwein Rennen* / *Kamel Rennen*. Single `index.html`, zero runtime dependencies, no build step. Works offline from `file://`.
+
+Repo: [`controllan/race-game`](https://github.com/controllan/race-game) · Pages: https://controllan.github.io/race-game/
 
 ## Run
 
@@ -15,7 +17,7 @@ Open `index.html` in a browser — double-click it or drag it into a tab. No ser
 - **Finish** — first camel to reach the goal score wins: the race stops, a winner banner and pixel confetti appear, and all score inputs lock.
 - **New race** — resets scores and re-enables controls; keeps camel count, goal, and language.
 - **Language** — the `EN` / `DE` toggle in the header switches every string. Default EN.
-- **Theme** — the `Desert` / `Forest` toggle in the header, next to the language toggle, swaps the art instantly. Default Desert.
+- **Theme** — the `Desert` / `Forest` toggle in the header, next to the language toggle, swaps the art instantly. Default Forest.
 
 All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride grass lanes under a treeline. Each animal carries a colored rider and a numbered light-blue saddle blanket.
 
@@ -39,8 +41,11 @@ errors.
 Two themes: **Desert** (camel + dunes) and **Forest** (wild boar with visible tusks and
 eye detail + hunter rider, grass floor, trees/mushrooms/moss/stones/pine needles, moon).
 Switch with the theme toggle in the header next to the language toggle — the swap is
-instant, does not reset scores, and the selection is persisted. Both themes share one
-score set, the lane colours, and the numbered blanket. The in-game title follows the
+instant, does not reset scores, and the selection is persisted. **Forest is the
+default**: a fresh game (or one with no saved theme) opens as `BOAR RACE` /
+`WILDSCHWEIN RENNEN`. A persisted theme — desert included — overrides the default on
+reload. Both themes share one score set, the lane colours, and the numbered blanket.
+The in-game title follows the
 theme and language: `BOAR RACE` / `WILDSCHWEIN RENNEN` in the forest theme, `CAMEL RACE`
 / `KAMEL RENNEN` in the desert theme (header and browser tab).
 

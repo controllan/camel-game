@@ -10,8 +10,8 @@ Base: extends [`2026-10-03-camel-derby-design.md`](2026-10-03-camel-derby-design
 ## Purpose
 
 Add (1) `localStorage` persistence so a page refresh restores the whole game, and
-(2) a two-theme system — **desert** (camel + dunes, current) and **forest**
-(Wildschwein/boar + rider, Wald background + grass) — switchable at any time
+(2) a two-theme system — **forest** (Wildschwein/boar + rider, Wald background +
+grass; **default**) and **desert** (camel + dunes) — switchable at any time
 without resetting scores. Raise the canvas buffer `640×360` → `1280×720` so both
 animals carry far more pixels.
 
@@ -25,7 +25,7 @@ animals carry far more pixels.
 | External assets | none (all art procedural, no image files loaded) |
 | Network access | none; works from `file://` and offline |
 | Persistence | `localStorage`, namespace `camelRace.v1` |
-| Themes | `desert`, `forest` — registry-driven, selection persisted |
+| Themes | `desert`, `forest` — registry-driven, selection persisted; default `forest` |
 | Buffer | `1280×720` (16:9), 2–8 lanes (default 4) |
 | Dev-only test tooling | `tests/` + `package.json` + `playwright.config.js` (unchanged) |
 
@@ -77,7 +77,7 @@ animals carry far more pixels.
 | `goalScore` | integer \| null | `1`–`10000`; `null` iff `infinite` is `true`; default `200` |
 | `infinite` | boolean | default `false` |
 | `language` | string | `"en"` \| `"de"`; default `"en"` |
-| `theme` | string | a `THEMES` id (`"desert"` \| `"forest"`); default `"desert"` |
+| `theme` | string | a `THEMES` id (`"desert"` \| `"forest"`); default `"forest"` |
 | `raceOver` | boolean | default `false` |
 | `winnerId` | string \| null | must equal `"camel-{lane}"` for an existing lane; else `null` |
 
@@ -101,7 +101,7 @@ Never throw on bad data; never propagate `NaN`.
 | `infinite` | boolean → keep; else `false` |
 | `goalScore` | if `infinite` → forced `null`; else integer → `clamp(1, 10000)`; absent/non-integer → `200` |
 | `language` | `"en"` \| `"de"` → keep; else `"en"` |
-| `theme` | id present in `THEMES` → keep; else `"desert"` |
+| `theme` | id present in `THEMES` → keep; else `"forest"` |
 | `raceOver` | boolean → keep; else `false` |
 | `winnerId` | string equal to `"camel-0".."camel-{camelCount-1}"` → keep; else `null`. If `raceOver` is `false`, force `null` |
 
@@ -191,6 +191,8 @@ flowchart TD
 THEMES[id] = {
   id,                                   // 'desert' | 'forest'
   titleKey,                             // i18n key that selects the header/tab title
+  canvasLabelKey,                       // i18n key that selects the canvas aria-label
+  countLabelKey,                        // i18n key that selects the lane-count label
   label: { en, de },                    // display name per language
   palette: { sky: [hex,…], sun / moon, accent, distant: [hex,…] },  // sky + celestial + distant-silhouette tokens
   ground: { top, shade, edge, rim },    // lane-band tokens
@@ -206,16 +208,16 @@ THEMES[id] = {
 }
 ```
 
-| Theme | `titleKey` | `label.en` | `label.de` | animal | ground |
-|---|---|---|---|---|---|
-| `desert` | `titleCamel` | Desert | Wüste | camel (turban rider) | undulating sand dunes |
-| `forest` | `titleBoar` | Forest | Wald | boar (hunter rider) | grass lanes + treeline |
+| Theme | `titleKey` | `canvasLabelKey` | `countLabelKey` | `label.en` | `label.de` | animal | ground |
+|---|---|---|---|---|---|---|---|
+| `desert` | `titleCamel` | `canvasLabelCamel` | `countLabelCamel` | Desert | Wüste | camel (turban rider) | undulating sand dunes |
+| `forest` | `titleBoar` | `canvasLabelBoar` | `countLabelBoar` | Forest | Wald | boar (hunter rider) | grass lanes + treeline |
 
 ### Renderer consumption
 
 - One active theme: `const theme = THEMES[state.theme]`.
-- Sky, ground bands, decor, the animal, and the title all read from `theme`; nothing
-  else is theme-specific.
+- Sky, ground bands, decor, the animal, the title, the lane-count label, and the
+  canvas `aria-label` all read from `theme`; nothing else is theme-specific.
 - Camera math, scoring, lane layout, milestones, finish line and digit font are
   **theme-independent** and shared.
 - Finish line (checkered pole) and milestone flags render in every theme.
@@ -324,21 +326,30 @@ profile for every lane; precomputed per canvas column each frame (1280 columns).
 
 ## i18n Additions
 
-The fixed base-spec `title` key is replaced by two theme-driven keys; the theme
-registry entry carries `titleKey` selecting the title (`desert` → `titleCamel`,
-`forest` → `titleBoar`). Both the header title and the browser tab read
-`THEMES[state.theme].titleKey` per language, so a restored persisted theme shows the
-right title before first paint.
+The fixed base-spec `title` key is replaced by two theme-driven keys, and the
+previously-fixed lane-count label likewise becomes theme-driven. The theme registry
+entry carries `titleKey` selecting the title (`desert` → `titleCamel`, `forest` →
+`titleBoar`), `canvasLabelKey` selecting the canvas `aria-label` (`desert` →
+`canvasLabelCamel`, `forest` → `canvasLabelBoar`), and `countLabelKey` selecting
+the lane-count label (`desert` → `countLabelCamel`, `forest` → `countLabelBoar`).
+`syncDom` resolves the header title, the browser tab, the canvas `aria-label`, and
+the lane-count label from `THEMES[state.theme]` per theme + language, so a restored
+persisted theme shows the right title and labels before first paint.
 
 | Key | EN | DE |
 |---|---|---|
 | `titleCamel` | CAMEL RACE | KAMEL RENNEN |
 | `titleBoar` | BOAR RACE | WILDSCHWEIN RENNEN |
+| `canvasLabelCamel` | Camel race track. Racers move left to right to the goal. | Kamelrennen. Rennläufer bewegen sich von links nach rechts zum Ziel. |
+| `canvasLabelBoar` | Wild boar race track. Racers move left to right to the goal. | Wildschweinrennen. Rennläufer bewegen sich von links nach rechts zum Ziel. |
+| `countLabelCamel` | Camels | Kamele |
+| `countLabelBoar` | Wild boars | Wildschweine |
 | `themeLabel` | Theme | Thema |
 | `themeDesert` | Desert | Wüste |
 | `themeForest` | Forest | Wald |
 
-`canvasLabel` stays generic (no theme words). No other new strings.
+Both canvas labels and both lane-count labels carry theme-specific wording (no
+generic camel-only string). No other new strings.
 
 ## Accessibility
 
