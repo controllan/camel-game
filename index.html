@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CAMEL RACE</title>
+<title>BOAR RACE</title>
 <style>
   :root {
     --bg:#120b1e; --panel:#1c1430; --panel2:#241b3a; --ink:#e8e0f0;
@@ -61,26 +61,26 @@
 <body>
 <div class="app">
   <header>
-    <h1 id="title">CAMEL RACE</h1>
+    <h1 id="title">BOAR RACE</h1>
     <div class="toggles">
       <div class="lang" role="group" aria-label="Language" id="languageToggle">
         <button id="lang-en" type="button" aria-pressed="true">EN</button>
         <button id="lang-de" type="button" aria-pressed="false">DE</button>
       </div>
       <div class="lang themes" role="group" aria-label="Theme" id="themeToggle">
-        <button id="theme-desert" type="button" aria-pressed="true">Desert</button>
-        <button id="theme-forest" type="button" aria-pressed="false">Forest</button>
+        <button id="theme-desert" type="button" aria-pressed="false">Desert</button>
+        <button id="theme-forest" type="button" aria-pressed="true">Forest</button>
       </div>
     </div>
   </header>
   <main>
     <div id="canvasWrap">
       <canvas id="game" width="1280" height="720"
-        aria-label="Camel race track. Camels race left to right to the goal."></canvas>
+        aria-label="Wild boar race track. Racers move left to right to the goal."></canvas>
     </div>
     <aside id="panel" aria-label="Controls">
       <div class="row">
-        <label for="camelCount" id="camelCountLabel">Camels</label>
+        <label for="camelCount" id="camelCountLabel">Wild boars</label>
         <input id="camelCount" type="number" min="2" max="8" step="1" value="4">
       </div>
       <div class="row">
@@ -131,7 +131,7 @@ window.GameCore = (function () {
     goalScore: 200,
     infinite: false,
     language: 'en',
-    theme: 'desert',
+    theme: 'forest',
     raceOver: false,
     winnerId: null,
   };
@@ -361,7 +361,7 @@ window.GameCore = (function () {
   function defaultFields() {
     const camels = [];
     for (let i = 0; i < 4; i++) camels.push({ name: camelName(i, 'en'), score: 0 });
-    return { camelCount: 4, camels: camels, goalScore: 200, infinite: false, language: 'en', theme: 'desert', raceOver: false, winnerId: null };
+    return { camelCount: 4, camels: camels, goalScore: 200, infinite: false, language: 'en', theme: 'forest', raceOver: false, winnerId: null };
   }
 
   // Per-field validation; never throws, never propagates NaN. Returns the
@@ -390,7 +390,7 @@ window.GameCore = (function () {
     else goalScore = 200;
 
     const language = (raw.language === 'en' || raw.language === 'de') ? raw.language : 'en';
-    const theme = (typeof raw.theme === 'string' && themeIds.has(raw.theme)) ? raw.theme : 'desert';
+    const theme = (typeof raw.theme === 'string' && themeIds.has(raw.theme)) ? raw.theme : 'forest';
     const raceOver = (typeof raw.raceOver === 'boolean') ? raw.raceOver : false;
 
     let winnerId = null;
@@ -601,7 +601,8 @@ window.GameCore = (function () {
     en: {
       titleCamel: 'CAMEL RACE',
       titleBoar: 'BOAR RACE',
-      camelCountLabel: 'Camels',
+      countLabelCamel: 'Camels',
+      countLabelBoar: 'Wild boars',
       goalLabel: 'Goal',
       infiniteLabel: '∞',
       plus1: '+1', plus5: '+5', plus10: '+10',
@@ -611,7 +612,8 @@ window.GameCore = (function () {
       winnerBanner: '{name} wins!',
       teamLabel: 'Team',
       validationHint: 'Enter a whole number ≥ 0.',
-      canvasLabel: 'Camel race track. Camels race left to right to the goal.',
+      canvasLabelCamel: 'Camel race track. Racers move left to right to the goal.',
+      canvasLabelBoar: 'Wild boar race track. Racers move left to right to the goal.',
       themeLabel: 'Theme',
       themeDesert: 'Desert',
       themeForest: 'Forest',
@@ -619,7 +621,8 @@ window.GameCore = (function () {
     de: {
       titleCamel: 'KAMEL RENNEN',
       titleBoar: 'WILDSCHWEIN RENNEN',
-      camelCountLabel: 'Kamele',
+      countLabelCamel: 'Kamele',
+      countLabelBoar: 'Wildschweine',
       goalLabel: 'Ziel',
       infiniteLabel: '∞',
       plus1: '+1', plus5: '+5', plus10: '+10',
@@ -629,7 +632,8 @@ window.GameCore = (function () {
       winnerBanner: '{name} gewinnt!',
       teamLabel: 'Team',
       validationHint: 'Bitte eine ganze Zahl ≥ 0 eingeben.',
-      canvasLabel: 'Kamelrennen. Kamele rennen von links nach rechts zum Ziel.',
+      canvasLabelCamel: 'Kamelrennen. Rennläufer bewegen sich von links nach rechts zum Ziel.',
+      canvasLabelBoar: 'Wildschweinrennen. Rennläufer bewegen sich von links nach rechts zum Ziel.',
       themeLabel: 'Thema',
       themeDesert: 'Wüste',
       themeForest: 'Wald',
@@ -738,11 +742,11 @@ window.GameCore = (function () {
 
   function syncDom(s) {
     // Registry-driven: the theme entry names the i18n key for the game title.
-    const themeDef = THEMES[s.theme] || THEMES.desert;
+    const themeDef = THEMES[s.theme] || THEMES.forest;
     const title = t(s.language, themeDef.titleKey);
     document.getElementById('title').textContent = title;
     document.title = title;
-    document.getElementById('camelCountLabel').textContent = t(s.language, 'camelCountLabel');
+    document.getElementById('camelCountLabel').textContent = t(s.language, themeDef.countLabelKey);
     document.getElementById('goalLabel').textContent = t(s.language, 'goalLabel');
     document.getElementById('infiniteText').textContent = t(s.language, 'infiniteLabel');
     document.getElementById('newRace').textContent = t(s.language, 'newRace');
@@ -753,7 +757,7 @@ window.GameCore = (function () {
     document.getElementById('theme-forest').textContent = t(s.language, 'themeForest');
     document.getElementById('theme-desert').setAttribute('aria-pressed', String(s.theme === 'desert'));
     document.getElementById('theme-forest').setAttribute('aria-pressed', String(s.theme === 'forest'));
-    canvas.setAttribute('aria-label', t(s.language, 'canvasLabel'));
+    canvas.setAttribute('aria-label', t(s.language, themeDef.canvasLabelKey));
     validationEl.textContent = t(s.language, 'validationHint');
 
     camelCountEl.value = String(s.camelCount);
@@ -2080,6 +2084,8 @@ window.GameCore = (function () {
     desert: {
       id: 'desert',
       titleKey: 'titleCamel', // i18n key for the header/tab title
+      canvasLabelKey: 'canvasLabelCamel', // i18n key for the canvas aria-label
+      countLabelKey: 'countLabelCamel', // i18n key for the lane-count label
       label: { en: 'Desert', de: 'W\u00fcste' }, // declarative-only (DOM i18n labels the buttons)
       palette: { sky: ['#1a1030', '#241640', '#2e1c4a'], sun: '#e8a03a', sunRim: '#f0c060', accent: '#e8c83a', distant: ['#3a2a4a', '#4a3550'] }, // accent: declarative-only
       ground: { top: '#c9a25a', shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e' },
@@ -2100,6 +2106,8 @@ window.GameCore = (function () {
     forest: {
       id: 'forest',
       titleKey: 'titleBoar', // i18n key for the header/tab title
+      canvasLabelKey: 'canvasLabelBoar', // i18n key for the canvas aria-label
+      countLabelKey: 'countLabelBoar', // i18n key for the lane-count label
       label: { en: 'Forest', de: 'Wald' }, // declarative-only (DOM i18n labels the buttons)
       palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: [] }, // accent: declarative-only
       ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018', speckle: '#5a8a48' },
@@ -2144,12 +2152,12 @@ window.GameCore = (function () {
     },
   };
 
-  let theme = THEMES.desert;
+  let theme = THEMES.forest;
   let SPRITE_W = theme.animal.w;
   let SPRITE_H = theme.animal.h;
   function syncTheme() {
     const s = core.getState();
-    theme = THEMES[s.theme] || THEMES.desert;
+    theme = THEMES[s.theme] || THEMES.forest;
     SPRITE_W = theme.animal.w;
     SPRITE_H = theme.animal.h;
   }

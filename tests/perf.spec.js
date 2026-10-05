@@ -92,7 +92,8 @@ function expectFpsAtTier(testInfo, tier, result) {
 test.describe('Performance acceptance', () => {
   // Dense forest uses per-layer decor streams (16 sprite kinds, floor props per
   // lane, plus a per-lane grass-carpet fillRect pass), so gate both themes with
-  // the same budget.
+  // the same budget. Forest is the shipped default (BOAR RACE); desert is the
+  // alternate. Both are measured on the same workload.
   for (const themeId of ['desert', 'forest']) {
     test(`>=55 fps over >=120 rAF frames, 8 lanes, score spread 0 vs 5000 (${themeId})`, async ({ page }, testInfo) => {
       await gotoGame(page);

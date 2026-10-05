@@ -181,10 +181,10 @@ test.describe('Controls and i18n', () => {
 
   test('canvas accessible label localizes', async ({ page }) => {
     await expect(page.locator('#game')).toHaveAttribute('aria-label',
-      'Camel race track. Camels race left to right to the goal.');
+      'Wild boar race track. Racers move left to right to the goal.');
     await page.locator('#lang-de').click();
     await expect(page.locator('#game')).toHaveAttribute('aria-label',
-      'Kamelrennen. Kamele rennen von links nach rechts zum Ziel.');
+      'Wildschweinrennen. Rennläufer bewegen sich von links nach rechts zum Ziel.');
   });
 
   test('invalid exact score shows hint and keeps score', async ({ page }) => {
@@ -232,23 +232,23 @@ test.describe('Controls and i18n', () => {
   });
 
   test('EN/DE toggle switches visible strings', async ({ page }) => {
-    await expect(page.locator('#title')).toHaveText('CAMEL RACE');
-    expect(await page.title()).toBe('CAMEL RACE');
+    await expect(page.locator('#title')).toHaveText('BOAR RACE');
+    expect(await page.title()).toBe('BOAR RACE');
     await page.locator('#lang-de').click();
     await expect(page.locator('#newRace')).toHaveText('Neues Rennen');
     await expect(page.locator('#goalLabel')).toHaveText('Ziel');
-    await expect(page.locator('#camelCountLabel')).toHaveText('Kamele');
+    await expect(page.locator('#camelCountLabel')).toHaveText('Wildschweine');
     await expect(page.locator('.lane').nth(0).locator('[data-name]')).toHaveText('Team 1');
     await expect(page.locator('.lane').nth(0).locator('[data-name-label]')).toHaveText('Team');
     await expect(page.locator('.lane').nth(0).locator('[data-score-label]')).toHaveText('Punktzahl');
     await expect(page.locator('.lane').nth(0).locator('[data-action="set"]')).toHaveText('Setzen');
-    await expect(page.locator('#title')).toHaveText('KAMEL RENNEN');
-    expect(await page.title()).toBe('KAMEL RENNEN');
+    await expect(page.locator('#title')).toHaveText('WILDSCHWEIN RENNEN');
+    expect(await page.title()).toBe('WILDSCHWEIN RENNEN');
     await expect(page.locator('#lang-de')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#lang-en')).toHaveAttribute('aria-pressed', 'false');
     await page.locator('#lang-en').click();
-    await expect(page.locator('#title')).toHaveText('CAMEL RACE');
-    expect(await page.title()).toBe('CAMEL RACE');
+    await expect(page.locator('#title')).toHaveText('BOAR RACE');
+    expect(await page.title()).toBe('BOAR RACE');
   });
 
   test('language toggle preserves config', async ({ page }) => {
@@ -273,6 +273,7 @@ test.describe('Controls and i18n', () => {
     expect(s.camelCount).toBe(5);
     expect(s.goalScore).toBe(200);
     expect(s.language).toBe('de');
+    expect(s.theme).toBe('forest'); // New race keeps the (default) theme
     await expect(page.locator('.lane')).toHaveCount(5);
     await expect(page.locator('#newRace')).toHaveText('Neues Rennen');
   });

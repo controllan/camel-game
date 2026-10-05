@@ -1,21 +1,80 @@
 const { test, expect } = require('@playwright/test');
-const { gotoGame } = require('./helpers');
+const { gotoGame, INDEX_URL } = require('./helpers');
+
+test.describe('Default theme + registry', () => {
+  test.beforeEach(async ({ page }) => { await gotoGame(page); });
+
+  test('static no-JS markup advertises the forest/boar default', async ({ browser }) => {
+    // JS disabled: prove the pre-hydration fallbacks match the shipped default,
+    // so the first paint and no-script users never read camel/desert copy.
+    const ctx = await browser.newContext({ javaScriptEnabled: false });
+    const page = await ctx.newPage();
+    await page.goto(INDEX_URL);
+    await expect(page).toHaveTitle('BOAR RACE');
+    await expect(page.locator('#title')).toHaveText('BOAR RACE');
+    await expect(page.locator('#camelCountLabel')).toHaveText('Wild boars');
+    await expect(page.locator('#game')).toHaveAttribute('aria-label',
+      'Wild boar race track. Racers move left to right to the goal.');
+    await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'false');
+    await ctx.close();
+  });
+
+  test('default theme is forest; registry has desert + forest', async ({ page }) => {
+    const r = await page.evaluate(() => ({ theme: GameCore.getState().theme, ids: GameCore.getThemeIds().sort() }));
+    expect(r.theme).toBe('forest');
+    expect(r.ids).toEqual(['desert', 'forest']);
+  });
+
+  test('fresh profile with no stored state loads forest: boar, Forest pressed, BOAR RACE', async ({ page }) => {
+    // The beforeEach load is a fresh context: no persisted camelRace.v1 exists.
+    expect(await page.evaluate(() => localStorage.getItem('camelRace.v1'))).toBe(null);
+    const t = await page.evaluate(() => GameDebug.getTheme());
+    expect(t.id).toBe('forest');
+    expect(t.animalId).toBe('boar');
+    await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#title')).toHaveText('BOAR RACE');
+    expect(await page.title()).toBe('BOAR RACE');
+    await expect(page.locator('#camelCountLabel')).toHaveText('Wild boars');
+    await expect(page.locator('#game')).toHaveAttribute('aria-label',
+      'Wild boar race track. Racers move left to right to the goal.');
+  });
+
+  test('renderer falls back to the forest theme for an unknown theme id', async ({ page }) => {
+    // syncTheme protects against an out-of-registry state.theme (e.g. a path
+    // that bypasses setTheme): the defensive fallback must be the shipped
+    // default (forest), not desert.
+    await page.evaluate(() => {
+      const s = GameCore.getState();
+      GameCore.applyFields({
+        camelCount: s.camelCount,
+        camels: s.camels.map((c) => ({ name: c.name, score: c.score })),
+        goalScore: s.goalScore,
+        infinite: s.infinite,
+        language: s.language,
+        theme: 'no-such-theme',
+        raceOver: s.raceOver,
+        winnerId: s.winnerId,
+      });
+    });
+    const t = await page.evaluate(() => GameDebug.getTheme());
+    expect(t.id).toBe('forest');
+    expect(t.animalId).toBe('boar');
+  });
+});
 
 test.describe('Theme registry (desert)', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
-  test('default theme is desert; registry has desert + forest', async ({ page }) => {
-    const r = await page.evaluate(() => ({ theme: GameCore.getState().theme, ids: GameCore.getThemeIds().sort() }));
-    expect(r.theme).toBe('desert');
-    expect(r.ids).toEqual(['desert', 'forest']);
-  });
-
-  test('GameDebug reports active animal + sprite size', async ({ page }) => {
+  test('GameDebug reports active animal + sprite size (desert)', async ({ page }) => {
+    await page.evaluate(() => GameCore.setTheme('desert'));
     const t = await page.evaluate(() => GameDebug.getTheme());
     expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 66, h: 62 });
   });
 
   test('desert still renders dunes and decor kinds', async ({ page }) => {
+    await page.evaluate(() => GameCore.setTheme('desert'));
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().decorDrawn)).toBeGreaterThan(0);
     const kinds = await page.evaluate(() => GameDebug.getScene().decorKinds);
     expect(kinds.length).toBeGreaterThan(0);
@@ -459,24 +518,27 @@ test.describe('Theme selector UI + persistence', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
   test('selector labels localize; aria-pressed tracks active theme', async ({ page }) => {
-    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#theme-desert')).toHaveText('Desert');
     await page.locator('#lang-de').click();
     await expect(page.locator('#theme-desert')).toHaveText('Wüste');
     await expect(page.locator('#theme-forest')).toHaveText('Wald');
     await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', 'Thema');
     // aria-pressed must track the active theme both ways, not just the default.
-    await page.locator('#theme-forest').click();
-    await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'false');
     await page.locator('#theme-desert').click();
     await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('#theme-forest').click();
+    await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('switch is instant and does not reset scores', async ({ page }) => {
     await page.locator('.lane').nth(0).locator('[data-action="add"][data-n="10"]').click();
-    await page.locator('#theme-forest').click();
+    await page.locator('#theme-desert').click(); // default is forest: switch away...
+    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#theme-forest').click(); // ...and back to the default
     await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
     const s = await page.evaluate(() => GameCore.getState());
     expect(s.theme).toBe('forest');
@@ -490,21 +552,23 @@ test.describe('Theme selector UI + persistence', () => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(5); GameCore.resetRace(); });
     await page.locator('.lane').nth(0).locator('[data-action="add"][data-n="5"]').click();
     await expect(page.locator('#live')).toHaveText('Team 1 wins!');
-    await page.locator('#theme-forest').click();
+    await page.locator('#theme-desert').click(); // real switch (default is forest)
     const s = await page.evaluate(() => GameCore.getState());
+    expect(s.theme).toBe('desert');
     expect(s.raceOver).toBe(true);
     expect(s.winnerId).toBe('camel-0');
   });
 
-  test('selected theme persists across reload', async ({ page }) => {
-    await page.locator('#theme-forest').click();
+  test('selected (non-default) theme persists across reload', async ({ page }) => {
+    await page.locator('#theme-desert').click();
     await expect.poll(() => page.evaluate(() => {
       const t = localStorage.getItem('camelRace.v1');
       return t ? JSON.parse(t).theme : null;
-    })).toBe('forest');
+    })).toBe('desert');
     await page.reload();
-    await expect(page.locator('#theme-forest')).toHaveAttribute('aria-pressed', 'true');
-    expect(await page.evaluate(() => GameCore.getState().theme)).toBe('forest');
+    await expect(page.locator('#theme-desert')).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => GameCore.getState().theme)).toBe('desert');
+    await expect(page.locator('#camelCountLabel')).toHaveText('Camels');
   });
 });
 
@@ -735,24 +799,29 @@ test.describe('Forest boar v6 art (enlarged tusk + white eye / dark pupil)', () 
 test.describe('Titles track theme + language (registry-driven)', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
-  test('all four theme/language combinations update h1 + document.title', async ({ page }) => {
+  test('all four theme/language combinations update h1 + document.title + canvas label + count label', async ({ page }) => {
     const cases = [
-      { theme: 'desert', lang: 'en', title: 'CAMEL RACE' },
-      { theme: 'desert', lang: 'de', title: 'KAMEL RENNEN' },
-      { theme: 'forest', lang: 'en', title: 'BOAR RACE' },
-      { theme: 'forest', lang: 'de', title: 'WILDSCHWEIN RENNEN' },
+      { theme: 'desert', lang: 'en', title: 'CAMEL RACE', label: 'Camel race track. Racers move left to right to the goal.', count: 'Camels' },
+      { theme: 'desert', lang: 'de', title: 'KAMEL RENNEN', label: 'Kamelrennen. Rennläufer bewegen sich von links nach rechts zum Ziel.', count: 'Kamele' },
+      { theme: 'forest', lang: 'en', title: 'BOAR RACE', label: 'Wild boar race track. Racers move left to right to the goal.', count: 'Wild boars' },
+      { theme: 'forest', lang: 'de', title: 'WILDSCHWEIN RENNEN', label: 'Wildschweinrennen. Rennläufer bewegen sich von links nach rechts zum Ziel.', count: 'Wildschweine' },
     ];
     for (const c of cases) {
       await page.locator('#theme-' + c.theme).click();
       await page.locator('#lang-' + c.lang).click();
       await expect(page.locator('#title'), `${c.theme}/${c.lang}`).toHaveText(c.title);
       expect(await page.title(), `${c.theme}/${c.lang}`).toBe(c.title);
+      await expect(page.locator('#game'), `${c.theme}/${c.lang}`).toHaveAttribute('aria-label', c.label);
+      await expect(page.locator('#camelCountLabel'), `${c.theme}/${c.lang}`).toHaveText(c.count);
     }
     // Switch back to the start and confirm the title reverts (both directions).
     await page.locator('#theme-desert').click();
     await page.locator('#lang-en').click();
     await expect(page.locator('#title')).toHaveText('CAMEL RACE');
     expect(await page.title()).toBe('CAMEL RACE');
+    await expect(page.locator('#game')).toHaveAttribute('aria-label',
+      'Camel race track. Racers move left to right to the goal.');
+    await expect(page.locator('#camelCountLabel')).toHaveText('Camels');
   });
 
   test('persisted forest + DE restores the title during parse (before first paint)', async ({ page }) => {
@@ -775,6 +844,9 @@ test.describe('Titles track theme + language (registry-driven)', () => {
     expect(await page.evaluate(() => window.__h1AtDCL)).toBe('WILDSCHWEIN RENNEN');
     await expect(page.locator('#title')).toHaveText('WILDSCHWEIN RENNEN');
     expect(await page.title()).toBe('WILDSCHWEIN RENNEN');
+    await expect(page.locator('#camelCountLabel')).toHaveText('Wildschweine');
+    await expect(page.locator('#game')).toHaveAttribute('aria-label',
+      'Wildschweinrennen. Rennläufer bewegen sich von links nach rechts zum Ziel.');
   });
 });
 

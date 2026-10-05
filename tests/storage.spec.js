@@ -128,6 +128,7 @@ test.describe('Persistence (HTTP origin)', () => {
       s: GameCore.getState(), stored: localStorage.getItem('camelRace.v1'),
     }));
     expect(after.s.camelCount).toBe(4);
+    expect(after.s.theme).toBe('forest'); // corrupt storage falls back to the default theme
     expect(JSON.parse(after.stored).version).toBe(1); // rewritten valid defaults
     await page.evaluate(() => localStorage.setItem('camelRace.v1', JSON.stringify({ version: 99, camelCount: 3 })));
     await page.reload();
@@ -145,6 +146,8 @@ test.describe('Persistence (HTTP origin)', () => {
     await page.evaluate((o) => localStorage.setItem('camelRace.v1', JSON.stringify(o)), obj);
     await page.reload();
     await expect(page.locator('#live')).toHaveText('A wins!');
+    // A stored desert theme must still restore desert (persistence wins over default).
+    expect(await page.evaluate(() => GameCore.getState().theme)).toBe('desert');
     await expect.poll(() => page.evaluate(() => GameDebug.getScene().confettiDrawn)).toBe(0);
   });
 
@@ -169,7 +172,7 @@ test.describe('Persistence (HTTP origin)', () => {
       }));
     });
     // Capture the earliest well-defined checkpoint on the reload: if the restore
-    // ran after first paint, the toggle would still show the default en/desert
+    // ran after first paint, the toggle would still show the default en/forest
     // here. This is what "before first paint" means in practice.
     await page.addInitScript(() => {
       window.__firstCheckpoint = null;
@@ -199,6 +202,7 @@ test.describe('Persistence (HTTP origin)', () => {
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     await page.locator('.lane').nth(0).locator('[data-action="add"][data-n="5"]').click();
     expect(await page.evaluate(() => GameCore.getState().camels[0].score)).toBe(5);
+    expect(await page.evaluate(() => GameCore.getState().theme)).toBe('forest'); // blocked storage keeps the default
     expect(await page.evaluate(() => GameStorage.available())).toBe(false);
     expect(await page.evaluate(() => GameStorage.save())).toBe(false);
     expect(errors).toEqual([]);

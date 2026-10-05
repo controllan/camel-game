@@ -64,7 +64,13 @@ async function winLane(page, lane, score) {
 }
 
 test.describe('Goal end state and infinite mode', () => {
-  test.beforeEach(async ({ page }) => { await gotoGame(page); });
+  // Pixel probes here key on the desert band tones (dark sky/dune/decor) to
+  // isolate banner/milestone/label ink, so pin desert explicitly: the app now
+  // defaults to forest, whose dusk moon would leak bright ink into those bands.
+  test.beforeEach(async ({ page }) => {
+    await gotoGame(page);
+    await page.evaluate(() => GameCore.setTheme('desert'));
+  });
 
   test('drive a camel to goal 200 -> winner banner, inputs disabled', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(200); GameCore.resetRace(); });

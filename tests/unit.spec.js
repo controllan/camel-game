@@ -394,7 +394,7 @@ test.describe('Persistence validation', () => {
     expect(obj.goalScore).toBe(200);
     expect(obj.infinite).toBe(false);
     expect(obj.language).toBe('en');
-    expect(obj.theme).toBe('desert');
+    expect(obj.theme).toBe('forest');
     expect(obj.raceOver).toBe(false);
     expect(obj.winnerId).toBe(null);
   });
@@ -421,7 +421,7 @@ test.describe('Persistence validation', () => {
     expect(r.clamped.fields.camels[1].score).toBe(0);      // non-integer -> 0
     expect(r.clamped.fields.goalScore).toBe(10000);        // clamped
     expect(r.clamped.fields.language).toBe('en');
-    expect(r.clamped.fields.theme).toBe('desert');
+    expect(r.clamped.fields.theme).toBe('forest');
     expect(r.clamped.fields.raceOver).toBe(true);
     expect(r.clamped.fields.winnerId).toBe('camel-7');    // lane exists in the clamped 8-camel race
     expect(r.infinite.fields.goalScore).toBe(null);        // infinite forces null

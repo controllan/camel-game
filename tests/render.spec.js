@@ -27,7 +27,12 @@ async function pixelTally(page) {
 }
 
 test.describe('Renderer camera and bounds', () => {
-  test.beforeEach(async ({ page }) => { await gotoGame(page); });
+  // Almost every assertion here samples desert art (camel 66x62, dune/sun/sky
+  // tones, robe palette). The app now defaults to forest, so pin desert explicitly.
+  test.beforeEach(async ({ page }) => {
+    await gotoGame(page);
+    await page.evaluate(() => GameCore.setTheme('desert'));
+  });
 
   test('canvas buffer is 1280x720', async ({ page }) => {
     const size = await page.evaluate(() => GameDebug.getCanvasSize());
@@ -303,10 +308,19 @@ test.describe('Renderer camera and bounds', () => {
     const decorRegion = () => page.evaluate(
       () => document.getElementById('game').getContext('2d').getImageData(0, 0, 1280, 120).data.join(','),
     );
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    // isSettled() tracks camel positions, not the sky: wait for a completed
+    // paint after the theme has been applied before sampling the top band.
+    const settleAndPaint = async () => {
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    };
+    await settleAndPaint();
     const first = await decorRegion();
     await gotoGame(page);
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    // Reload restores the persisted desert theme, but only if the debounced save
+    // already flushed; pin it again so the comparison is theme-stable either way.
+    await page.evaluate(() => GameCore.setTheme('desert'));
+    await settleAndPaint();
     const second = await decorRegion();
     expect(second).toBe(first);
   });
