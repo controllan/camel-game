@@ -400,6 +400,8 @@ test.describe('Renderer camera and bounds', () => {
       { timeout: 5000 },
     ).toBeGreaterThan(0);
     const bounded = await page.evaluate(() => GameDebug.getScene().decorDrawn);
+    // Desert is a single stream (spacing 90, no cap), so within DECOR_MAX_SPAN the
+    // window holds ~1500/90 + margin ~= 19 cells; a tight bound proves the cull.
     expect(bounded).toBeLessThanOrEqual(24);
   });
 
@@ -712,6 +714,78 @@ test.describe('Renderer camera and bounds', () => {
     expect(dim('const ROCK =')).toEqual({ w: 24, h: 16 });
     expect(dim('const MILESTONE =')).toEqual({ w: 20, h: 28 });
     expect(dim('const FINISH_FLAG =')).toEqual({ w: 24, h: 28 });
+    // Dense-forest floor cover + midground/broad trees (docs/art/theme-art.md §3.3).
+    expect(dim('const GRASS_TUFT_A =')).toEqual({ w: 10, h: 8 });
+    expect(dim('const GRASS_TUFT_B =')).toEqual({ w: 12, h: 8 });
+    expect(dim('const FERN =')).toEqual({ w: 16, h: 12 });
+    expect(dim('const LEAF_LITTER =')).toEqual({ w: 14, h: 6 });
+    expect(dim('const FOREST_TREE_TALL =')).toEqual({ w: 48, h: 72 });
+    expect(dim('const FOREST_TREE_BROAD =')).toEqual({ w: 44, h: 60 });
+  });
+
+  test('every forest sprite legend char resolves through its own palette', () => {
+    // drawSprite skips a char with no palette/CHAR_KEY mapping, so an undefined
+    // legend char yields invisible art instead of an error. Assert each documented
+    // sprite's own palette keys cover every non-'.' char in its matrix
+    // (docs/art/theme-art.md §3.3, "all chars resolve, no undefined fallback").
+    const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const rowsFor = (decl) => {
+      const idx = html.indexOf(decl);
+      expect(idx, decl).toBeGreaterThan(-1);
+      const start = html.indexOf('[', idx);
+      let depth = 0, i = start, inStr = false;
+      for (; i < html.length; i += 1) {
+        const ch = html[i];
+        if (ch === "'") inStr = !inStr;
+        if (inStr) continue;
+        if (ch === '[') depth += 1;
+        else if (ch === ']') { depth -= 1; if (depth === 0) { i += 1; break; } }
+      }
+      return [...html.slice(start, i).matchAll(/'([^']*)'/g)].map((m) => m[1]);
+    };
+    const paletteKeys = (decl) => {
+      const idx = html.indexOf(decl);
+      expect(idx, decl).toBeGreaterThan(-1);
+      const start = html.indexOf('{', idx);
+      const body = html.slice(start + 1, html.indexOf('}', start));
+      return new Set([...body.matchAll(/([A-Za-z]+)\s*:/g)].map((m) => m[1]));
+    };
+    // drawSprite resolves a char through palette[char] first, then
+    // palette[CHAR_KEY[char]] (index.html). Mirror that so 'O' -> 'outline' etc.
+    const charKey = (() => {
+      const idx = html.indexOf('const CHAR_KEY = {');
+      expect(idx).toBeGreaterThan(-1);
+      const start = html.indexOf('{', idx);
+      const body = html.slice(start + 1, html.indexOf('};', start));
+      const map = new Map();
+      for (const m of body.matchAll(/([A-Za-z])\s*:\s*'([A-Za-z]+)'/g)) map.set(m[1], m[2]);
+      return map;
+    })();
+    const resolves = (keys, ch) => keys.has(ch) || (charKey.has(ch) && keys.has(charKey.get(ch)));
+    const SPRITES = [
+      ['const FOREST_TREE_CONIFER =', 'const FOREST_TREE_PAL_CONIFER ='],
+      ['const FOREST_TREE_DECIDUOUS =', 'const FOREST_TREE_PAL_DECIDUOUS ='],
+      ['const FOREST_TREE_BROAD =', 'const FOREST_TREE_BROAD_PAL ='],
+      ['const FOREST_BUSH =', 'const FOREST_BUSH_PAL ='],
+      ['const FOREST_TREE_TALL =', 'const FOREST_TREE_TALL_PAL ='],
+      ['const GRASS_TUFT_A =', 'const GRASS_TUFT_PAL ='],
+      ['const GRASS_TUFT_B =', 'const GRASS_TUFT_PAL ='],
+      ['const FERN =', 'const FERN_PAL ='],
+      ['const LEAF_LITTER =', 'const LEAF_LITTER_PAL ='],
+      ['const MUSHROOM_RED =', 'const MUSHROOM_RED_PAL ='],
+      ['const MUSHROOM_BROWN =', 'const MUSHROOM_BROWN_PAL ='],
+      ['const MOSS =', 'const MOSS_PAL ='],
+      ['const STONE =', 'const STONE_PAL ='],
+      ['const STONE_ALT =', 'const STONE_PAL ='],
+      ['const PINE_NEEDLES =', 'const NEEDLES_PAL ='],
+    ];
+    for (const [spr, pal] of SPRITES) {
+      const keys = paletteKeys(pal);
+      const chars = new Set(rowsFor(spr).join('').replace(/\./g, ''));
+      for (const ch of chars) {
+        expect(resolves(keys, ch), `${spr} char '${ch}' missing from ${pal}`).toBe(true);
+      }
+    }
   });
 
   test('lane fit: feet land on the terrain surface with the lane clamp inert (2 and 8 lanes)', async ({ page }) => {

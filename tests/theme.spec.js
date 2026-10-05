@@ -118,6 +118,334 @@ test.describe('Theme registry (forest)', () => {
     })).toBeGreaterThan(1000);
   });
 
+  test('forest floor is densely covered at default zoom (all floor-prop tones present)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await page.evaluate(() => GameCore.setTheme('forest'));
+    // Keep all camels level so the window stays at the default zoom (W=100) while
+    // the world scrolls; sample the whole lane band each frame.
+    const tones = { blade: 0, moss: 0, cap: 0, stone: 0, stoneShade: 0, needles: 0, leaf: 0 };
+    for (const score of [0, 200, 400, 600, 800, 1000]) {
+      await page.evaluate((sc) => {
+        for (const c of GameCore.getState().camels) GameCore.setScore(c.id, sc);
+      }, score);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const win = await page.evaluate(() => GameDebug.getCameraWindow());
+      expect(win.max - win.min).toBeLessThanOrEqual(100); // default zoom
+      const r = await page.evaluate(() => {
+        const g = document.getElementById('game').getContext('2d');
+        const d = g.getImageData(0, 120, 1280, 720 - 120).data;
+        let blade = 0, moss = 0, cap = 0, stone = 0, stoneShade = 0, needles = 0, leaf = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const rr = d[i], gg = d[i + 1], bb = d[i + 2];
+          if (rr === 0x7a && gg === 0xc2 && bb === 0x5a) blade++;        // grass/fern blade H
+          else if (rr === 0x3f && gg === 0x7a && bb === 0x35) moss++;      // MOSS light
+          else if (rr === 0xc0 && gg === 0x39 && bb === 0x2b) cap++;       // MUSHROOM_RED cap
+          else if (rr === 0x8a && gg === 0x8a && bb === 0x92) stone++;     // STONE light (also STONE_ALT)
+          else if (rr === 0x5a && gg === 0x5a && bb === 0x62) stoneShade++; // STONE shade (STONE only)
+          else if (rr === 0x8a && gg === 0x5a && bb === 0x3a) needles++;   // needle / leaf body
+          else if (rr === 0xb0 && gg === 0x7a && bb === 0x4a) leaf++;      // LEAF_LITTER light
+        }
+        return { blade, moss, cap, stone, stoneShade, needles, leaf };
+      });
+      tones.blade += r.blade; tones.moss += r.moss; tones.cap += r.cap;
+      tones.stone += r.stone; tones.stoneShade += r.stoneShade;
+      tones.needles += r.needles; tones.leaf += r.leaf;
+    }
+    // Every family tone is rasterised (sprite survived the lane fill).
+    expect(tones.blade).toBeGreaterThan(0);   // grass/fern blade #7ac25a
+    expect(tones.moss).toBeGreaterThan(0);    // moss #3f7a35
+    expect(tones.cap).toBeGreaterThan(0);     // mushroom cap #c0392b
+    expect(tones.stone).toBeGreaterThan(0);   // stone light #8a8a92 (STONE or STONE_ALT)
+    // #5a5a62 is the STONE shade, which STONE_ALT never paints: this fires only
+    // when the full STONE sprite (not merely STONE_ALT) is wired in.
+    expect(tones.stoneShade).toBeGreaterThan(0);
+    expect(tones.needles).toBeGreaterThan(0); // needles/leaf body #8a5a3a
+    // Density: not a lone prop — the floor band is dense grass cover.
+    const total = tones.blade + tones.moss + tones.cap + tones.stone + tones.needles + tones.leaf;
+    expect(total).toBeGreaterThan(200);
+  });
+
+  test('floor props render in every lane at default zoom (4 lanes, W=100)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await page.evaluate(() => GameCore.setTheme('forest'));
+    // Sum floor-prop pixels per lane across several pans: boar occlusion varies with
+    // the score, so a lane momentarily covered still accumulates hits. Every lane
+    // must hold floor props, not only the upper ones (per-lane stream fairness).
+    const totals = [0, 0, 0, 0];
+    for (const score of [0, 150, 300, 450, 600, 750]) {
+      await page.evaluate((sc) => {
+        for (const c of GameCore.getState().camels) GameCore.setScore(c.id, sc);
+      }, score);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const perLane = await page.evaluate(() => {
+        const g = document.getElementById('game').getContext('2d');
+        const HORIZON_Y = 120, LANE_BOTTOM = 712;
+        const n = GameCore.getState().camels.length;
+        const laneH = (LANE_BOTTOM - HORIZON_Y) / n;
+        const out = [];
+        for (let lane = 0; lane < n; lane++) {
+          const top = Math.round(HORIZON_Y + lane * laneH);
+          const h = Math.round(laneH);
+          const d = g.getImageData(0, top, 1280, h).data;
+          let props = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            const rr = d[i], gg = d[i + 1], bb = d[i + 2];
+            if ((rr === 0x7a && gg === 0xc2 && bb === 0x5a)
+              || (rr === 0x3f && gg === 0x7a && bb === 0x35)
+              || (rr === 0xc0 && gg === 0x39 && bb === 0x2b)
+              || (rr === 0x8a && gg === 0x8a && bb === 0x92)
+              || (rr === 0x5a && gg === 0x5a && bb === 0x62)
+              || (rr === 0x8a && gg === 0x5a && bb === 0x3a)
+              || (rr === 0xb0 && gg === 0x7a && bb === 0x4a)) props++;
+          }
+          out.push(props);
+        }
+        return out;
+      });
+      perLane.forEach((v, i) => { totals[i] += v; });
+    }
+    expect(totals.length).toBe(4);
+    for (const t of totals) expect(t).toBeGreaterThan(0); // every lane shows floor props
+  });
+
+  test('forest grass carpet speckles every lane and survives the zoom-out cull', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await page.evaluate(() => GameCore.setTheme('forest'));
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const perLane = await page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const HORIZON_Y = 120, LANE_BOTTOM = 712;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON_Y) / n;
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const top = Math.round(HORIZON_Y + i * laneH);
+        const bottom = Math.round(HORIZON_Y + (i + 1) * laneH);
+        const d = g.getImageData(0, top, 1280, bottom - top).data;
+        let speckle = 0;
+        for (let j = 0; j < d.length; j += 4) {
+          if (d[j] === 0x5a && d[j + 1] === 0x8a && d[j + 2] === 0x48) speckle++;
+        }
+        out.push(speckle);
+      }
+      return out;
+    });
+    expect(perLane.length).toBe(4);
+    for (const c of perLane) expect(c).toBeGreaterThan(0); // carpet in every lane
+
+    // Past DECOR_MAX_SPAN world decor is culled, but the carpet stays.
+    await page.evaluate(() => {
+      GameCore.setCamelCount(2);
+      GameCore.setScore('camel-0', 0);
+      GameCore.setScore('camel-1', 100000);
+    });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const culled = await page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const d = g.getImageData(0, 120, 1280, 720 - 120).data;
+      let speckle = 0;
+      for (let j = 0; j < d.length; j += 4) {
+        if (d[j] === 0x5a && d[j + 1] === 0x8a && d[j + 2] === 0x48) speckle++;
+      }
+      return { decorDrawn: GameDebug.getScene().decorDrawn, speckle };
+    });
+    expect(culled.decorDrawn).toBe(0);
+    expect(culled.speckle).toBeGreaterThan(0);
+  });
+
+  test('forest grass carpet is world-anchored (speckles scroll with the ground)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await page.evaluate(() => GameCore.setTheme('forest'));
+    // Union (across every lane) of screen x-columns carrying a carpet speckle
+    // (#5a8a48), plus the camel x-columns that over-paint the carpet. A screen-space
+    // pattern re-stamps the same px per k, so its camel-free columns are invariant
+    // under panning; a world-anchored pattern shifts them with the ground.
+    const sample = () => page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const HORIZON_Y = 120, LANE_BOTTOM = 712;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON_Y) / n;
+      const cols = new Set();
+      for (let lane = 0; lane < n; lane++) {
+        const top = Math.round(HORIZON_Y + lane * laneH);
+        const h = Math.round(laneH);
+        const d = g.getImageData(0, top, 1280, h).data;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < 1280; x++) {
+            const i = (y * 1280 + x) * 4;
+            if (d[i] === 0x5a && d[i + 1] === 0x8a && d[i + 2] === 0x48) cols.add(x);
+          }
+        }
+      }
+      // Boar sprites over-paint carpet pixels; their columns must be excluded from
+      // the comparison or a moving boar fakes a pattern shift on its own.
+      const occluded = new Set();
+      for (const b of GameDebug.getCamelSpriteBounds()) {
+        for (let x = Math.floor(b.left) - 1; x <= Math.ceil(b.right) + 1; x++) occluded.add(x);
+      }
+      return {
+        cols: [...cols].sort((a, b) => a - b),
+        occluded: [...occluded],
+        win: GameDebug.getCameraWindow(),
+      };
+    });
+    const settle = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const panAll = (score) => page.evaluate((sc) => {
+      for (const c of GameCore.getState().camels) GameCore.setScore(c.id, sc);
+    }, score);
+
+    await panAll(0);
+    await settle();
+    const before = await sample();
+    // 37 is not an integer number of world cells at the default window (W=100),
+    // so unchanged camel-free columns would mean the pattern is screen-space.
+    await panAll(37);
+    await settle();
+    const after = await sample();
+    expect(after.win.min).toBeGreaterThan(0); // camera actually panned
+    // Compare only columns occluded by neither frame's boars, so sprite pixels
+    // cannot masquerade as a pattern shift.
+    const excluded = new Set([...before.occluded, ...after.occluded]);
+    const freeCols = (s) => s.cols.filter((x) => !excluded.has(x));
+    const beforeFree = freeCols(before);
+    const afterFree = freeCols(after);
+    const afterSet = new Set(afterFree);
+    const overlap = beforeFree.filter((x) => afterSet.has(x)).length;
+    expect(beforeFree.length).toBeGreaterThan(0); // carpet drawn before the pan
+    expect(afterFree.length).toBeGreaterThan(0); // ...and after
+    // A screen-space pattern re-stamps the same px, so its camel-free columns are
+    // ~identical (overlap ratio ~1). A world-anchored pattern shifts the whole set
+    // by ~473 screen px, leaving only a small accidental overlap.
+    expect(overlap / Math.min(beforeFree.length, afterFree.length)).toBeLessThan(0.5);
+  });
+
+  test('wide-zoom floor decor spreads across the window width and every lane', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.resetRace(); });
+    await page.evaluate(() => GameCore.setTheme('forest'));
+    // Spread the field so the window is wide (but still inside DECOR_MAX_SPAN).
+    await page.evaluate(() => {
+      GameCore.setScore('camel-1', 1400);
+      for (let i = 2; i < 8; i++) GameCore.setScore('camel-' + i, i * 180);
+    });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const win = await page.evaluate(() => GameDebug.getCameraWindow());
+    expect(win.max - win.min).toBeGreaterThan(1000);
+    expect(win.max - win.min).toBeLessThanOrEqual(1500);
+    // Count floor-prop pixels (exact art RGB) per lane band AND across the window
+    // width. Every floor sprite sits just above its anchor lane's surface, so it
+    // cannot leak into the neighbour band; a lane-order cap starves the lower
+    // lanes, and breaking at the cap left-clusters every prop into the left ~20%.
+    const res = await page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const HORIZON_Y = 120, LANE_BOTTOM = 712, W = 1280, H = 720;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON_Y) / n;
+      const isProp = (rr, gg, bb) =>
+        (rr === 0x7a && gg === 0xc2 && bb === 0x5a)      // grass/fern blade
+        || (rr === 0x3f && gg === 0x7a && bb === 0x35)      // moss
+        || (rr === 0xc0 && gg === 0x39 && bb === 0x2b)      // mushroom cap
+        || (rr === 0x8a && gg === 0x8a && bb === 0x92)      // stone
+        || (rr === 0x8a && gg === 0x5a && bb === 0x3a)      // needle / leaf body
+        || (rr === 0xb0 && gg === 0x7a && bb === 0x4a);     // leaf litter
+      const d = g.getImageData(0, 0, W, H).data;
+      const perLane = new Array(n).fill(0);
+      const cols = new Set();
+      for (let y = HORIZON_Y; y < LANE_BOTTOM; y++) {
+        const lane = Math.min(n - 1, Math.floor((y - HORIZON_Y) / laneH));
+        for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4;
+          if (isProp(d[i], d[i + 1], d[i + 2])) { perLane[lane]++; cols.add(x); }
+        }
+      }
+      const colArr = [...cols].sort((a, b) => a - b);
+      return {
+        perLane,
+        left: colArr.filter((x) => x < W / 2).length,
+        right: colArr.filter((x) => x >= W / 2).length,
+        span: colArr.length ? colArr[colArr.length - 1] - colArr[0] : 0,
+        decorDrawn: GameDebug.getScene().decorDrawn,
+      };
+    });
+    expect(res.perLane.length).toBe(8);
+    for (const c of res.perLane) expect(c).toBeGreaterThan(0); // every lane gets floor props
+    // The cap now samples the whole window: props must reach both halves and span it.
+    expect(res.left).toBeGreaterThan(0);
+    expect(res.right).toBeGreaterThan(0);
+    expect(res.span).toBeGreaterThan(1280 * 0.6);
+    expect(res.decorDrawn).toBeLessThanOrEqual(144); // background 14 + midground 10 + floor 120
+  });
+
+  test('midground trees stand in the lanes and are occluded by the boars', async ({ page }) => {
+    await page.evaluate(() => {
+      GameCore.setCamelCount(2);
+      GameCore.setGoal(null);
+      GameCore.resetRace();
+      GameCore.setTheme('forest');
+    });
+    // Both camels level => default zoom (window span 100), stationary boars
+    // (target left is score-independent at level scores). A midground cell is
+    // world-anchored: at a level window its screen x is (world - (score - 20))
+    // * 12.8, so the cell we read re-renders exactly on the boar column (x 256)
+    // once both camels sit at its world position p. One deterministic jump
+    // instead of scanning ~300 scores of rAF frames (~600 rAF / ~12 s on slow
+    // CI). Observe at a positive score so p is a valid non-negative score.
+    await page.evaluate(() => {
+      for (const c of GameCore.getState().camels) GameCore.setScore(c.id, 520);
+    });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const pick = await page.evaluate(() => {
+      const win = GameDebug.getCameraWindow();
+      const span = win.max - win.min;
+      let best = null;
+      for (const m of GameDebug.getScene().midground) {
+        const d = Math.abs(m.x - 256); // boar column at level scores
+        if (!best || d < best.d) best = { d, score: Math.round(win.min + (m.x / 1280) * span) };
+      }
+      return best;
+    });
+    expect(pick).not.toBeNull();
+    // Re-render at the tree's world position, then probe the same tree: canopy
+    // above the boar must show, the body where the boar stands must be
+    // over-painted. Both sample bands derive from the boar's bounding box.
+    await page.evaluate((s) => {
+      for (const c of GameCore.getState().camels) GameCore.setScore(c.id, s);
+    }, pick.score);
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const r = await page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const tone = (x, y, w, h) => {
+        const d = g.getImageData(Math.round(x), Math.round(y), w, h).data;
+        let n = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if ((d[i] === 0x2f && d[i + 1] === 0x6b && d[i + 2] === 0x3a)   // TALL canopy T
+            || (d[i] === 0x3a && d[i + 1] === 0x8a && d[i + 2] === 0x4a)) n++; // BROAD canopy T
+        }
+        return n;
+      };
+      const scene = GameDebug.getScene();
+      const bounds = GameDebug.getCamelSpriteBounds();
+      // The tree re-rendered on the boar column; its anchor y sits in the boar
+      // band of its own lane, which selects the same-lane boar to probe.
+      let tree = null;
+      for (const m of scene.midground) {
+        if (!tree || Math.abs(m.x - 256) < Math.abs(tree.x - 256)) tree = m;
+      }
+      const boar = bounds.find((b) => tree.y >= b.top && tree.y <= b.bottom) || bounds[0];
+      const cx = (boar.left + boar.right) / 2;
+      return {
+        midgroundCount: scene.midground.length,
+        treeX: tree.x,
+        above: tone(cx - 6, boar.top - 26, 13, 20),  // canopy band just above the boar
+        inside: tone(cx - 8, boar.top + 10, 17, 16), // same tree where the boar body stands
+      };
+    });
+    expect(r.midgroundCount).toBeGreaterThan(0);
+    expect(Math.abs(r.treeX - 256)).toBeLessThanOrEqual(1); // jumped onto the boar column
+    expect(r.above).toBeGreaterThan(0);   // tree canopy renders above the boar
+    expect(r.inside).toBe(0);             // boar over-paints the tree where it stands
+  });
+
   test('8-lane boar budget holds (height cap 70, lane 74)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(8); GameCore.setTheme('forest'); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
