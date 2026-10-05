@@ -495,7 +495,12 @@ test.describe('Theme registry (forest)', () => {
       return {
         midgroundCount: scene.midground.length,
         treeX: tree.x,
-        above: tone(cx - 6, boar.top - 26, 13, 20),  // canopy band just above the boar
+        // The team-name label sits directly above the boar (pill top-20..top-4,
+        // outline spanning top-21..top-4), so it overlaps the old canopy band
+        // (top-26..top-7) only in rows top-20..top-7. Sample the canopy in the
+        // sliver between the label bottom and the boar top (top-3..top-1), which
+        // the tree still paints where the boar does not.
+        above: tone(cx - 8, boar.top - 3, 17, 3),  // canopy just above the boar's head
         inside: tone(cx - 8, boar.top + 10, 17, 16), // same tree where the boar body stands
       };
     });

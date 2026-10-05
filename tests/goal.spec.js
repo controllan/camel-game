@@ -205,8 +205,9 @@ test.describe('Goal end state and infinite mode', () => {
   });
 
   test('milestone numbers rasterise, but are skipped when the step cannot fit the label', async ({ page }) => {
-    // Only drawMilestones' fillText uses #e8e0d0, so a nonzero count in the
-    // horizon band proves the number (not merely the flag) is rasterised.
+    // Inside the horizon band only drawMilestones' fillText paints warm
+    // off-white ink (team labels sit far below it), so a nonzero count proves
+    // the number (not merely the flag) is rasterised.
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(5000); GameCore.resetRace(); });
     await settle(page);
     const normalWin = await page.evaluate(() => GameDebug.getCameraWindow());

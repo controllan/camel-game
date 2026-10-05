@@ -526,6 +526,7 @@ window.GameCore = (function () {
     decorDrawn: 0,
     decorKinds: [],
     confettiDrawn: 0,
+    teamLabels: [],
   };
 
   // ---------- canvas layout (fill the area; page never scrolls) ----------
@@ -2596,6 +2597,61 @@ window.GameCore = (function () {
     });
   }
 
+  // Team-name labels: a dark pill + light 12px monospace text above each animal.
+  // Geometry is recomputed every frame from core state (never cached), so a
+  // rename in the Team input redraws the label on the same frame, and each label
+  // tracks its animal's lerped visualLeft. Bounds are clamped to the canvas.
+  const TEAM_LABEL_FONT = '12px monospace';
+  const TEAM_LABEL_TEXT = '#e8e0d0';
+  const TEAM_LABEL_PILL = 'rgba(26,18,8,0.72)';
+  const TEAM_LABEL_OUTLINE = 'rgba(0,0,0,0.55)';
+  const TEAM_LABEL_H = 16; // pill height
+  const TEAM_LABEL_GAP = 4; // pill bottom -> sprite top
+  const TEAM_LABEL_PAD = 4; // pill left -> text left (8 px total)
+  // Reused per-lane slots so a steady frame allocates no label objects.
+  const teamLabelPool = [];
+  function teamLabelSlot(i) {
+    let o = teamLabelPool[i];
+    if (o === undefined) {
+      o = { id: '', name: '', x: 0, y: 0, w: 0, h: TEAM_LABEL_H };
+      teamLabelPool[i] = o;
+    }
+    return o;
+  }
+  function drawTeamLabels(s, win) {
+    const labels = runtime.teamLabels;
+    labels.length = 0;
+    ctx.font = TEAM_LABEL_FONT;
+    ctx.textBaseline = 'top';
+    const n = s.camels.length;
+    for (let i = 0; i < n; i++) {
+      const c = s.camels[i];
+      const v = runtime.visualLeft[c.id];
+      const left = (v == null) ? camelTargetLeft(c.score, win) : v;
+      const text = c.name;
+      const w = Math.ceil(ctx.measureText(text).width) + TEAM_LABEL_PAD * 2;
+      // Centered on the animal's visual centre (same value the sprite uses).
+      let x = Math.round(left + SPRITE_W / 2 - w / 2);
+      if (x < 0) x = 0; else if (x + w > CANVAS_W) x = CANVAS_W - w;
+      // Just above the sprite's top. camelTopY >= HORIZON_Y by construction, so
+      // both y clamps are currently unreachable; kept as defensive guards in
+      // case camelTopY's formula changes (e.g. an above-horizon lane).
+      let y = Math.round(camelTopY(i, n, c.score) - TEAM_LABEL_GAP - TEAM_LABEL_H);
+      if (y < 0) y = 0; else if (y + TEAM_LABEL_H > CANVAS_H) y = CANVAS_H - TEAM_LABEL_H;
+      ctx.fillStyle = TEAM_LABEL_OUTLINE;
+      // Clamp the 1px outline so a left/top-clamped lane (x==0/y==0) does not
+      // paint its outer row/column off-canvas; pill and text geometry unchanged.
+      ctx.fillRect(Math.max(0, x - 1), Math.max(0, y - 1), w + 2, TEAM_LABEL_H + 2);
+      ctx.fillStyle = TEAM_LABEL_PILL;
+      ctx.fillRect(x, y, w, TEAM_LABEL_H);
+      ctx.fillStyle = TEAM_LABEL_TEXT;
+      ctx.fillText(text, x + TEAM_LABEL_PAD, y + 2);
+      const slot = teamLabelSlot(i);
+      slot.id = c.id; slot.name = text; slot.x = x; slot.y = y; slot.w = w; slot.h = TEAM_LABEL_H;
+      labels.push(slot);
+    }
+  }
+
   function updateRuntime(s, dt, now) {
     const win = runtime.frameWindow;
     for (const c of s.camels) {
@@ -2663,6 +2719,7 @@ window.GameCore = (function () {
     drawDecor(win, 'floor');
     drawDecor(win, 'midground');
     drawCamels(s, win, now);
+    drawTeamLabels(s, win);
     drawFinish(s, win);
     drawConfetti();
     drawBanner(s);
@@ -2725,9 +2782,15 @@ window.GameCore = (function () {
     isSettled: function () {
       const s = core.getState();
       const win = runtime.frameWindow || currentWindow(s);
+      // Honest: a lane with no runtime.visualLeft entry has not yet been drawn
+      // by a frame (updateRuntime seeds it on the frame that paints the lane),
+      // so the previous frame's pixels/geometry are stale -- report unsettled
+      // until every CURRENT lane has been painted and reached its target.
+      // Removed lanes must not block: we iterate s.camels (current ids only), so
+      // a deleted id lingering in runtime.visualLeft is simply never inspected.
       return s.camels.every(function (c) {
         const v = runtime.visualLeft[c.id];
-        if (v == null) return true;
+        if (v == null) return false;
         return Math.abs(v - camelTargetLeft(c.score, win)) <= 0.5;
       });
     },
@@ -2740,7 +2803,10 @@ window.GameCore = (function () {
       for (let i = 0; i < midgroundDrawnCount; i++) {
         midground.push({ x: midgroundXBuf[i], y: midgroundYBuf[i] });
       }
-      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, decorKinds: (runtime.decorKinds || []).slice(), midground: midground, confettiDrawn: runtime.confettiDrawn };
+      const teamLabels = (runtime.teamLabels || []).map(function (l) {
+        return { id: l.id, name: l.name, x: l.x, y: l.y, w: l.w, h: l.h };
+      });
+      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, decorKinds: (runtime.decorKinds || []).slice(), midground: midground, confettiDrawn: runtime.confettiDrawn, teamLabels: teamLabels };
     },
   };
 
