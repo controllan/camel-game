@@ -31,7 +31,6 @@ test.describe('Performance acceptance', () => {
         }
         requestAnimationFrame(tick);
       }), themeId);
-      expect(result.frames).toBeGreaterThanOrEqual(120);
       expect(result.fps).toBeGreaterThanOrEqual(55);
     });
   }

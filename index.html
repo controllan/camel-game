@@ -855,7 +855,7 @@ window.GameCore = (function () {
 
   // ---------- art ----------
   // Fixed tones for the decoration sprites. The camel's own
-  // palette (below) supplies body/shade/harness/robe/white/skin/blanket.
+  // palette (below) supplies body/shade/harness/robe/eyeWhite/skin/blanket.
   const COL = {
     outline: '#1a1208',
     pole: '#d8d8d8',
@@ -874,7 +874,7 @@ window.GameCore = (function () {
   // Camel palette factory: only `robe` varies per lane; everything else fixed.
   const CAMEL_PAL = (robe) => ({
     outline: '#1a1208', body: '#c9803a', shade: '#8a5220', harness: '#53565e',
-    robe: robe, white: '#f0ece0', skin: '#d8a878', blanket: '#bfe3ea',
+    robe: robe, eyeWhite: '#f0ece0', skin: '#d8a878', blanket: '#bfe3ea',
   });
 
   // 3x5 digit font for the numbered saddle blanket ('#' lit, '.' transparent).
@@ -896,7 +896,7 @@ window.GameCore = (function () {
   // Camel v5 66x62, 5 frames: 0 standing (idle), 1-4 walk (contact A, pass A,
   // contact B, pass B). Legend (docs/art/camel-sprite.md): . transparent,
   // O outline, B body, S shade, G harness (fixed), R robe (per-lane colour),
-  // W white (turban), K skin (face), L saddle blanket. Blanket flat area holds a
+  // W eye-white (turban), K skin (face), L saddle blanket. Blanket flat area holds a
   // 6x10 digit drawn by code at sprite-local (24, 36) (+2 rows on bob frames 2, 4).
   const CAMEL = [
     [ // frame 0 — standing (idle)
@@ -1388,10 +1388,11 @@ window.GameCore = (function () {
   // Boar 60x42, 5 frames (docs/art/boar-sprite.md): 0 standing, 1 contact A,
   // 2 pass A (bob), 3 contact B, 4 pass B (bob). Legend: . transparent,
   // O outline/hooves, B body, S shade, D bristle/reins/boots, H highlight,
-  // E ear, T tusk, Y eye, G legs, R hunter tunic (per-lane), K skin, C cap,
-  // L saddle blanket. Digit flat area cols 18-23 x rows 18-27 (+1 row on bob).
+  // E ear, T tusk (near + far), W eye-white sclera, Y eye pupil, G legs,
+  // R hunter tunic (per-lane), K skin, C cap, L saddle blanket. Digit flat
+  // area cols 18-23 x rows 18-27 (+1 row on bob).
   const BOAR = [
-    [ // frame 0 - standing (idle; traced gait, feet row 41)
+    [ // frame 0 — standing (idle; traced gait, feet row 41)
       '.......................OOOOO................................',
       '........................OCO.................................',
       '.......................OCCCO................................',
@@ -1407,15 +1408,15 @@ window.GameCore = (function () {
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -1435,7 +1436,7 @@ window.GameCore = (function () {
       '...........OGGGOGO...OGGGOGO....OGGGBO...OGGOGO.............',
       '...........OGGGGHO....OGGGHO.....OGHO.....OGGHO.............',
     ],
-    [ // frame 1 - contact A (legs stride wide)
+    [ // frame 1 — contact A (legs stride wide)
       '.......................OOOOO................................',
       '........................OCO.................................',
       '.......................OCCCO................................',
@@ -1451,15 +1452,15 @@ window.GameCore = (function () {
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -1479,7 +1480,7 @@ window.GameCore = (function () {
       '.......OGGGGO..........OGGGGOGGGGO.........OGGGGO...........',
       '......OOOOOOO.........OOOOOOOOOOOO........OOOOOOO...........',
     ],
-    [ // frame 2 - pass A (bob: body +1 row; legs vertical)
+    [ // frame 2 — pass A (bob: body +1 row; legs vertical)
       '............................................................',
       '.......................OOOOO................................',
       '........................OCO.................................',
@@ -1496,15 +1497,15 @@ window.GameCore = (function () {
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -1523,7 +1524,7 @@ window.GameCore = (function () {
       '.........OGGGGO......OGGGGO.....OGGGGO....OGGGGO............',
       '........OOOOOOO.....OOOOOOO....OOOOOOO...OOOOOOO............',
     ],
-    [ // frame 3 - contact B (opposite stride)
+    [ // frame 3 — contact B (opposite stride)
       '.......................OOOOO................................',
       '........................OCO.................................',
       '.......................OCCCO................................',
@@ -1539,15 +1540,15 @@ window.GameCore = (function () {
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -1567,7 +1568,7 @@ window.GameCore = (function () {
       '.............OGGGGOGGGGO..........OGGGGOGGGGO...............',
       '............OOOOOOOOOOOO.........OOOOOOOOOOOO...............',
     ],
-    [ // frame 4 - pass B (bob: body +1 row; legs vertical)
+    [ // frame 4 — pass B (bob: body +1 row; legs vertical)
       '............................................................',
       '.......................OOOOO................................',
       '........................OCO.................................',
@@ -1584,15 +1585,15 @@ window.GameCore = (function () {
       '.....................ORRRRRRRRODDDBBBSSSSSSSSSSO............',
       '.....................ORRRRRRRROSSDDBSSSSSSSSSSSDO...........',
       '................OO..OOOOOOOOOOBSSSDDSSSSSHHHSSSDO...........',
-      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSYYSDSO..........',
-      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSYSSSSSO.........',
+      '...............OBHOOBDDOGGGOSBBBBSSDDSSSSSSSWYSDSO..........',
+      '..............ODSBHHHDDOGGGOBBBBBSSDDDSSSSSSWWSSSSO.........',
       '............OOSSBBBBBBODDDDOBBBBSSDDDDDSSSSSSSSSSSSO........',
       '...........OSSSSBBLLLLLLHHHHBBBSSDDSSBDDSSSSSSSSSSSSO.......',
       '..........OSSSSBBBLLLLLLHHHBBBSSDDDSBBSDDSSSSSSSTSSSSO......',
       '.........OSSSSSSBBLLLLLLBBBBSSSSDDSBBBSSDDSSSSSTTHSSSBOO....',
-      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSSTTHSSSBHHO...',
-      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDSTTSSSBHHBBO..',
-      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODHTSSSBHHBBO..',
+      '........OSSSSSSSSBLLLLLLBBBBSBBBSDDSBBSSSDDDSSTTTHSSSBHHO...',
+      '........OSSSSSSSSBLLLLLLBBBBBHBSSSDDBBBSSSDDDDTTTSSSBHHBBO..',
+      '.......OSSSSSBBBBBLLLLLLBBBBBBBSSSDDSBBBBSSDDODTTSSSBHHBBO..',
       '......ODSSSBBBBBBBLLLLLLBBBBBBBBSSDDSSBBBBSSDDDDDOOSBBBBBO..',
       '.....OSDDSBBBBBBBSLLLLLLBBBBBBBBBSDDDDDSBBBSSDDDDDODDBBBO...',
       '....OSOOOSBBBBBBSSLLLLLLHBBBBBBBBSSDDDDDDSSSSDDDOOOOOOOO....',
@@ -1618,7 +1619,7 @@ window.GameCore = (function () {
   // the boar's G = legs tone without diverging from the camel palette keys.
   const BOAR_PAL = (robe) => ({
     outline: '#16120b', body: '#4c4332', shade: '#3c372a', bristle: '#26221a',
-    highlight: '#5f5745', ear: '#787160', tusk: '#f0ece0', eye: '#14100b',
+    highlight: '#5f5745', ear: '#787160', tusk: '#f0ece0', eyeWhite: '#f0ece0', eye: '#14100b',
     legs: '#2e2918', harness: '#2e2918', robe: robe, skin: '#d8a878', cap: '#2f6b3a', blanket: '#bfe3ea',
   });
   const BOAR_ANCHOR = { x: 18, y: 18 }; // pinned by docs/art/boar-sprite.md
@@ -1933,7 +1934,7 @@ window.GameCore = (function () {
   // decor sprites key by their own letters), then the shared semantic CHAR_KEY.
   const CHAR_KEY = {
     O: 'outline', B: 'body', S: 'shade', G: 'harness', R: 'robe',
-    W: 'white', K: 'skin', L: 'blanket',
+    W: 'eyeWhite', K: 'skin', L: 'blanket',
     D: 'bristle', H: 'highlight', E: 'ear', T: 'tusk', Y: 'eye', C: 'cap',
     P: 'pole', X: 'checkerDark', F: 'flag',
   };

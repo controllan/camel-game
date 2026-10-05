@@ -285,6 +285,125 @@ test.describe('Forest boar blanket digit', () => {
   });
 });
 
+// v6 boar face (docs/art/boar-sprite.md acceptance #8 + #10). Standalone: the
+// forest boar renders exactly 11 tusk `T` + 3 eye-white `W` = 14 px of `#f0ece0`,
+// and 2 dark `#14100b` eyes (1 boar pupil + 1 hunter eye) per sprite frame. The
+// camel/mushroom/milestone art never paints `#f0ece0` or `#14100b` inside a
+// boar's 60x42 lane box, so the exact per-lane counts cannot pass vacuously.
+test.describe('Forest boar v6 art (enlarged tusk + white eye / dark pupil)', () => {
+  test.beforeEach(async ({ page }) => { await gotoGame(page); });
+
+  // Standing frame 0 sprite-relative cells (x = col, y = row), verbatim from the
+  // doc matrices. Near canine is the enlarged 2-wide tusks; far tusk is 1x2.
+  const NEAR_TUSK = [[48, 19], [47, 20], [48, 20], [47, 21], [48, 21], [47, 22], [48, 22], [47, 23], [48, 23]];
+  const FAR_TUSK = [[46, 21], [46, 22]];
+  const EYE_WHITE = [[44, 15], [44, 16], [45, 16]]; // sclera, 3 px
+  const PUPIL = [45, 15]; // dark pupil, diagonally adjacent to the sclera
+
+  test('all 8 lanes: #f0ece0 tusks + #f0ece0 sclera beside #14100b pupil at fixed cells', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const res = await page.evaluate(({ near, far, white, pupil }) => {
+      const g = document.getElementById('game').getContext('2d');
+      return GameDebug.getCamelSpriteBounds().map((b) => {
+        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 60, 42).data;
+        const at = (x, y) => { const i = (y * 60 + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+        const onCream = ([x, y]) => at(x, y) === 0xf0ece0;
+        // The near canine must be genuinely 2 px wide on rows 20-22 (enlarged),
+        // not a single 1 px column that would also match a smaller tusk.
+        const twoWide = [20, 21, 22].every((y) => onCream([47, y]) && onCream([48, y]));
+        let cream = 0, dark = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+          if (h === 0xf0ece0) cream += 1;
+          else if (h === 0x14100b) dark += 1;
+        }
+        return {
+          near: near.every(onCream),
+          far: far.every(onCream),
+          white: white.every(onCream),
+          pupil: at(pupil[0], pupil[1]) === 0x14100b,
+          twoWide,
+          cream,
+          dark,
+        };
+      });
+    }, { near: NEAR_TUSK, far: FAR_TUSK, white: EYE_WHITE, pupil: PUPIL });
+    expect(res.length).toBe(8);
+    for (const lane of res) {
+      expect(lane.near).toBe(true);   // enlarged near canine, 2-wide
+      expect(lane.far).toBe(true);    // smaller far-side tusk
+      expect(lane.twoWide).toBe(true);
+      expect(lane.white).toBe(true);  // white sclera
+      expect(lane.pupil).toBe(true);  // dark pupil beside it
+      expect(lane.cream).toBe(14);    // 11 tusk + 3 sclera, and nothing else
+      expect(lane.dark).toBe(2);      // boar pupil + hunter eye
+    }
+  });
+
+  // Acceptance #10 says the T/W/Y cells hold in EVERY frame; the standing test
+  // above only renders frame 0. Sweep the 4 walk frames (2/4 bob +1 row) using the
+  // same rAF grouping as the blanket-digit bob test.
+  test('face cells hold in all 5 frames (tusk/sclera/pupil shift +1 row on bob frames 2, 4)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const CELLS = {
+      near: [[48, 19], [47, 20], [48, 20], [47, 21], [48, 21], [47, 22], [48, 22], [47, 23], [48, 23]],
+      far: [[46, 21], [46, 22]],
+      white: [[44, 15], [44, 16], [45, 16]],
+      pupil: [45, 15],
+    };
+    const res = await page.evaluate((cells) => new Promise((resolve) => {
+      const FRAME_MS = 320; // ANIM_FRAME_MS
+      const canvas = document.getElementById('game');
+      function probe(ro) {
+        const b = GameDebug.getCamelSpriteBounds()[0];
+        const d = canvas.getContext('2d').getImageData(Math.round(b.left), Math.round(b.top), 60, 42).data;
+        const at = (x, y) => { const i = ((y + ro) * 60 + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+        const cellsOk = cells.near.concat(cells.far, cells.white).every(([x, y]) => at(x, y) === 0xf0ece0) ? 1 : 0;
+        const pupilOk = at(cells.pupil[0], cells.pupil[1]) === 0x14100b ? 1 : 0;
+        const twoWide = [20, 21, 22].every((y) => at(47, y) === 0xf0ece0 && at(48, y) === 0xf0ece0) ? 1 : 0;
+        let cream = 0, dark = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+          if (h === 0xf0ece0) cream += 1; else if (h === 0x14100b) dark += 1;
+        }
+        return `${cellsOk},${pupilOk},${twoWide},${cream},${dark}`;
+      }
+      const c = GameCore.getState().camels[0];
+      GameCore.setScore(c.id, c.score); // trigger the walk without moving
+      const byFrame = new Map();
+      function tick(now) {
+        if (GameCore.getState().camels[0].animUntil > now) {
+          const fi = (Math.floor(now / FRAME_MS) % 4) + 1;
+          const ro = (fi === 2 || fi === 4) ? 1 : 0;
+          const sig = probe(ro);
+          if (!byFrame.has(fi)) byFrame.set(fi, new Map());
+          const m = byFrame.get(fi);
+          m.set(sig, (m.get(sig) || 0) + 1);
+          requestAnimationFrame(tick);
+          return;
+        }
+        const modal = {};
+        for (const [fi, m] of byFrame) {
+          let best = null, bn = -1;
+          for (const [s, n] of m) if (n > bn) { bn = n; best = s; }
+          modal[fi] = best;
+        }
+        resolve(modal);
+      }
+      requestAnimationFrame(tick);
+    }), CELLS);
+    expect(Object.keys(res).sort()).toEqual(['1', '2', '3', '4']);
+    for (const fi of ['1', '2', '3', '4']) {
+      // cells ok, pupil ok, near tusk 2-wide, exactly 14 cream + 2 dark px.
+      expect(res[fi], `frame ${fi}`).toBe('1,1,1,14,2');
+    }
+  });
+});
+
 test.describe('Theme persistence (forest)', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
