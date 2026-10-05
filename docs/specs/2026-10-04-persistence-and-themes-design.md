@@ -190,6 +190,7 @@ flowchart TD
 ```js
 THEMES[id] = {
   id,                                   // 'desert' | 'forest'
+  titleKey,                             // i18n key that selects the header/tab title
   label: { en, de },                    // display name per language
   palette: { sky: [hex,…], sun / moon, accent, distant: [hex,…] },  // sky + celestial + distant-silhouette tokens
   ground: { top, shade, edge, rim },    // lane-band tokens
@@ -205,16 +206,16 @@ THEMES[id] = {
 }
 ```
 
-| Theme | `label.en` | `label.de` | animal | ground |
-|---|---|---|---|---|
-| `desert` | Desert | Wüste | camel (turban rider) | undulating sand dunes |
-| `forest` | Forest | Wald | boar (hunter rider) | grass lanes + treeline |
+| Theme | `titleKey` | `label.en` | `label.de` | animal | ground |
+|---|---|---|---|---|---|
+| `desert` | `titleCamel` | Desert | Wüste | camel (turban rider) | undulating sand dunes |
+| `forest` | `titleBoar` | Forest | Wald | boar (hunter rider) | grass lanes + treeline |
 
 ### Renderer consumption
 
 - One active theme: `const theme = THEMES[state.theme]`.
-- Sky, ground bands, decor, and the animal all read from `theme`; nothing else is
-  theme-specific.
+- Sky, ground bands, decor, the animal, and the title all read from `theme`; nothing
+  else is theme-specific.
 - Camera math, scoring, lane layout, milestones, finish line and digit font are
   **theme-independent** and shared.
 - Finish line (checkered pole) and milestone flags render in every theme.
@@ -323,10 +324,16 @@ profile for every lane; precomputed per canvas column each frame (1280 columns).
 
 ## i18n Additions
 
-New keys (full existing table unchanged; add these):
+The fixed base-spec `title` key is replaced by two theme-driven keys; the theme
+registry entry carries `titleKey` selecting the title (`desert` → `titleCamel`,
+`forest` → `titleBoar`). Both the header title and the browser tab read
+`THEMES[state.theme].titleKey` per language, so a restored persisted theme shows the
+right title before first paint.
 
 | Key | EN | DE |
 |---|---|---|
+| `titleCamel` | CAMEL RACE | KAMEL RENNEN |
+| `titleBoar` | BOAR RACE | WILDSCHWEIN RENNEN |
 | `themeLabel` | Theme | Thema |
 | `themeDesert` | Desert | Wüste |
 | `themeForest` | Forest | Wald |

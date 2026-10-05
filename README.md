@@ -40,7 +40,9 @@ Two themes: **Desert** (camel + dunes) and **Forest** (wild boar with visible tu
 eye detail + hunter rider, grass floor, trees/mushrooms/moss/stones/pine needles, moon).
 Switch with the theme toggle in the header next to the language toggle — the swap is
 instant, does not reset scores, and the selection is persisted. Both themes share one
-score set, the lane colours, and the numbered blanket.
+score set, the lane colours, and the numbered blanket. The in-game title follows the
+theme and language: `BOAR RACE` / `WILDSCHWEIN RENNEN` in the forest theme, `CAMEL RACE`
+/ `KAMEL RENNEN` in the desert theme (header and browser tab).
 
 ## Deploy with Docker
 

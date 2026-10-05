@@ -1767,6 +1767,7 @@ plan's Task 8–9 code/numbers. Evidence: `index.html`, `docs/art/theme-art.md`,
 | Decor layering | single pass | two passes: `drawDecor(win,'background')` before `drawLanes`, `drawDecor(win,'floor')` after |
 | Perf harness | inline in functional suite | isolated `perf` Playwright project (own worker), 10 warm-up frames before sampling (`180` sampled, `≥120` required) |
 | Boar face art | single tusk `T`, dark eye `Y` | v6, 2026-10-04 user request: larger tusks `T`, eye-white `W`, pupil `Y` (`docs/art/boar-sprite.md`) |
+| Title | fixed `title` i18n key for header + tab (`CAMEL RACE` / `KAMEL RENNEN`) | theme-driven: registry `titleKey` selects `titleCamel` (desert) / `titleBoar` (forest); new EN/DE `titleBoar` = `BOAR RACE` / `WILDSCHWEIN RENNEN`; header `#title` + `document.title` switch with theme + language (2026-10-04 user request) |
 
 **Final test total (verified): `146` tests in `8` files** — `144` in the `chromium`
 project + `2` in the `perf` project (`pnpm exec playwright test --list`).
