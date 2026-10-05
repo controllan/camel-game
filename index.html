@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Camel Race · Kamel Rennen</title>
+<title>CAMEL RACE</title>
 <style>
   :root {
     --bg:#120b1e; --panel:#1c1430; --panel2:#241b3a; --ink:#e8e0f0;
@@ -599,7 +599,8 @@ window.GameCore = (function () {
   // ---------- i18n ----------
   const I18N = {
     en: {
-      title: 'CAMEL RACE',
+      titleCamel: 'CAMEL RACE',
+      titleBoar: 'BOAR RACE',
       camelCountLabel: 'Camels',
       goalLabel: 'Goal',
       infiniteLabel: '∞',
@@ -616,7 +617,8 @@ window.GameCore = (function () {
       themeForest: 'Forest',
     },
     de: {
-      title: 'KAMEL RENNEN',
+      titleCamel: 'KAMEL RENNEN',
+      titleBoar: 'WILDSCHWEIN RENNEN',
       camelCountLabel: 'Kamele',
       goalLabel: 'Ziel',
       infiniteLabel: '∞',
@@ -735,8 +737,11 @@ window.GameCore = (function () {
   }
 
   function syncDom(s) {
-    document.getElementById('title').textContent = t(s.language, 'title');
-    document.title = t(s.language, 'title');
+    // Registry-driven: the theme entry names the i18n key for the game title.
+    const themeDef = THEMES[s.theme] || THEMES.desert;
+    const title = t(s.language, themeDef.titleKey);
+    document.getElementById('title').textContent = title;
+    document.title = title;
     document.getElementById('camelCountLabel').textContent = t(s.language, 'camelCountLabel');
     document.getElementById('goalLabel').textContent = t(s.language, 'goalLabel');
     document.getElementById('infiniteText').textContent = t(s.language, 'infiniteLabel');
@@ -1868,6 +1873,7 @@ window.GameCore = (function () {
   const THEMES = {
     desert: {
       id: 'desert',
+      titleKey: 'titleCamel', // i18n key for the header/tab title
       label: { en: 'Desert', de: 'W\u00fcste' }, // declarative-only (DOM i18n labels the buttons)
       palette: { sky: ['#1a1030', '#241640', '#2e1c4a'], sun: '#e8a03a', sunRim: '#f0c060', accent: '#e8c83a', distant: ['#3a2a4a', '#4a3550'] }, // accent: declarative-only
       ground: { top: '#c9a25a', shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e' },
@@ -1887,6 +1893,7 @@ window.GameCore = (function () {
     },
     forest: {
       id: 'forest',
+      titleKey: 'titleBoar', // i18n key for the header/tab title
       label: { en: 'Forest', de: 'Wald' }, // declarative-only (DOM i18n labels the buttons)
       palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: [] }, // accent: declarative-only
       ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018' },

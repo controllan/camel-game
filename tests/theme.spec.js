@@ -404,6 +404,52 @@ test.describe('Forest boar v6 art (enlarged tusk + white eye / dark pupil)', () 
   });
 });
 
+test.describe('Titles track theme + language (registry-driven)', () => {
+  test.beforeEach(async ({ page }) => { await gotoGame(page); });
+
+  test('all four theme/language combinations update h1 + document.title', async ({ page }) => {
+    const cases = [
+      { theme: 'desert', lang: 'en', title: 'CAMEL RACE' },
+      { theme: 'desert', lang: 'de', title: 'KAMEL RENNEN' },
+      { theme: 'forest', lang: 'en', title: 'BOAR RACE' },
+      { theme: 'forest', lang: 'de', title: 'WILDSCHWEIN RENNEN' },
+    ];
+    for (const c of cases) {
+      await page.locator('#theme-' + c.theme).click();
+      await page.locator('#lang-' + c.lang).click();
+      await expect(page.locator('#title'), `${c.theme}/${c.lang}`).toHaveText(c.title);
+      expect(await page.title(), `${c.theme}/${c.lang}`).toBe(c.title);
+    }
+    // Switch back to the start and confirm the title reverts (both directions).
+    await page.locator('#theme-desert').click();
+    await page.locator('#lang-en').click();
+    await expect(page.locator('#title')).toHaveText('CAMEL RACE');
+    expect(await page.title()).toBe('CAMEL RACE');
+  });
+
+  test('persisted forest + DE restores the title during parse (before first paint)', async ({ page }) => {
+    // Capture the title/h1 as soon as the document has parsed (inline scripts
+    // have run, no paint yet) to prove the restored theme is applied pre-paint.
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        window.__titleAtDCL = document.title;
+        window.__h1AtDCL = document.getElementById('title').textContent;
+      });
+    });
+    await page.evaluate(() => {
+      localStorage.setItem('camelRace.v1', JSON.stringify({
+        version: 1, camelCount: 2, camels: [{ name: 'A', score: 0 }, { name: 'B', score: 0 }],
+        goalScore: 200, infinite: false, language: 'de', theme: 'forest', raceOver: false, winnerId: null,
+      }));
+    });
+    await page.reload();
+    expect(await page.evaluate(() => window.__titleAtDCL)).toBe('WILDSCHWEIN RENNEN');
+    expect(await page.evaluate(() => window.__h1AtDCL)).toBe('WILDSCHWEIN RENNEN');
+    await expect(page.locator('#title')).toHaveText('WILDSCHWEIN RENNEN');
+    expect(await page.title()).toBe('WILDSCHWEIN RENNEN');
+  });
+});
+
 test.describe('Theme persistence (forest)', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
