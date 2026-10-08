@@ -26,6 +26,39 @@ async function pixelTally(page) {
   });
 }
 
+// Extract `const NAME = ...;` from index.html with string-aware depth counting
+// (object literals, arrays and arrow-fn palettes all end at a depth-0 `;`).
+function extractConst(html, name) {
+  const idx = html.indexOf('const ' + name + ' = ');
+  expect(idx, 'const ' + name).toBeGreaterThan(-1);
+  let depth = 0, inStr = false, quote = '';
+  for (let i = idx; i < html.length; i += 1) {
+    const ch = html[i];
+    if (inStr) { if (ch === quote) inStr = false; continue; }
+    if (ch === "'" || ch === '"') { inStr = true; quote = ch; continue; }
+    if (ch === '{' || ch === '[' || ch === '(') depth += 1;
+    else if (ch === '}' || ch === ']' || ch === ')') depth -= 1;
+    else if (ch === ';' && depth === 0) return html.slice(idx, i + 1);
+  }
+  throw new Error('unterminated const ' + name);
+}
+
+// Extract `function NAME(...) {...}` by brace matching from the opening `{`.
+function extractFunction(html, name) {
+  const idx = html.indexOf('function ' + name + '(');
+  expect(idx, 'function ' + name).toBeGreaterThan(-1);
+  const start = html.indexOf('{', idx);
+  let depth = 0, i = start, inStr = false, quote = '';
+  for (; i < html.length; i += 1) {
+    const ch = html[i];
+    if (inStr) { if (ch === quote) inStr = false; continue; }
+    if (ch === "'" || ch === '"') { inStr = true; quote = ch; continue; }
+    if (ch === '{') depth += 1;
+    else if (ch === '}') { depth -= 1; if (depth === 0) { i += 1; break; } }
+  }
+  return html.slice(idx, i);
+}
+
 test.describe('Renderer camera and bounds', () => {
   // Almost every assertion here samples desert art (camel 66x62, dune/sun/sky
   // tones, robe palette). The app now defaults to forest, so pin desert explicitly.
@@ -785,5 +818,141 @@ test.describe('Renderer camera and bounds', () => {
       expect(maxC).toBeLessThanOrEqual(65);
       expect(maxR - minR + 1).toBeLessThanOrEqual(62);
     }
+  });
+});
+// ---------------------------------------------------------------------------
+// drawSprite run-coalescing guard (perf fix: one fillRect per contiguous
+// same-colour run per row, was one per pixel). Both tests assert OUTPUT
+// IDENTITY, not call counts: a per-pixel revert (same pixels, slower) must
+// still pass, while any coalescing bug - a run skipped after a gap, a stale
+// run colour, an off-by-one run width, a missing trailing flush - changes
+// pixels and fails.
+// ---------------------------------------------------------------------------
+test.describe('drawSprite run-coalescing identity', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const program = [
+    extractConst(html, 'CHAR_KEY'),
+    extractConst(html, 'COL'),
+    extractFunction(html, 'drawSprite'),
+    'return { drawSprite: drawSprite, CHAR_KEY: CHAR_KEY };',
+  ].join('\n');
+
+  test('synthetic matrix: exact pixels for merged runs, gaps and colour changes', async ({ page }) => {
+    await gotoGame(page);
+    // Chars 'a'/'b'/'c' hit the palette directly; 'q' is not a CHAR_KEY legend
+    // char (asserted below), so it must render as a transparent gap that still
+    // flushes the open run. Each row targets one bug shape: a colour change, a
+    // gap between two same-colour runs, single-pixel runs, a leading/trailing
+    // run (flush at x=0 and at row.length), and a fully transparent row.
+    const matrix = [
+      'aabcc..',
+      '.a.q.aa',
+      'bb..aa.',
+      'a.b.a..',
+      '...aaa.',
+      'aaa....',
+      'qaqaq..',
+      '.......',
+    ];
+    const palette = { a: '#ff0000', b: '#00ff00', c: '#0000ff' };
+    const res = await page.evaluate(({ program, matrix, palette }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 20;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const built = new Function('ctx', program)(ctx);
+      built.drawSprite(matrix, 4.6, 3.4, palette); // Math.round -> (5, 3)
+      return {
+        q: built.CHAR_KEY.q,
+        data: Array.from(ctx.getImageData(0, 0, 32, 20).data),
+      };
+    }, { program, matrix, palette });
+    expect(res.q).toBeUndefined(); // 'q' is a real gap, not a legend char
+    const hex = (ch) => (ch === '.' || !palette[ch]) ? null : palette[ch];
+    const rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    for (let y = 0; y < 20; y += 1) {
+      for (let x = 0; x < 32; x += 1) {
+        const ch = (y >= 3 && y < 3 + matrix.length && x >= 5 && x < 5 + matrix[y - 3].length)
+          ? matrix[y - 3][x - 5] : '.';
+        const want = hex(ch);
+        const i = (y * 32 + x) * 4;
+        const got = [res.data[i], res.data[i + 1], res.data[i + 2], res.data[i + 3]];
+        if (want) {
+          expect(got, `px ${x},${y} (${ch})`).toEqual([...rgb(want), 255]);
+        } else {
+          expect(got, `px ${x},${y} (transparent)`).toEqual([0, 0, 0, 0]);
+        }
+      }
+    }
+  });
+
+  test('real camel + boar frames: output byte-identical to the per-pixel reference', async ({ page }) => {
+    await gotoGame(page);
+    const camelSrc = extractConst(html, 'CAMEL');
+    const boarSrc = extractConst(html, 'BOAR');
+    const camelPalSrc = extractConst(html, 'CAMEL_PAL');
+    const boarPalSrc = extractConst(html, 'BOAR_PAL');
+    const res = await page.evaluate(({ program, camelSrc, boarSrc, camelPalSrc, boarPalSrc }) => {
+      const CAMEL = new Function(camelSrc + ' return CAMEL;')();
+      const BOAR = new Function(boarSrc + ' return BOAR;')();
+      const CAMEL_PAL = new Function(camelPalSrc + ' return CAMEL_PAL;')();
+      const BOAR_PAL = new Function(boarPalSrc + ' return BOAR_PAL;')();
+      const mk = () => {
+        const c = document.createElement('canvas');
+        c.width = 1280; c.height = 360;
+        return c.getContext('2d', { willReadFrequently: true });
+      };
+      const ctxA = mk(); // shipped run-coalesced drawSprite
+      const ctxB = mk(); // historical per-pixel algorithm
+      const A = new Function('ctx', program)(ctxA);
+      const B = new Function('ctx', program)(ctxB);
+      // Per-pixel reference: the exact pre-fix algorithm (HEAD drawSprite),
+      // sharing the live CHAR_KEY/COL tables so resolution order is identical.
+      function perPixel(ctx, rows, x, y, palette, CHAR_KEY, COL) {
+        const ox = Math.round(x);
+        const oy = Math.round(y);
+        for (let ry = 0; ry < rows.length; ry += 1) {
+          const row = rows[ry];
+          for (let rx = 0; rx < row.length; rx += 1) {
+            const ch = row[rx];
+            if (ch === '.') continue;
+            const key = CHAR_KEY[ch];
+            let color;
+            if (palette && palette[ch] !== undefined) color = palette[ch];
+            else if (palette && key && palette[key] !== undefined) color = palette[key];
+            else if (key && COL[key] !== undefined) color = COL[key];
+            if (color === undefined) continue;
+            ctx.fillStyle = color;
+            ctx.fillRect(ox + rx, oy + ry, 1, 1);
+          }
+        }
+      }
+      const ROBES = ['#e84a3a', '#3a6ae8', '#3aa84a', '#e8c83a', '#9a4ae8', '#e88a3a', '#3ad8d8', '#e85a9a'];
+      const draws = [];
+      for (let f = 0; f < CAMEL.length; f += 1) draws.push([CAMEL[f], 30 + f * 100, 40, CAMEL_PAL(ROBES[f % 8])]);
+      for (let f = 0; f < BOAR.length; f += 1) draws.push([BOAR[f], 30 + f * 70, 160, BOAR_PAL(ROBES[(f + 3) % 8])]);
+      draws.push([CAMEL[1], -13.4, -7.6, CAMEL_PAL(ROBES[0])]);   // clipped at the origin
+      draws.push([BOAR[3], 1220.5, 300.5, BOAR_PAL(ROBES[1])]);   // clipped at the right/bottom edge
+      draws.push([CAMEL[3], 640.2, 120.8, CAMEL_PAL(ROBES[2])]);  // overlapping fractional offset
+      for (const d of draws) A.drawSprite(d[0], d[1], d[2], d[3]);
+      for (const d of draws) perPixel(ctxB, d[0], d[1], d[2], d[3], B.CHAR_KEY, B.COL);
+      const a = ctxA.getImageData(0, 0, 1280, 360).data;
+      const b = ctxB.getImageData(0, 0, 1280, 360).data;
+      let diff = 0, painted = 0, hashA = 2166136261, hashB = 2166136261;
+      for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) diff += 1;
+        if (i % 4 === 0) {
+          if (a[i + 3] !== 0) painted += 1;
+          hashA ^= a[i]; hashA = Math.imul(hashA, 16777619);
+          hashB ^= b[i]; hashB = Math.imul(hashB, 16777619);
+        }
+      }
+      return { diff, painted, hashA: hashA >>> 0, hashB: hashB >>> 0 };
+    }, { program, camelSrc, boarSrc, camelPalSrc, boarPalSrc });
+    // Non-vacuous: both canvases carry a lot of real art, and a cursor-parked
+    // scene check would be meaningless, so this asserts the actual byte count.
+    expect(res.painted).toBeGreaterThan(20000);
+    expect(res.diff).toBe(0);
+    expect(res.hashA).toBe(res.hashB);
   });
 });

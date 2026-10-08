@@ -2162,17 +2162,35 @@ window.GameCore = (function () {
     const oy = Math.round(y);
     for (let ry = 0; ry < rows.length; ry++) {
       const row = rows[ry];
+      // One fillRect per contiguous same-colour run in the row: sprites have
+      // 3-5 colours, so a row collapses to a handful of runs. A transparent
+      // '.' (or an unresolved colour) ends the run. Colour resolution order is
+      // unchanged: palette[ch] → palette[CHAR_KEY[ch]] → COL[CHAR_KEY[ch]].
+      let runStart = -1;
+      let runColor;
       for (let rx = 0; rx < row.length; rx++) {
         const ch = row[rx];
-        if (ch === '.') continue;
-        const key = CHAR_KEY[ch];
         let color;
-        if (palette && palette[ch] !== undefined) color = palette[ch];
-        else if (palette && key && palette[key] !== undefined) color = palette[key];
-        else if (key && COL[key] !== undefined) color = COL[key];
-        if (color === undefined) continue;
-        ctx.fillStyle = color;
-        ctx.fillRect(ox + rx, oy + ry, 1, 1);
+        if (ch !== '.') {
+          const key = CHAR_KEY[ch];
+          if (palette && palette[ch] !== undefined) color = palette[ch];
+          else if (palette && key && palette[key] !== undefined) color = palette[key];
+          else if (key && COL[key] !== undefined) color = COL[key];
+        }
+        if (color === runColor) continue; // same colour (or both transparent)
+        if (runStart !== -1) { // colour change / gap: flush the open run
+          ctx.fillStyle = runColor;
+          ctx.fillRect(ox + runStart, oy + ry, rx - runStart, 1);
+          runStart = -1;
+        }
+        // Re-seat the run colour even for a gap, so the next same-colour cell
+        // starts a fresh run instead of matching a stale colour identity.
+        runColor = color;
+        if (color !== undefined) runStart = rx;
+      }
+      if (runStart !== -1) {
+        ctx.fillStyle = runColor;
+        ctx.fillRect(ox + runStart, oy + ry, row.length - runStart, 1);
       }
     }
   }
