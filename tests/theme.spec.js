@@ -70,7 +70,7 @@ test.describe('Theme registry (desert)', () => {
   test('GameDebug reports active animal + sprite size (desert)', async ({ page }) => {
     await page.evaluate(() => GameCore.setTheme('desert'));
     const t = await page.evaluate(() => GameDebug.getTheme());
-    expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 66, h: 62 });
+    expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 92, h: 70 });
   });
 
   test('desert ambience density: per-layer stream caps hold and the sand carpet covers the lanes', async ({ page }) => {
@@ -756,8 +756,8 @@ test.describe('Theme selector UI + persistence', () => {
 });
 
 // The boar blanket flat area + bob are pinned by docs/art/boar-sprite.md. The
-// camel blanket tests in render.spec sample the whole 66x62 sprite buffer, so
-// without these the forest anchor (18,18) and the separate +1 px blanket drop
+// camel blanket tests in render.spec sample the whole 92x70 sprite buffer with
+// the bob baked into the frame matrices, so without these the forest anchor
 // (18,18) and the separate +1 px blanket drop are untested.
 test.describe('Forest boar blanket', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });

@@ -60,7 +60,7 @@ function extractFunction(html, name) {
 }
 
 test.describe('Renderer camera and bounds', () => {
-  // Almost every assertion here samples desert art (camel 66x62, dune/sun/sky
+  // Almost every assertion here samples desert art (camel 92x70, dune/sun/sky
   // tones, robe palette). The app now defaults to forest, so pin desert explicitly.
   test.beforeEach(async ({ page }) => {
     await gotoGame(page);
@@ -102,7 +102,7 @@ test.describe('Renderer camera and bounds', () => {
     for (const b of bounds) {
       expect(b.left).toBeGreaterThanOrEqual(0);
       expect(b.right).toBeLessThanOrEqual(1280);
-      expect(b.right - b.left).toBeCloseTo(66, 9);
+      expect(b.right - b.left).toBeCloseTo(92, 9);
     }
   });
 
@@ -149,7 +149,7 @@ test.describe('Renderer camera and bounds', () => {
         for (const b of after) {
           expect(b.left).toBeGreaterThanOrEqual(0);
           expect(b.right).toBeLessThanOrEqual(1280);
-          expect(b.right - b.left).toBeCloseTo(66, 9);
+          expect(b.right - b.left).toBeCloseTo(92, 9);
           expect(b.top).toBeGreaterThanOrEqual(0);
           expect(b.bottom).toBeLessThanOrEqual(720);
         }
@@ -179,12 +179,13 @@ test.describe('Renderer camera and bounds', () => {
   test('camels rasterise fixed body/shade plus per-lane robe and blanket colours', async ({ page }) => {
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     const tally = await pixelTally(page);
-    // Body and shade are fixed brown tones shared by every camel (only the robe
-    // is palette-swapped); the saddle blanket is a plain fixed light blue, no
-    // digit on it. v5 idle bodies paint 690 fill px per camel, so 4 idle camels
-    // paint 2760 body px.
-    expect(tally['#c9803a'] || 0).toBeGreaterThanOrEqual(4 * 650); // body across 4 camels
-    expect(tally['#8a5220'] || 0).toBeGreaterThan(0);   // fixed shade
+    // Body and shade are fixed warm-sand tones shared by every camel (only the
+    // robe is palette-swapped); the saddle blanket is a fixed light blue with no
+    // per-lane digit on it any more. The v6 idle frame paints 204 body px and
+    // 276 blanket px per camel, so 4 idle camels paint 816 body px.
+    expect(tally['#d9a05b'] || 0).toBeGreaterThanOrEqual(4 * 200); // body across 4 camels
+    expect(tally['#b4763a'] || 0).toBeGreaterThan(0);   // fixed shade
+    expect(tally['#82521f'] || 0).toBeGreaterThan(0);   // v6 deep shade
     expect(tally['#bfe3ea'] || 0).toBeGreaterThan(0);   // saddle blanket
     expect(tally['#123a44'] || 0).toBe(0);             // blanket digit ink removed canvas-wide
     expect(tally[LANE_ROBE[0]] || 0).toBeGreaterThan(0); // lane 0 robe
@@ -460,25 +461,25 @@ test.describe('Renderer camera and bounds', () => {
     expect(bounded).toBeLessThanOrEqual(204);
   });
 
-  test('66x62 sprite rasterises blanket, body and outline', async ({ page }) => {
+  test('92x70 camel sprite rasterises blanket, body, shade and outline', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     const b = await page.evaluate(() => GameDebug.getCamelSpriteBounds()[0]);
-    expect(b.right - b.left).toBeCloseTo(66, 9); // SPRITE_W buffer
-    expect(b.bottom - b.top).toBeCloseTo(62, 9); // SPRITE_H buffer
+    expect(b.right - b.left).toBeCloseTo(92, 9); // SPRITE_W buffer
+    expect(b.bottom - b.top).toBeCloseTo(70, 9); // SPRITE_H buffer
     const seen = await page.evaluate(({ left, top }) => {
       const d = document.getElementById('game').getContext('2d')
-        .getImageData(Math.round(left), Math.round(top), 66, 62).data;
-      const want = { body: 0xc9803a, blanket: 0xbfe3ea, outline: 0x1a1208, shade: 0x8a5220, harness: 0x53565e };
-      const got = { body: 0, blanket: 0, outline: 0, shade: 0, harness: 0 };
-      // Every camel tone (the lane-0 palette) so the real drawn bbox can be
-      // measured inside the 66x62 buffer; the v5 camel is slimmer than its frame.
-      const camel = new Set([0x1a1208, 0xc9803a, 0x8a5220, 0x53565e, 0xe84a3a,
+        .getImageData(Math.round(left), Math.round(top), 92, 70).data;
+      const want = { body: 0xd9a05b, blanket: 0xbfe3ea, outline: 0x1c1208, shade: 0xb4763a, deep: 0x82521f, harness: 0x53565e };
+      const got = { body: 0, blanket: 0, outline: 0, shade: 0, deep: 0, harness: 0 };
+      // Every camel tone (the lane-0 v6 palette) so the real drawn bbox can be
+      // measured inside the 92x70 buffer.
+      const camel = new Set([0x1c1208, 0xd9a05b, 0xb4763a, 0x82521f, 0x53565e, 0xe84a3a,
         0xf0ece0, 0xd8a878, 0xbfe3ea]);
-      let minC = 66, maxC = -1, minR = 62, maxR = -1;
-      for (let ry = 0; ry < 62; ry += 1) {
-        for (let rx = 0; rx < 66; rx += 1) {
-          const i = (ry * 66 + rx) * 4;
+      let minC = 92, maxC = -1, minR = 70, maxR = -1;
+      for (let ry = 0; ry < 70; ry += 1) {
+        for (let rx = 0; rx < 92; rx += 1) {
+          const i = (ry * 92 + rx) * 4;
           const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
           for (const k in want) if (h === want[k]) got[k] += 1;
           if (camel.has(h)) {
@@ -491,42 +492,156 @@ test.describe('Renderer camera and bounds', () => {
       }
       return { got, bbox: { w: maxC - minC + 1, h: maxR - minR + 1, minC, maxC, minR, maxR } };
     }, { left: b.left, top: b.top });
-    expect(seen.got.body).toBeGreaterThan(0);
-    expect(seen.got.blanket).toBeGreaterThan(0);
+    // Art-count bands, not exact pins (a benign 1 px art tweak must not trip the
+    // suite); the doc's v6 counts are 204 body / 276 blanket px, so a missing or
+    // double-drawn sprite (0 / ~2x) still fails.
+    expect(seen.got.body).toBeGreaterThan(170);
+    expect(seen.got.body).toBeLessThan(240);
+    expect(seen.got.blanket).toBeGreaterThan(230);
+    expect(seen.got.blanket).toBeLessThan(320);
     expect(seen.got.outline).toBeGreaterThan(0);
     expect(seen.got.shade).toBeGreaterThan(0);
+    expect(seen.got.deep).toBeGreaterThan(0);  // v6 deep shade token
     expect(seen.got.harness).toBeGreaterThan(0);
-    // Real drawn bbox of the idle v5 camel inside the 66x62 frame. The art doc
-    // records painted bboxes 62-63 x 58-59, so assert that range instead of an
-    // exact pixel size: a benign art tweak must not read as a regression.
-    expect(seen.bbox.w).toBeGreaterThanOrEqual(62);
-    expect(seen.bbox.w).toBeLessThanOrEqual(66);
-    expect(seen.bbox.h).toBeGreaterThanOrEqual(58);
-    expect(seen.bbox.h).toBeLessThanOrEqual(62);
-    // It must still fit inside the 66x62 frame, with feet on the bottom row.
-    expect(seen.bbox.minC).toBeGreaterThanOrEqual(0);
-    expect(seen.bbox.maxC).toBeLessThanOrEqual(65);
-    expect(seen.bbox.minR).toBeGreaterThanOrEqual(0);
-    expect(seen.bbox.maxR).toBe(61);
-    // Standing feet (sprite row 61): flat outline hooves only, no body/shade
-    // below the hoof line (the v5 camel stands on the buffer's bottom row).
+    // The blanket is one hole-free patch with no digit area: no #123a44 ink in
+    // the whole buffer (docs/art/camel-drafts-v3.md, digit-area convention retired).
+    const digitInk = await page.evaluate(({ left, top }) => {
+      const d = document.getElementById('game').getContext('2d')
+        .getImageData(Math.round(left), Math.round(top), 92, 70).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]) === 0x123a44) n += 1;
+      }
+      return n;
+    }, { left: b.left, top: b.top });
+    expect(digitInk).toBe(0);
+    // Real drawn bbox of the idle v6 camel inside the 92x70 frame. Draft A's
+    // painted bbox is exactly 84x68 (cols 7-90, rows 2-69).
+    expect(seen.bbox.w).toBe(84);
+    expect(seen.bbox.h).toBe(68);
+    expect(seen.bbox.minC).toBe(7);
+    expect(seen.bbox.maxC).toBe(90);
+    expect(seen.bbox.minR).toBe(2);
+    expect(seen.bbox.maxR).toBe(69);
+    // Standing feet (sprite row 69): four 5 px hooves, each OOSOO, so 16 outline
+    // px + 4 shade px of hoof detail; nothing of the leg/body above them.
     const idle = await page.evaluate(({ left, top }) => {
       const d = document.getElementById('game').getContext('2d')
-        .getImageData(Math.round(left), Math.round(top), 66, 62).data;
+        .getImageData(Math.round(left), Math.round(top), 92, 70).data;
       const row = (r) => {
-        let outline = 0, body = 0;
-        for (let rx = 0; rx < 66; rx += 1) {
-          const i = (r * 66 + rx) * 4;
+        const got = { outline: 0, shade: 0, body: 0 };
+        for (let rx = 0; rx < 92; rx += 1) {
+          const i = (r * 92 + rx) * 4;
           const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-          if (h === 0x1a1208) outline += 1;
-          else if (h === 0xc9803a || h === 0x8a5220) body += 1;
+          if (h === 0x1c1208) got.outline += 1;
+          else if (h === 0xb4763a) got.shade += 1;
+          else if (h === 0xd9a05b || h === 0x82521f) got.body += 1;
         }
-        return { outline, body };
+        return got;
       };
-      return { feet: row(61) };
+      return { feet: row(69) };
     }, { left: b.left, top: b.top });
-    expect(idle.feet.outline).toBe(24); // four flat hooves on the bottom row
-    expect(idle.feet.body).toBe(0); // no camel tone below the hoof line
+    // Bands around the four OOSOO hooves (~16 outline + 4 shade px): a benign
+    // hoof retouch passes, a collapsed hoof row (0 / two hooves) fails. body is
+    // behaviour: nothing may paint below the hoof line.
+    expect(idle.feet.outline).toBeGreaterThanOrEqual(12);
+    expect(idle.feet.outline).toBeLessThanOrEqual(20);
+    expect(idle.feet.shade).toBeGreaterThanOrEqual(2);
+    expect(idle.feet.shade).toBeLessThanOrEqual(6);
+    expect(idle.feet.body).toBe(0);
+  });
+
+  test('saddle blanket stays one plain light-blue patch for every lane, with no digit ink', async ({ page }) => {
+    for (const count of [2, 8]) {
+      await page.evaluate((n) => { GameCore.setCamelCount(n); GameCore.setGoal(null); GameCore.resetRace(); }, count);
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+      // isSettled() is trivially true while visualLeft is still null on a fresh
+      // page, so the canvas can still hold the pre-reset layout's pixels. Let the
+      // game loop paint the current scene before sampling it.
+      await page.evaluate(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+      const res = await page.evaluate(() => {
+        const g = document.getElementById('game').getContext('2d');
+        return GameDebug.getCamelSpriteBounds().map((b) => {
+          const d = g.getImageData(Math.round(b.left), Math.round(b.top), 92, 70).data;
+          let blanket = 0, digitInk = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+            if (h === 0xbfe3ea) blanket += 1;
+            else if (h === 0x123a44) digitInk += 1;
+          }
+          return { blanket, digitInk };
+        });
+      });
+      // v6 draft A idle frame: 276 blanket px, flat (hole-free, 0 digit px).
+      expect(res.length).toBe(count);
+      for (const lane of res) {
+        expect(lane.blanket).toBeGreaterThan(230); // v6 idle blanket px, banded
+        expect(lane.blanket).toBeLessThan(320);
+        expect(lane.digitInk).toBe(0);
+      }
+    }
+  });
+
+  test('saddle blanket rises 1 px with the body on the pass frames (2 and 4)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    // Paint the settled scene before the walk so the sample buffer is current.
+    await page.evaluate(() => new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    }));
+    const res = await page.evaluate(() => new Promise((resolve) => {
+      const FRAME_MS = 320; // ANIM_FRAME_MS
+      const canvas = document.getElementById('game');
+      // Topmost blanket row anywhere in the lane-0 92x70 buffer: draft A's bob is
+      // baked in, so on pass frames 2/4 the whole blanket sits 1 px higher than
+      // on the contact frames (row 23 -> row 22), while the hooves stay planted.
+      function blanketTopRow() {
+        const b = GameDebug.getCamelSpriteBounds()[0];
+        const d = canvas.getContext('2d')
+          .getImageData(Math.round(b.left), Math.round(b.top), 92, 70).data;
+        for (let ry = 0; ry < 70; ry += 1) {
+          for (let rx = 0; rx < 92; rx += 1) {
+            const i = (ry * 92 + rx) * 4;
+            if (d[i] === 0xbf && d[i + 1] === 0xe3 && d[i + 2] === 0xea) return ry;
+          }
+        }
+        return -1;
+      }
+      const camel = GameCore.getState().camels[0];
+      GameCore.setScore(camel.id, camel.score); // trigger the walk without moving
+      const byFrame = new Map(); // walk frame index -> Map(topRow -> count)
+      function tick(now) {
+        if (GameCore.getState().camels[0].animUntil > now) {
+          const fi = (Math.floor(now / FRAME_MS) % 4) + 1;
+          if (!byFrame.has(fi)) byFrame.set(fi, new Map());
+          const m = byFrame.get(fi);
+          const k = blanketTopRow();
+          m.set(k, (m.get(k) || 0) + 1);
+          requestAnimationFrame(tick);
+          return;
+        }
+        const modal = {};
+        for (const [fi, m] of byFrame) {
+          let best = null, bn = -1;
+          for (const [s, n] of m) if (n > bn) { bn = n; best = s; }
+          modal[fi] = best;
+        }
+        resolve(modal);
+      }
+      requestAnimationFrame(tick);
+    }));
+    expect(Object.keys(res).sort()).toEqual(['1', '2', '3', '4']);
+    // Contact frames (1, 3) share the idle blanket top row (23); the pass frames
+    // (2, 4) sit exactly 1 px higher with the baked-in bob.
+    // Buffer row of the contact-frame blanket top (draft A: 23); only the ±1
+    // relations below are behaviour, so the absolute row is bounded, not pinned.
+    expect(res['1']).toBeGreaterThan(0);
+    expect(res['1']).toBeLessThan(70);
+    expect(res['2']).toBe(res['1'] - 1);
+    expect(res['3']).toBe(res['1']);
+    expect(res['4']).toBe(res['1'] - 1);
   });
 
   test('rider robe takes each lane palette colour (8 camels)', async ({ page }) => {
@@ -535,7 +650,7 @@ test.describe('Renderer camera and bounds', () => {
     await page.evaluate(() => new Promise((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(resolve));
     }));
-    // Count every lane-palette robe pixel inside the sprite's 66x62 buffer: the
+    // Count every lane-palette robe pixel inside the sprite's 92x70 buffer: the
     // per-lane robe is the only thing that differs, so each lane must paint its
     // own colour and none of the other lanes' colours.
     const res = await page.evaluate(({ palette }) => {
@@ -543,7 +658,7 @@ test.describe('Renderer camera and bounds', () => {
       const g = document.getElementById('game').getContext('2d');
       const rgb = palette.map((h) => [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16)));
       return bounds.map((b, lane) => {
-        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 66, 62).data;
+        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 92, 70).data;
         const counts = palette.map(() => 0);
         for (let i = 0; i < d.length; i += 4) {
           for (let p = 0; p < rgb.length; p += 1) {
@@ -590,8 +705,8 @@ test.describe('Renderer camera and bounds', () => {
       bounds.forEach((b, i) => {
         expect(b.top).toBeGreaterThanOrEqual(Math.round(120 + i * laneH));
         expect(b.bottom).toBeLessThanOrEqual(Math.round(120 + (i + 1) * laneH));
-        expect(b.right - b.left).toBeCloseTo(66, 9);
-        expect(b.bottom - b.top).toBeCloseTo(62, 9);
+        expect(b.right - b.left).toBeCloseTo(92, 9);
+        expect(b.bottom - b.top).toBeCloseTo(70, 9);
       });
     }
   });
@@ -736,6 +851,60 @@ test.describe('Renderer camera and bounds', () => {
     }
   });
 
+  test('camel v6 sprite: five 92x70 frames, legend-only chars, hooves on row 69', () => {
+    // Byte-level contract for the draft-A matrices copied from
+    // docs/art/camel-drafts-v3.md: 5 frames of 70 rows x 92 cols (stand + 4 walk).
+    const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const idx = html.indexOf('const CAMEL = [');
+    expect(idx).toBeGreaterThan(-1);
+    const start = html.indexOf('[', idx);
+    let depth = 0, i = start, inStr = false;
+    for (; i < html.length; i += 1) {
+      const ch = html[i];
+      if (ch === "'") inStr = !inStr;
+      if (inStr) continue;
+      if (ch === '[') depth += 1;
+      else if (ch === ']') { depth -= 1; if (depth === 0) { i += 1; break; } }
+    }
+    const rows = [...html.slice(start, i).matchAll(/'([^']*)'/g)].map((m) => m[1]);
+    expect(rows.length).toBe(5 * 70);
+    for (const row of rows) {
+      expect(row.length).toBe(92);
+      expect(row).toMatch(/^[.OBSDGRWKL]*$/); // shared draft-A legend, nothing else
+    }
+    // All 5 frames are pairwise distinct matrices, and the bottom-row hoof
+    // layout pins each contact/pass pose: swapped contacts (A <-> B share a
+    // bbox and blanket row) fail on the footprint pattern.
+    const frames = [];
+    for (let f = 0; f < 5; f += 1) frames.push(rows.slice(f * 70, (f + 1) * 70).join('/'));
+    expect(new Set(frames).size).toBe(5);
+    const HOOF_PATTERNS = [
+      'OOSOO|OOSOO|OOSOO|OOSOO', // 0 standing
+      'OOSOO|OOSOO|OOSOOSOO',    // 1 contact A
+      'O|OOSOO|OOSOO|O',         // 2 pass A (front hoof lifting)
+      'OOSOOSOO|OOSOO|OOSOO',    // 3 contact B (mirrored spread)
+      'OOSOO|O|O|OOSOO',         // 4 pass B (mirrored lift)
+    ];
+    for (let f = 0; f < 5; f += 1) {
+      expect(rows.slice(f * 70, (f + 1) * 70)[69].split('.').filter(Boolean).join('|'), `frame ${f} hooves`)
+        .toBe(HOOF_PATTERNS[f]);
+    }
+    for (let f = 0; f < 5; f += 1) {
+      const frame = rows.slice(f * 70, (f + 1) * 70);
+      // Painted bbox spans cols 7-90 on every frame; the bottom row is hooves
+      // only (O/S) with at least two planted OOSOO hooves on it.
+      let minC = 92, maxC = -1;
+      for (let y = 0; y < 70; y += 1) {
+        for (let x = 0; x < 92; x += 1) {
+          if (frame[y][x] !== '.') { if (x < minC) minC = x; if (x > maxC) maxC = x; }
+        }
+      }
+      expect({ minC, maxC }).toEqual({ minC: 7, maxC: 90 });
+      expect(frame[69]).toMatch(/^[.OS]+$/);
+      expect((frame[69].match(/OOSOO/g) || []).length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   test('every decor sprite legend char resolves through its own palette', () => {
     // drawSprite skips a char with no palette/CHAR_KEY mapping, so an undefined
     // legend char yields invisible art instead of an error. Assert each documented
@@ -826,9 +995,10 @@ test.describe('Renderer camera and bounds', () => {
   });
 
   test('lane fit: feet land on the terrain surface with the lane clamp inert (2 and 8 lanes)', async ({ page }) => {
-    // Spec fit proof: at 8 lanes (laneHeight 74, sprite 62) the clamp must never
-    // activate, so sprite top == laneBottom - FEET_OFFSET - terrain - SPRITE_H.
-    const HORIZON_Y = 120, LANE_BOTTOM = 712, FEET_OFFSET = 2, SPRITE_H = 62;
+    // Spec fit proof: at 8 lanes (laneHeight 74, sprite 70 + 2 px feet offset =
+    // 72) the clamp must never activate, so sprite top == laneBottom - FEET_OFFSET
+    // - terrain - SPRITE_H.
+    const HORIZON_Y = 120, LANE_BOTTOM = 712, FEET_OFFSET = 2, SPRITE_H = 70;
     for (const count of [2, 8]) {
       await page.evaluate((n) => { GameCore.setCamelCount(n); GameCore.setGoal(null); GameCore.resetRace(); }, count);
       await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
@@ -861,7 +1031,74 @@ test.describe('Renderer camera and bounds', () => {
     }
   });
 
-  test('every walk frame keeps the sprite inside 66x62 with feet on the bottom row', async ({ page }) => {
+  test('hooves paint the surface row in every lane (8 lanes, clamp inert)', async ({ page }) => {
+    // Pixel-level companion to the lane-fit proof above: that test pins the top
+    // for lane 0 only, so sweep all 8 lanes and assert the painted bottom row.
+    await page.evaluate(() => { GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    const swept = await page.evaluate(({ scores }) => {
+      const HORIZON = 120, LANE_BOTTOM = 712, FEET = 2, SPRITE_H = 70;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON) / n;
+      const out = [];
+      for (const score of scores) {
+        for (const c of GameCore.getState().camels) GameCore.setScore(c.id, score);
+        const h = Math.round(GameCore.terrainHeightAt(score));
+        GameDebug.getCamelSpriteBounds().forEach((b, i) => {
+          const laneTop = Math.round(HORIZON + i * laneH);
+          const laneBottom = Math.round(HORIZON + (i + 1) * laneH);
+          out.push({ score, i, top: b.top, bottom: b.bottom, laneTop, laneBottom,
+            expectedTop: laneBottom - FEET - h - SPRITE_H,
+            min: Math.round(laneTop), max: Math.round(laneBottom - SPRITE_H) });
+        });
+      }
+      return out;
+    }, { scores: [0, 40, 80, 120, 200, 333] });
+    // Every lane, every terrain height: exact surface placement (h = ±2 included),
+    // so the clamp can never clip the 70 px sprite in a 74 px lane.
+    for (const p of swept) {
+      expect(p.expectedTop, `score ${p.score} lane ${p.i}`).toBeGreaterThanOrEqual(p.min);
+      expect(p.expectedTop).toBeLessThanOrEqual(p.max);
+      expect(p.top).toBe(p.expectedTop);
+      expect(p.bottom).toBe(p.top + 70);
+      expect(p.top).toBeGreaterThanOrEqual(p.laneTop);
+      expect(p.bottom).toBeLessThanOrEqual(p.laneBottom);
+    }
+    // Repaint at score 0 and read the hoof row + the row below it.
+    await page.evaluate(() => { for (const c of GameCore.getState().camels) GameCore.setScore(c.id, 0); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const rows = await page.evaluate(() => {
+      const tones = new Set([0x1c1208, 0xd9a05b, 0xb4763a, 0x82521f, 0x53565e, 0xe84a3a,
+        0x3a6ae8, 0x3aa84a, 0xe8c83a, 0x9a4ae8, 0xe88a3a, 0x3ad8d8, 0xe85a9a,
+        0xf0ece0, 0xd8a878, 0xbfe3ea]);
+      const g = document.getElementById('game').getContext('2d');
+      return GameDebug.getCamelSpriteBounds().map((b) => {
+        const lx = Math.max(0, Math.round(b.left));
+        const w = Math.min(1280 - lx, 92);
+        const hoofY = Math.round(b.top) + 69;
+        const count = (y) => {
+          const d = g.getImageData(lx, y, w, 1).data;
+          let n = 0;
+          for (let k = 0; k < d.length; k += 4) {
+            if (tones.has((d[k] << 16) | (d[k + 1] << 8) | d[k + 2])) n += 1;
+          }
+          return n;
+        };
+        return { hoof: count(hoofY), below: count(hoofY + 1), hoofY };
+      });
+    });
+    // Every lane paints hoof ink exactly on the surface's bottom sprite row. A
+    // lane-8 label pill may overlap later hooves, but the first hoof (cols 15-19)
+    // is always clear, and the last lane is fully unobstructed.
+    rows.forEach((r, i) => {
+      expect(r.hoof, `lane ${i} hoof row`).toBeGreaterThanOrEqual(3);
+      expect(r.below, `lane ${i} below the surface`).toBe(0);
+    });
+    expect(rows[7].hoof).toBeGreaterThanOrEqual(16); // all four hooves visible
+  });
+
+  test('every walk frame keeps the sprite inside 92x70 with feet on the bottom row', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     await page.evaluate(() => new Promise((resolve) => {
@@ -870,17 +1107,17 @@ test.describe('Renderer camera and bounds', () => {
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // ANIM_FRAME_MS
       const canvas = document.getElementById('game');
-      const tones = new Set([0x1a1208, 0xc9803a, 0x8a5220, 0x53565e, 0xe84a3a,
+      const tones = new Set([0x1c1208, 0xd9a05b, 0xb4763a, 0x82521f, 0x53565e, 0xe84a3a,
         0x3a6ae8, 0x3aa84a, 0xe8c83a, 0x9a4ae8, 0xe88a3a, 0x3ad8d8, 0xe85a9a,
-        0xf0ece0, 0xd8a878, 0xbfe3ea, 0x123a44]);
+        0xf0ece0, 0xd8a878, 0xbfe3ea]);
       function measure() {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const d = canvas.getContext('2d')
-          .getImageData(Math.round(b.left), Math.round(b.top), 66, 62).data;
-        let minR = 62, maxR = -1, minC = 66, maxC = -1;
-        for (let ry = 0; ry < 62; ry += 1) {
-          for (let rx = 0; rx < 66; rx += 1) {
-            const i = (ry * 66 + rx) * 4;
+          .getImageData(Math.round(b.left), Math.round(b.top), 92, 70).data;
+        let minR = 70, maxR = -1, minC = 92, maxC = -1;
+        for (let ry = 0; ry < 70; ry += 1) {
+          for (let rx = 0; rx < 92; rx += 1) {
+            const i = (ry * 92 + rx) * 4;
             const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
             if (tones.has(h)) {
               if (ry < minR) minR = ry;
@@ -918,15 +1155,17 @@ test.describe('Renderer camera and bounds', () => {
     expect(Object.keys(res).sort()).toEqual(['1', '2', '3', '4']);
     for (const fi of ['1', '2', '3', '4']) {
       const [maxR, minR, minC, maxC] = res[fi].split('|').map(Number);
-      expect(maxR, `frame ${fi} feet`).toBe(61); // feet on the sprite's bottom row
+      expect(maxR, `frame ${fi} feet`).toBe(69); // hooves on the sprite's bottom row
       expect(minR).toBeGreaterThanOrEqual(0);
       expect(minR).toBeLessThanOrEqual(maxR);
-      expect(minC).toBeGreaterThanOrEqual(0);
-      expect(maxC).toBeLessThanOrEqual(65);
-      expect(maxR - minR + 1).toBeLessThanOrEqual(62);
+      expect(minC).toBe(7);   // painted bbox spans cols 7-90 on every frame
+      expect(maxC).toBe(90);
+      expect(maxR - minR + 1).toBeLessThanOrEqual(70);
     }
   });
 });
+
+// ---------------------------------------------------------------------------
 // drawSprite run-coalescing guard (perf fix: one fillRect per contiguous
 // same-colour run per row, was one per pixel). Both tests assert OUTPUT
 // IDENTITY, not call counts: a per-pixel revert (same pixels, slower) must
