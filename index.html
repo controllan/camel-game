@@ -524,6 +524,8 @@ window.GameCore = (function () {
     finishVisible: false,
     goalScreenX: null,
     decorDrawn: 0,
+    decorFlat: 0, // v2 §2.14 flat-marks drawn this frame (test counter)
+    decorLayers: { background: 0, midground: 0, floor: 0 },
     decorKinds: [],
     confettiDrawn: 0,
     teamLabels: [],
@@ -888,14 +890,31 @@ window.GameCore = (function () {
   });
 
   const SEED = 1337;
-  // Per-layer decor streams + the grass carpet (docs/art/theme-art.md §3.4). Each
-  // layer owns a seeded stream (distinct salt); floor runs one stream per lane.
+  // Per-layer decor streams + the ground carpet (docs/art/theme-art.md §3.4,
+  // §2.11). Each theme owns its salts in the registry (`decor.salts` /
+  // `decor.carpetSalt`); every layer streams from its own salt, floor per lane.
   const DECOR_STREAM = { background: 0x11, midground: 0x22, floor: 0x33 };
+  const CARPET_STREAM = 0x44;
+  // Desert salts (§2.11): different seeds, so a desert run never reproduces a
+  // forest layout.
+  const DESERT_DECOR_STREAM = { background: 0x55, midground: 0x66, floor: 0x77 };
+  const DESERT_CARPET_STREAM = 0x88;
   // Floor streams key on (k * FLOOR_LANES + lane); derive the lane stride from the
   // core lane cap so the two can never diverge (laneCount <= MAX_CAMELS always).
   const FLOOR_LANES = core.MAX_CAMELS;
-  const CARPET_STREAM = 0x44;
   const CARPET_SPACING = 10; // ~one speckle column every 10 screen px per lane
+  // v2 flat floor marks (§2.14): top edge at laneTop + 8, never below
+  // laneBottom - 6 - spriteH; one extra nextPrng() draw seeds the offset.
+  const FLAT_TOP = 8;
+  const FLAT_BOTTOM = 6;
+  // Dune-streak bands (§2.12): thickness/amplitude/on-screen wavelength in px,
+  // phase offset, and y0 as a fraction of the lane height. Drawn only when the
+  // theme ships `ground.ramp` (desert v2), run-coalesced into fillRects.
+  const DUNE_STREAKS = [
+    { thick: 2, amp: 7, periodPx: 360, phase: 0.00, frac: 0.30 },
+    { thick: 1, amp: 5, periodPx: 260, phase: 0.33, frac: 0.55 },
+    { thick: 1, amp: 8, periodPx: 400, phase: 0.66, frac: 0.80 },
+  ];
 
   // Camel v5 66x62, 5 frames: 0 standing (idle), 1-4 walk (contact A, pass A,
   // contact B, pass B). Legend (docs/art/camel-sprite.md): . transparent,
@@ -1641,6 +1660,26 @@ window.GameCore = (function () {
   const LEAF_LITTER_PAL = { outline: '#1a1208', L: '#8a5a3a', H: '#b07a4a' };
   const FOREST_TREE_TALL_PAL = { outline: '#1a1208', T: '#2f6b3a', S: '#1f4a2a', B: '#4a3320', R: '#2a1c10' };
   const FOREST_TREE_BROAD_PAL = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234', B: '#4a3320', R: '#2a1c10' };
+  // Desert ambience palettes (docs/art/theme-art.md §2.9). Per-sprite palettes win
+  // over CHAR_KEY, so shared letters (T/S/B/R/W/L/D) keep their forest meaning
+  // there and their desert meaning here; HOOF_PRINTS/MESA override `O` on purpose.
+  const SAND_RIPPLE_PAL = { outline: '#1a1208', R: '#dcb87a', S: '#b8935a' };
+  const PEBBLE_PAL = { outline: '#1a1208', B: '#8f7a5c', S: '#6a573e' };
+  const SCRUB_PAL = { outline: '#1a1208', T: '#7a7a3e', S: '#4f4f28' };
+  const TUMBLEWEED_PAL = { outline: '#1a1208', T: '#a89058', S: '#7a683a' };
+  const BARREL_CACTUS_PAL = { outline: '#1a1208', B: '#2f6b3a', S: '#1f4a26' };
+  const DEAD_BRANCH_PAL = { outline: '#1a1208', B: '#6b4a2a', S: '#4a3320' };
+  const BONES_PAL = { outline: '#1a1208', W: '#e8e2d2', S: '#b8ae94' };
+  const HOOF_PRINTS_PAL = { O: '#5f4522', D: '#8a6f3e', S: '#b8935a' }; // sand-brown, no black ring
+  // v2 floor-mark palettes (§2.13): surface marks use a sand-tone outline, not black.
+  const WIND_STREAK_PAL = { O: '#a8813f', R: '#dcb87a', S: '#b8935a' };
+  const DRIFT_MOUND_PAL = { O: '#a8813f', B: '#d8b87a', S: '#b8935a' };
+  const SAGUARO_PAL = { outline: '#1a1208', B: '#2f6b3a', S: '#1f4a26' };
+  const SAGUARO_TALL_PAL = { outline: '#1a1208', B: '#2f6b3a', S: '#1f4a26', R: '#2a1c10' };
+  const BARREL_CLUSTER_PAL = { outline: '#1a1208', B: '#2f6b3a', S: '#1f4a26' };
+  const DESERT_SHRUB_PAL = { outline: '#1a1208', T: '#7a7a3e', S: '#4f4f28' };
+  const MESA_PAL = { O: '#2a1a3a', B: '#4a3550', S: '#3a2a4a', L: '#5f4360' }; // haze outline + lit top edge
+  const DEAD_TREE_PAL = { outline: '#1a1208', B: '#6b4a2a', S: '#4a3320', R: '#2a1c10' };
 
   // Conifer 40x56.
   const FOREST_TREE_CONIFER = [
@@ -2060,6 +2099,474 @@ window.GameCore = (function () {
     '............................................',
   ];
 
+  // Desert ambience (docs/art/theme-art.md §2.10): 16 sprites, matrices pasted
+  // verbatim from the doc. The per-sprite palettes above win over CHAR_KEY.
+  // SAND_RIPPLE 20x6.
+  const SAND_RIPPLE = [
+    '....................',
+    '...OOOOOOOOOOOOOO...',
+    '...ORRSSSRRRSSSRO...',
+    '...OSSRRRSSSRRRSO...',
+    '...OOOOOOOOOOOOOO...',
+    '....................',
+  ];
+
+  // PEBBLE_A 12x7.
+  const PEBBLE_A = [
+    '............',
+    '....OOOOO...',
+    '..OOBBBBBOO.',
+    '..OBBBSSSSO.',
+    '..OBBBSSSSO.',
+    '...OOOOOOO..',
+    '............',
+  ];
+
+  // PEBBLE_B 14x8.
+  const PEBBLE_B = [
+    '..............',
+    '..............',
+    '......OOOOOOO.',
+    '.OOOOOBSSSSSO.',
+    '.OBBBBBSSSSSO.',
+    '.OBBBBBBBBBBO.',
+    '.OOOOOOOOOOOO.',
+    '..............',
+  ];
+
+  // SCRUB_A 16x10.
+  const SCRUB_A = [
+    '................',
+    '......OOOO......',
+    '....OOTTTSOO....',
+    '....OTTTTSSO....',
+    '..OOTTTSSSSSOO..',
+    '..OTTTTSSSSSSO..',
+    '..OTTTTSSSSSSO..',
+    '..OTTTTSSSSSSO..',
+    '..OOOOOOOOOOOO..',
+    '................',
+  ];
+
+  // SCRUB_B 14x12.
+  const SCRUB_B = [
+    '..............',
+    '..........OOO.',
+    '..OOO.....OSO.',
+    '..OTTOOOOOTSO.',
+    '..OTTTSSSSTSO.',
+    '..OTTTSSSSTOO.',
+    '...OTTSSSSO...',
+    '...OTTSSSSO...',
+    '...OTTSSSSO...',
+    '...OTTSSSSO...',
+    '...OOOOOOOO...',
+    '..............',
+  ];
+
+  // TUMBLEWEED 16x14.
+  const TUMBLEWEED = [
+    '................',
+    '................',
+    '.....OOOOOO.....',
+    '...OOTTSTTSOO...',
+    '...OTTSTT.TTO...',
+    '..OTT.TTST.STO..',
+    '..OTST.STTS.TO..',
+    '..OSTTS.TSTTSO..',
+    '..OTTSTT.TTSTO..',
+    '...OSTTST.STO...',
+    '...OOTSTTSTOO...',
+    '.....OOOOOO.....',
+    '................',
+    '................',
+  ];
+
+  // BARREL_CACTUS 14x12.
+  const BARREL_CACTUS = [
+    '..............',
+    '......OO......',
+    '....OOBSOO....',
+    '...OBBBSSSO...',
+    '..OBBBBSSSSO..',
+    '..OBBBBSSSSO..',
+    '..OBBBBSSSSO..',
+    '..OBBBBSSSSO..',
+    '...OBBBSSSO...',
+    '....OOBSOO....',
+    '......OO......',
+    '..............',
+  ];
+
+  // DEAD_BRANCH 20x10.
+  const DEAD_BRANCH = [
+    '....................',
+    '....OOO.....OOO.....',
+    '....OSO.....OSO.....',
+    '....OSO.....OSO.....',
+    '..OOBSSOOOOOBBBOOO..',
+    '..OBBBBBBBBBBBBBBO..',
+    '..OBBBBBBBBBBBBBBO..',
+    '..OOOOOOOOOOOOOOOO..',
+    '....................',
+    '....................',
+  ];
+
+  // BONES 16x10.
+  const BONES = [
+    '................',
+    '................',
+    '..OOOOO..OOOOO..',
+    '..OWWWWOOWWWWO..',
+    '..OWWWWWWWWWWO..',
+    '..OWSSSOOSSSWO..',
+    '..OOOOO..OOOOO..',
+    '................',
+    '................',
+    '................',
+  ];
+
+  // HOOF_PRINTS 12x8.
+  const HOOF_PRINTS = [
+    '............',
+    '..OO........',
+    '.ODSO.......',
+    '..OO....OO..',
+    '.......ODSO.',
+    '........OO..',
+    '............',
+    '............',
+  ];
+
+  // v2 flat floor marks (§2.13), byte-identical to the doc matrices.
+  // WIND_STREAK_A 44x8.
+  const WIND_STREAK_A = [
+    '............................................',
+    '............................................',
+    '.........OOOOOOOOOOOOOOOOOOOOOOOOOO.........',
+    '.....OOOORRSSSSRRRSSSSRRRSSSSRRRSSSOOOO.....',
+    '...OOSRRSSSSSSSSSSSSSSSSSSSSSSSSSSRRSSSOO...',
+    '....OOOOOOSSSSSSSSSSSSSSSSSSSSSSSSOOOOOO....',
+    '..........OOOOOOOOOOOOOOOOOOOOOOOO..........',
+    '............................................',
+  ];
+
+  // WIND_STREAK_B 64x10.
+  const WIND_STREAK_B = [
+    '................................................................',
+    '................................................................',
+    '................................................................',
+    '..........OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO..........',
+    '.....OOOOORRRSSSSSSSRRRRSSSSSSSRRRRSSSSSSSRRRRSSSSSRRROOOOO.....',
+    '..OOOSRRRSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSRRRSOOO..',
+    '....OOOOOOOSSSSSRRRSSSSSSSSSSSSSSSSSSSSSSSSSRRRSSSSSSOOOOOOO....',
+    '...........OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO...........',
+    '................................................................',
+    '................................................................',
+  ];
+
+  // DRIFT_MOUND 32x10.
+  const DRIFT_MOUND = [
+    '................................',
+    '................................',
+    '................................',
+    '..............OOOOOO............',
+    '...........OOOBBBBBBOOO.........',
+    '........OOOBBBBBBBBBBBBOOO......',
+    '.....OOOBBBBBBBBBBBBBBBBBSOO....',
+    '...OOBBBBBBBBBBBBBBBBBBBBBBSOO..',
+    '..OOOOOOOOOOOOOOOOOOOOOOOOOOOOO.',
+    '................................',
+  ];
+
+  // HOOF_TRAIL 40x10.
+  const HOOF_TRAIL = [
+    '........................................',
+    '....OO..................OO..............',
+    '...ODSO................ODSO.............',
+    '....OO..................OO..............',
+    '........................................',
+    '..............OO..................OO....',
+    '.............ODSO................ODSO...',
+    '..............OO..................OO....',
+    '........................................',
+    '........................................',
+  ];
+
+  // SAGUARO 28x64.
+  const SAGUARO = [
+    '............................',
+    '.............OOOO...........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '......OOOOO.OBBBSO..........',
+    '......OBBSO.OBBBSO..........',
+    '......OBBSO.OBBBSO..........',
+    '......OBBSO.OBBBSO..........',
+    '......OBBSO.OBBBSO..........',
+    '......OBBSO.OBBBSO..........',
+    '......OBBSO.OBBBSO.OOOOOO...',
+    '......OBBSO.OBBBSO.OBBSSO...',
+    '......OBBSO.OBBBSO.OBBSSO...',
+    '......OBBSO.OBBBSO.OBBSSO...',
+    '......OBBSO.OBBBSO.OBBSSO...',
+    '......OBBSO.OBBBSO.OBBSSO...',
+    '......OBBBBOSBBBSO.OBBSSO...',
+    '......OBBBBSSBBBSO.OBBSSO...',
+    '......OBBBBSSBBBSO.OBBSSO...',
+    '......OBBBBSSBBBSO.OBBSSO...',
+    '......OBBBBSSBBBSO.OBBSSO...',
+    '......OBBBBSSBBBSO.OBBSSO...',
+    '......OOOOOOSBBBSO.OBBSSO...',
+    '............OBBBSO.OBBSSO...',
+    '............OBBBBBOSSSSSO...',
+    '............OBBBBBSSSSSSO...',
+    '............OBBBBBSSSSSSO...',
+    '............OBBBBBSSSSSSO...',
+    '............OBBBBBSSSSSSO...',
+    '............OBBBBBSSSSSSO...',
+    '............OBBBBBOOOOOOO...',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OBBBSO..........',
+    '............OOOOOO..........',
+    '............................',
+  ];
+
+  // SAGUARO_TALL 32x72.
+  const SAGUARO_TALL = [
+    '................................',
+    '................OOOO............',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '.......OOOOOO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO...........',
+    '.......OBBBSO..OBBBSO..OOOOOO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBSO..OBBBSO..OBBBSO...',
+    '.......OBBBBBOOBBBBSO..OBBBSO...',
+    '.......OBBBBBSSBBBBSO..OBBBSO...',
+    '.......OBBBBBSSBBBBSO..OBBBSO...',
+    '.......OBBBBBSSBBBBSO..OBBBSO...',
+    '.......OBBBBBSSBBBBSO..OBBBSO...',
+    '.......OBBBBBSSBBBBSO..OBBBSO...',
+    '.......OOOOOOOOBBBBSO..OBBBSO...',
+    '...............OBBBSO..OBBBSO...',
+    '...............OBBBBBOOSSSSSO...',
+    '...............OBBBBBSSSSSSSO...',
+    '...............OBBBBBSSSSSSSO...',
+    '...............OBBBBBSSSSSSSO...',
+    '...............OBBBBBSSSSSSSO...',
+    '...............OBBBBBSSSSSSSO...',
+    '...............OBBBBBOOOOOOOO...',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '...............OBBBSO...........',
+    '............OOORRRRRROOO........',
+    '............ORRRRRRRRRRO........',
+    '............ORRRRRRRRRRO........',
+    '............OORRRRRRRROO........',
+    '..............OOOOOOOO..........',
+    '................................',
+  ];
+
+  // BARREL_CLUSTER 24x20.
+  const BARREL_CLUSTER = [
+    '........................',
+    '............OOO.........',
+    '...........OBSO.........',
+    '...........OBSO.........',
+    '...........OBSO.........',
+    '...........OBSO.........',
+    '...........OBSO.........',
+    '.....OOOOOOBBSO.........',
+    '....OBBBBBSBBSO.........',
+    '...OBBBBBBSBBSO..OOO....',
+    '...OBBBBBBSBBSSOOBBBOO..',
+    '...OBBBBBBSSSS.BBBBBSO..',
+    '..OBBBBBBBSSSSBBBBBBSSO.',
+    '...OBBBBBBBBBSSBBBBBSSO.',
+    '...OBBBBBBBBBSSSBBBBSSO.',
+    '...OBBBBBBBBBSSSBBBBSO..',
+    '....OBBBBBBBBSSSOBBBOO..',
+    '.....OOOOOBBBSSO.OOO....',
+    '..........OOOOO.........',
+    '........................',
+  ];
+
+  // DESERT_SHRUB 20x14.
+  const DESERT_SHRUB = [
+    '....................',
+    '....................',
+    '.........OOOO.......',
+    '.........OTTO.......',
+    '....OOOO.OTTO.......',
+    '....OTTO.OTTO.OOOO..',
+    '....OTTO.OTTO.OTTO..',
+    '....OTTTOTTTTOTTTO..',
+    '....OTTTTTTTSSTTTO..',
+    '...OTTTTTTTTSSSSSO..',
+    '...OTTTTTTTTSSSSSO..',
+    '....OOTTTTTTSSSOO...',
+    '......OOOOOOOOO.....',
+    '....................',
+  ];
+
+  // MESA 48x24.
+  const MESA = [
+    '................................................',
+    '................................................',
+    '................................................',
+    '................................................',
+    '................................................',
+    '................................................',
+    '................................................',
+    '................................................',
+    '................................................',
+    '........OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO........',
+    '........OLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLO........',
+    '........OBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO........',
+    '........OBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO........',
+    '........OBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO........',
+    '........OBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO........',
+    '....OOOOBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBOOOO....',
+    '....OBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO....',
+    '....OBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO....',
+    '....OBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO....',
+    '.OOOBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBOOO.',
+    '.OBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBSSSO.',
+    '.OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO.',
+    '................................................',
+    '................................................',
+  ];
+
+  // DEAD_TREE 32x56.
+  const DEAD_TREE = [
+    '................................',
+    '................................',
+    '.................OOOO...........',
+    '.................OBBO...........',
+    '............OOOO.OBBO...........',
+    '............OBBO.OBBO...........',
+    '............OBBO.OBBO...........',
+    '...OOOO.....OBBO.OBBO...........',
+    '...OBBO.....OBBBOBBOO...........',
+    '...OBBBOO...OBBBSSO.............',
+    '...OOBBBO...OBBBSSO.............',
+    '.....OBBO....OBBSSO.............',
+    '.....OBBBOO..OBBSSO...OOOO......',
+    '.....OOBBBO..OBBSSO...OBBO......',
+    '.......OBBO..OBBSSO...OBBO......',
+    '.......OBBBOOBBBSSO...OBBO......',
+    '.......OOBBBBBBBSSO.OOBBBO......',
+    '.........OBBBBBBSSO.OBBBOO......',
+    '.........OBBBBBBSSO.OBBO........',
+    '.........OOBBBBBSSO.OBBO........',
+    '...........OBBBBSSBOBBBO........',
+    '...........OBBBBSSBBBBOO........',
+    '...........OOBBBSSBBBO..........',
+    '.............OBBSSBBBO..........',
+    '.............OBBBBBBBO..........',
+    '.............OBBBBBBOO..........',
+    '.............OBBBBBO............',
+    '.............OBBBBBO............',
+    '.............OBBBBBO............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '.............OBBSSO.............',
+    '............ORRRRRRO............',
+    '..........OORRRRRRRROO..........',
+    '..........ORRRRRRRRRRO..........',
+    '..........OOOOOOOOOOOO..........',
+    '................................',
+    '................................',
+  ];
+
   // ---------- theme registry (single source of truth for per-theme art) ----------
   // Some fields are declarative-only (shape fixed by docs/art/theme-art.md) and are
   // not read by the renderer; each is marked below.
@@ -2071,13 +2578,50 @@ window.GameCore = (function () {
       countLabelKey: 'countLabelCamel', // i18n key for the lane-count label
       label: { en: 'Desert', de: 'W\u00fcste' }, // declarative-only (DOM i18n labels the buttons)
       palette: { sky: ['#1a1030', '#241640', '#2e1c4a'], sun: '#e8a03a', sunRim: '#f0c060', accent: '#e8c83a', distant: ['#3a2a4a', '#4a3550'] }, // accent: declarative-only
-      ground: { top: '#c9a25a', shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e' },
+      ground: { top: '#c9a25a', ramp: ['#c39d5a', '#bd985a', '#b8935a'], shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e', speckle: '#dcb87a', speckleShare: 0.6, speckleWidth: 2, carpetSpacing: 7, clusterShare: 0.18 }, // v2: ramp §2.12, carpet §2.8
       decor: {
-        spacing: 90, maxSpan: 1500,
+        maxSpan: 1500,
+        salts: DESERT_DECOR_STREAM, // §2.11 — 0x55 / 0x66 / 0x77
+        carpetSalt: DESERT_CARPET_STREAM, // §2.8 — 0x88
+        // Per-layer candidate streams (docs/art/theme-art.md §2.7/§2.11): own seed
+        // salt, world spacing and cap. Floor runs one stream per lane; midground
+        // picks a lane; background anchors on HORIZON_Y.
+        streams: {
+          background: { spacing: 32, cap: 14 },
+          midground: { spacing: 48, cap: 10 },
+          floor: { spacing: 12, cap: 180 }, // v2 §2.14 (was 20 / 120)
+        },
+        // Family-level kind names (§2.9 / §2.14): background — palms/cacti/
+        // saguaros/barrels/shrubs/mesas/dead trees/rocks; midground — tall
+        // saguaros + dead trees; floor — the 4 flat v2 marks (§2.13) plus
+        // ripples/pebbles/scrub/barrel cacti/tumbleweeds/deadwood/hoof prints/
+        // bones. Weights resolve within their own layer.
         kinds: [
-          { kind: 'palm', layer: 'background', weight: 0.34, sprite: PALM, pal: PALM_PAL, yOffset: -40 },
-          { kind: 'cactus', layer: 'background', weight: 0.33, sprite: CACTUS, pal: CACTUS_PAL, yOffset: -32 },
-          { kind: 'rock', layer: 'background', weight: 0.33, sprite: ROCK, pal: ROCK_PAL, yOffset: -16 },
+          { kind: 'palms', layer: 'background', weight: 0.17, sprite: PALM, pal: PALM_PAL, yOffset: -40 },
+          { kind: 'cacti', layer: 'background', weight: 0.14, sprite: CACTUS, pal: CACTUS_PAL, yOffset: -32 },
+          { kind: 'saguaros', layer: 'background', weight: 0.17, sprite: SAGUARO, pal: SAGUARO_PAL, yOffset: -64 },
+          { kind: 'barrels', layer: 'background', weight: 0.10, sprite: BARREL_CLUSTER, pal: BARREL_CLUSTER_PAL, yOffset: -20 },
+          { kind: 'shrubs', layer: 'background', weight: 0.14, sprite: DESERT_SHRUB, pal: DESERT_SHRUB_PAL, yOffset: -14 },
+          { kind: 'mesas', layer: 'background', weight: 0.09, sprite: MESA, pal: MESA_PAL, yOffset: -24 },
+          { kind: 'dead_trees', layer: 'background', weight: 0.10, sprite: DEAD_TREE, pal: DEAD_TREE_PAL, yOffset: -56 },
+          { kind: 'rocks', layer: 'background', weight: 0.09, sprite: ROCK, pal: ROCK_PAL, yOffset: -16 },
+          { kind: 'saguaros_tall', layer: 'midground', weight: 0.65, sprite: SAGUARO_TALL, pal: SAGUARO_TALL_PAL, yOffset: -72 },
+          { kind: 'dead_trees', layer: 'midground', weight: 0.35, sprite: DEAD_TREE, pal: DEAD_TREE_PAL, yOffset: -56 },
+          // floor (one stream per lane; `flat:true` kinds roam the lane field, §2.14)
+          { kind: 'wind_streaks', layer: 'floor', weight: 0.10, sprite: WIND_STREAK_A, pal: WIND_STREAK_PAL, flat: true },
+          { kind: 'wind_streaks', layer: 'floor', weight: 0.07, sprite: WIND_STREAK_B, pal: WIND_STREAK_PAL, flat: true },
+          { kind: 'drift_mounds', layer: 'floor', weight: 0.09, sprite: DRIFT_MOUND, pal: DRIFT_MOUND_PAL, flat: true },
+          { kind: 'hoof_trails', layer: 'floor', weight: 0.05, sprite: HOOF_TRAIL, pal: HOOF_PRINTS_PAL, flat: true },
+          { kind: 'sand_ripples', layer: 'floor', weight: 0.13, sprite: SAND_RIPPLE, pal: SAND_RIPPLE_PAL, yOffset: -6 },
+          { kind: 'pebbles', layer: 'floor', weight: 0.09, sprite: PEBBLE_A, pal: PEBBLE_PAL, yOffset: -7 },
+          { kind: 'pebbles', layer: 'floor', weight: 0.05, sprite: PEBBLE_B, pal: PEBBLE_PAL, yOffset: -8 },
+          { kind: 'scrub', layer: 'floor', weight: 0.09, sprite: SCRUB_A, pal: SCRUB_PAL, yOffset: -10 },
+          { kind: 'scrub', layer: 'floor', weight: 0.07, sprite: SCRUB_B, pal: SCRUB_PAL, yOffset: -12 },
+          { kind: 'barrel_cacti', layer: 'floor', weight: 0.07, sprite: BARREL_CACTUS, pal: BARREL_CACTUS_PAL, yOffset: -12 },
+          { kind: 'tumbleweeds', layer: 'floor', weight: 0.06, sprite: TUMBLEWEED, pal: TUMBLEWEED_PAL, yOffset: -14 },
+          { kind: 'deadwood', layer: 'floor', weight: 0.05, sprite: DEAD_BRANCH, pal: DEAD_BRANCH_PAL, yOffset: -10 },
+          { kind: 'hoof_prints', layer: 'floor', weight: 0.05, sprite: HOOF_PRINTS, pal: HOOF_PRINTS_PAL, yOffset: -8 },
+          { kind: 'bones', layer: 'floor', weight: 0.03, sprite: BONES, pal: BONES_PAL, yOffset: -8 },
         ],
       },
       animal: {
@@ -2095,6 +2639,8 @@ window.GameCore = (function () {
       ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018', speckle: '#5a8a48' },
       decor: {
         maxSpan: 1500,
+        salts: DECOR_STREAM, // §3.4 — 0x11 / 0x22 / 0x33
+        carpetSalt: CARPET_STREAM, // §3.4.2 — 0x44
         // Per-layer candidate streams (docs/art/theme-art.md §3.4): own seed salt,
         // world spacing and cap. Floor runs one stream per lane; midground picks
         // a lane; background anchors on HORIZON_Y.
@@ -2263,9 +2809,8 @@ window.GameCore = (function () {
     drawDuneBand(HORIZON_Y - 6, (win.min * 0.6) % 90, distant[1]);
   }
 
-  // Draw one decor pass. Desert keeps its byte-identical single stream (spacing 90,
-  // jitter ±20); the forest uses per-layer seeded streams
-  // (docs/art/theme-art.md §3.4). Called per pass: background BEFORE drawLanes,
+  // Draw one decor pass from the theme's per-layer streams (docs/art/theme-art.md
+  // §3.4 forest / §2.11 desert). Called per pass: background BEFORE drawLanes,
   // floor + midground AFTER, so on-lane pixels land on the opaque lane fill.
 
   // Midground sprite anchors recorded per frame for tests (occlusion proof):
@@ -2279,46 +2824,15 @@ window.GameCore = (function () {
     const decor = theme.decor;
     // Bookkeeping spans all passes: reset on the background pass, accumulate on
     // floor + midground, so getScene() still describes the whole frame (every
-    // forest family, drawn count bounded by the layer caps).
+    // family, drawn count bounded by the layer caps).
     if (layer === 'background') {
-      runtime.decorKinds = []; runtime.decorDrawn = 0; midgroundDrawnCount = 0;
+      runtime.decorKinds = []; runtime.decorDrawn = 0; midgroundDrawnCount = 0; runtime.decorFlat = 0;
+      runtime.decorLayers = { background: 0, midground: 0, floor: 0 };
     }
     // Zoomed out past maxSpan the window spans too many decoration cells
     // to draw cheaply; skip world decor (sky/ground/carpet stay, cheap bands).
     if ((win.max - win.min) > decor.maxSpan) return;
-    if (decor.streams) { drawStreamLayer(win, layer, decor); return; }
-    // Legacy single-stream placement (desert): only the background pass draws.
-    if (layer !== 'background') return;
-    // Cull in world space: mapX clamps to [0,CANVAS_W], so an on-screen cull would
-    // leave off-window decorations piled at the edges. Margin keeps sprites that
-    // straddle the window edge.
-    const margin = (win.max - win.min) * (16 / CANVAS_W);
-    const spacing = decor.spacing;
-    const startK = Math.floor((win.min - spacing) / spacing);
-    const endK = Math.ceil((win.max + spacing) / spacing);
-    const kinds = decor.kinds;
-    const total = kinds.reduce(function (a, k) { return a + k.weight; }, 0);
-    const laneCount = core.getState().camels.length;
-    let drawn = 0;
-    for (let k = startK; k <= endK; k++) {
-      const rng = mulberry32(hash2(SEED, k));
-      const roll = rng() * total;
-      const point = k * spacing + Math.floor(rng() * 40 - 20);
-      if (point < win.min - margin || point > win.max + margin) continue;
-      let acc = 0, chosen = kinds[kinds.length - 1];
-      for (const kind of kinds) { acc += kind.weight; if (roll <= acc) { chosen = kind; break; } }
-      if (chosen.layer !== layer) continue;
-      const cx = mapX(point, win);
-      let anchorY = HORIZON_Y;
-      if (chosen.layer === 'floor' && laneCount > 0) {
-        const lane = Math.floor(rng() * laneCount);
-        anchorY = laneSurfaceY(lane, laneCount, point);
-      }
-      drawSprite(chosen.sprite, cx - chosen.sprite[0].length / 2, anchorY + chosen.yOffset, chosen.pal);
-      if (runtime.decorKinds.indexOf(chosen.kind) < 0) runtime.decorKinds.push(chosen.kind);
-      drawn++;
-    }
-    runtime.decorDrawn += drawn;
+    drawStreamLayer(win, layer, decor);
   }
 
   // One per-layer stream: background (HORIZON_Y anchored), midground (random lane)
@@ -2358,7 +2872,7 @@ window.GameCore = (function () {
         // Reuse the module PRNG scratch (no closure per candidate); the
         // seed/next sequence is identical to mulberry32(seed).
         const key = isFloor ? (k * FLOOR_LANES + lane) : k;
-        seedPrng(hash2(SEED ^ DECOR_STREAM[layer], key));
+        seedPrng(hash2(SEED ^ decor.salts[layer], key));
         const roll = nextPrng() * total;
         const point = k * spacing + Math.floor(nextPrng() * (spacing / 2) - spacing / 4);
         if (point < win.min - margin || point > win.max + margin) continue;
@@ -2368,28 +2882,44 @@ window.GameCore = (function () {
         if (isFloor) anchorLane = lane;
         else if (layer === 'midground' && laneCount > 0) anchorLane = Math.floor(nextPrng() * laneCount);
         const cx = mapX(point, win);
-        const anchorY = (layer === 'background') ? HORIZON_Y : laneSurfaceY(anchorLane, laneCount, point);
-        drawSprite(chosen.sprite, cx - chosen.sprite[0].length / 2, anchorY + chosen.yOffset, chosen.pal);
+        // `flat:true` kinds (§2.14) roam the lane field: the top edge is seeded
+        // between laneTop + 8 and laneBottom - 6 - spriteH with one extra
+        // nextPrng() draw. Rooted kinds keep the lane-surface anchor and their
+        // PRNG draw order — the forest never sets `flat`, so its pixels hold.
+        let anchorY;
+        if (layer === 'background') anchorY = HORIZON_Y;
+        else if (chosen.flat) {
+          const room = laneHeight(laneCount) - FLAT_TOP - FLAT_BOTTOM - chosen.sprite.length;
+          anchorY = laneTopY(anchorLane, laneCount) + FLAT_TOP + Math.floor(nextPrng() * (Math.max(0, room) + 1));
+        } else anchorY = laneSurfaceY(anchorLane, laneCount, point);
+        drawSprite(chosen.sprite, cx - chosen.sprite[0].length / 2, anchorY + (chosen.yOffset || 0), chosen.pal);
         if (layer === 'midground' && midgroundDrawnCount < midgroundXBuf.length) {
           midgroundXBuf[midgroundDrawnCount] = cx;
           midgroundYBuf[midgroundDrawnCount] = anchorY;
           midgroundDrawnCount++;
         }
         if (runtime.decorKinds.indexOf(chosen.kind) < 0) runtime.decorKinds.push(chosen.kind);
+        if (chosen.flat) runtime.decorFlat += 1;
         drawn++;
         laneDrawn++;
       }
       if (drawn >= spec.cap) break;
     }
     runtime.decorDrawn += drawn;
+    runtime.decorLayers[layer] += drawn;
   }
 
-  // Grass carpet: cheap procedural speckle (~1-2 plain 1x1 fillRects every ~10 px
-  // per lane, docs/art/theme-art.md §3.4.2). Never culled, so the floor still
-  // reads as grass when props thin out; no sprite loop, no per-speckle allocation.
-  function drawGrassCarpet(s, win) {
+  // Ground carpet: cheap procedural speckle (1-2 plain fillRects every ~10 px per
+  // lane, docs/art/theme-art.md §3.4.2 grass / §2.8 sand). Never culled, so the
+  // floor still reads as grass/sand when props thin out; no sprite loop, no
+  // per-speckle allocation. Tones + grain come from the theme's ground tokens:
+  // forest 50/50 1 px (#5a8a48/#3a6030), desert 60/40 1-2 px (#dcb87a/#b8935a).
+  function drawGroundCarpet(s, win) {
     const ground = theme.ground;
     if (!ground.speckle) return;
+    const dark = ground.ripple ?? ground.shade; // forest ships no ripple (§2.8)
+    const share = ground.speckleShare || 0.5;
+    const speckleW = ground.speckleWidth || 1;
     const n = s.camels.length;
     const heights = terrainHeightBuf; // computed by drawLanes this frame
     // World-anchor the carpet: keep ~CARPET_SPACING on-screen px between
@@ -2397,14 +2927,16 @@ window.GameCore = (function () {
     // window so the pattern scrolls with the ground (a screen-space pattern
     // stayed frozen while the lanes panned). Cells are seeded by world index.
     const span = Math.max(1e-6, win.max - win.min);
-    const worldSpacing = span / CANVAS_W * CARPET_SPACING;
+    // v2 carpet pitch (§2.8): desert ships `carpetSpacing: 7`; the forest keeps
+    // the 10 px fallback so its carpet columns never move.
+    const worldSpacing = span / CANVAS_W * (ground.carpetSpacing || CARPET_SPACING);
     const startK = Math.floor(win.min / worldSpacing);
     const endK = Math.ceil(win.max / worldSpacing);
     for (let i = 0; i < n; i++) {
       const top = Math.round(laneTopY(i, n));
       const bottom = Math.round(laneBottomY(i, n));
       for (let k = startK; k <= endK; k++) {
-        seedPrng(hash2(SEED ^ CARPET_STREAM, k * FLOOR_LANES + i));
+        seedPrng(hash2(SEED ^ theme.decor.carpetSalt, k * FLOOR_LANES + i));
         const world = k * worldSpacing + nextPrng() * worldSpacing;
         const px = Math.round(mapX(world, win));
         if (px < 0 || px >= CANVAS_W) continue;
@@ -2416,8 +2948,21 @@ window.GameCore = (function () {
         const count = 1 + (nextPrng() < 0.5 ? 1 : 0);
         for (let j = 0; j < count; j++) {
           const y = lo + Math.floor(nextPrng() * (hi - lo));
-          ctx.fillStyle = (nextPrng() < 0.5) ? ground.speckle : ground.shade;
-          ctx.fillRect(px, y, 1, 1);
+          ctx.fillStyle = (nextPrng() < share) ? ground.speckle : dark;
+          // Doc draw order: y → tone → width. Forest keeps 1 px and skips the
+          // width draw entirely, so its PRNG sequence (and pixels) are unchanged.
+          const w = (speckleW > 1) ? 1 + (nextPrng() < 0.5 ? 1 : 0) : 1;
+          ctx.fillRect(px, y, w, 1);
+        }
+        // v2 grain cluster (§2.8): 3 px dark run + 1 lit pixel above it, at
+        // `clusterShare` per column. Gated on `ground.ramp`, so the forest burns
+        // no extra PRNG values and its carpet stays byte-identical.
+        if (ground.ramp && nextPrng() < (ground.clusterShare || 0)) {
+          const cy = lo + 1 + Math.floor(nextPrng() * Math.max(1, hi - lo - 2));
+          ctx.fillStyle = dark;
+          ctx.fillRect(px, cy, 3, 1);
+          ctx.fillStyle = ground.speckle;
+          ctx.fillRect(px + 1, cy - 1, 1, 1);
         }
       }
     }
@@ -2542,6 +3087,19 @@ window.GameCore = (function () {
       const ground = theme.ground;
       ctx.fillStyle = ground.top;
       ctx.fillRect(0, top, CANVAS_W, bottom - top);
+      // v2 tone ramp (§2.12): 3 hard-edged zones at 40/60/80 % of the lane,
+      // right after the base fill. Theme-gated (`ground.ramp`), so the forest
+      // lane fill is untouched.
+      const ramp = ground.ramp;
+      if (ramp) {
+        const laneH = bottom - top;
+        for (let r = 0; r < ramp.length; r++) {
+          const yA = top + Math.round((0.40 + 0.20 * r) * laneH);
+          const yB = (r === ramp.length - 1) ? bottom : top + Math.round((0.40 + 0.20 * (r + 1)) * laneH);
+          ctx.fillStyle = ramp[r];
+          ctx.fillRect(0, yA, CANVAS_W, yB - yA);
+        }
+      }
       ctx.fillStyle = ground.edge;
       ctx.fillRect(0, bottom - 1, CANVAS_W, 1);
       for (let x = 0; x < CANVAS_W; x++) {
@@ -2554,6 +3112,36 @@ window.GameCore = (function () {
         ctx.fillRect(x, crest, 1, 1);
         ctx.fillStyle = ground.shade;
         ctx.fillRect(x, crest + 3, 1, 2);
+      }
+      // v2 dune streaks (§2.12): 3 sine bands per lane in `ground.shade`, drawn
+      // after the crest pass so they never cross the rim/edge. Each band emits
+      // one fillRect per equal-row run (≈100 runs/band/lane at 1×). Theme-gated
+      // on `ground.ramp`; the wavelength tracks the camera window like the
+      // carpet pitch, and lanes get a + i·0.17 phase so they never moiré.
+      if (ramp) {
+        const span = Math.max(1e-6, win.max - win.min);
+        const laneH = bottom - top;
+        for (const b of DUNE_STREAKS) {
+          const periodWorld = span / CANVAS_W * b.periodPx;
+          const y0 = top + Math.round(b.frac * laneH);
+          let runX = 0, runY = null;
+          for (let x = 0; x <= CANVAS_W; x++) {
+            let y = runY;
+            if (x < CANVAS_W) {
+              const world = win.min + ((x + 0.5) / CANVAS_W) * span;
+              let crest = Math.max(HORIZON_Y, top - heights[x]);
+              if (crest > bottom - 2) crest = bottom - 2;
+              y = y0 + Math.round(b.amp * Math.sin(2 * Math.PI * (world / periodWorld + b.phase + i * 0.17)));
+              y = Math.min(Math.max(y, crest + 5), bottom - 2 - (b.thick - 1));
+            }
+            if (y !== runY) { // emit one fillRect per equal-row run
+              if (runY !== null) { ctx.fillStyle = ground.shade; ctx.fillRect(runX, runY, x - runX, b.thick); }
+              runX = x; runY = y;
+            }
+          }
+          ctx.fillStyle = ground.shade;
+          ctx.fillRect(runX, runY, CANVAS_W - runX, b.thick); // flush the final run
+        }
       }
     }
     // Paint the rows below the last lane so no transparent strip remains.
@@ -2679,10 +3267,10 @@ window.GameCore = (function () {
     runtime.goalScreenX = runtime.finishVisible ? mapX(s.goalScore, win) : null;
   }
 
-  // Render order (docs/art/theme-art.md §3.4.3): sky → moon → background decor →
-  // milestones → lanes(+grass carpet) → floor props → midground trees → animals →
-  // finish → confetti → banner. Animals last over the midground so boars read in
-  // front of the in-track trees.
+  // Render order (docs/art/theme-art.md §2.11.2 / §3.4.3): sky → celestial →
+  // dunes → background decor → milestones → lanes → ground carpet → floor props →
+  // midground → animals → team labels → finish → confetti → banner. Animals last
+  // over the midground so they read in front of in-track scenery.
   function drawScene(s, win, now) {
     drawSky();
     drawCelestial();
@@ -2690,7 +3278,7 @@ window.GameCore = (function () {
     drawDecor(win, 'background');
     drawMilestones(win);
     drawLanes(s, win);
-    drawGrassCarpet(s, win);
+    drawGroundCarpet(s, win);
     drawDecor(win, 'floor');
     drawDecor(win, 'midground');
     drawCamels(s, win, now);
@@ -2781,7 +3369,8 @@ window.GameCore = (function () {
       const teamLabels = (runtime.teamLabels || []).map(function (l) {
         return { id: l.id, name: l.name, x: l.x, y: l.y, w: l.w, h: l.h };
       });
-      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, decorKinds: (runtime.decorKinds || []).slice(), midground: midground, confettiDrawn: runtime.confettiDrawn, teamLabels: teamLabels };
+      const decorLayers = runtime.decorLayers || { background: 0, midground: 0, floor: 0 };
+      return { finishVisible: runtime.finishVisible, goalScreenX: runtime.goalScreenX, decorDrawn: runtime.decorDrawn, decorFlat: runtime.decorFlat, decorLayers: { background: decorLayers.background, midground: decorLayers.midground, floor: decorLayers.floor }, decorKinds: (runtime.decorKinds || []).slice(), midground: midground, confettiDrawn: runtime.confettiDrawn, teamLabels: teamLabels };
     },
   };
 

@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
-const { gotoGame } = require('./helpers');
+const { gotoGame, readIndexHtml, extractMatrixRows } = require('./helpers');
 
 // Rider robe colour for lane index i = GameCore.PALETTE[i % 8] (see index.html).
 const LANE_ROBE = [
@@ -159,6 +159,11 @@ test.describe('Renderer camera and bounds', () => {
 
   test('scene draws sky, sun, dunes and decor (expected colors present)', async ({ page }) => {
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    // isSettled() is trivially true before the first frame; let the loop paint the
+    // desert scene before sampling so the tally cannot read a stale/empty canvas.
+    await page.evaluate(() => new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    }));
     const tally = await pixelTally(page);
     for (const color of ['#1a1030', '#241640', '#2e1c4a']) { // sky bands
       expect(tally[color] || 0).toBeGreaterThan(0);
@@ -264,7 +269,7 @@ test.describe('Renderer camera and bounds', () => {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const x = Math.max(0, Math.round(b.left) - 1);
         const y = Math.max(0, Math.round(b.top));
-        return canvas.getContext('2d').getImageData(x, y, 66, 62).data.join(',');
+        return canvas.getContext('2d').getImageData(x, y, 92, 70).data.join(',');
       };
       const standing = snap();
       const camel = GameCore.getState().camels[0];
@@ -323,7 +328,7 @@ test.describe('Renderer camera and bounds', () => {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const x = Math.max(0, Math.round(b.left) - 1);
         const y = Math.max(0, Math.round(b.top));
-        return canvas.getContext('2d').getImageData(x, y, 66, 62).data.join(',');
+        return canvas.getContext('2d').getImageData(x, y, 92, 70).data.join(',');
       };
       const first = snap();
       let n = 0;
@@ -447,9 +452,12 @@ test.describe('Renderer camera and bounds', () => {
       { timeout: 5000 },
     ).toBeGreaterThan(0);
     const bounded = await page.evaluate(() => GameDebug.getScene().decorDrawn);
-    // Desert is a single stream (spacing 90, no cap), so within DECOR_MAX_SPAN the
-    // window holds ~1500/90 + margin ~= 19 cells; a tight bound proves the cull.
-    expect(bounded).toBeLessThanOrEqual(24);
+    // Desert v2 runs the per-layer streams with floor spacing 12 / cap 180
+    // (docs/art/theme-art.md §2.14), so within DECOR_MAX_SPAN the window can
+    // hold at most background 14 + midground 10 + floor 180 = 204 candidates.
+    // A live counter above 0 but bounded here proves the caps hold while the
+    // cull keeps the frame cheap.
+    expect(bounded).toBeLessThanOrEqual(204);
   });
 
   test('66x62 sprite rasterises blanket, body and outline', async ({ page }) => {
@@ -651,9 +659,84 @@ test.describe('Renderer camera and bounds', () => {
     expect(dim('const LEAF_LITTER =')).toEqual({ w: 14, h: 6 });
     expect(dim('const FOREST_TREE_TALL =')).toEqual({ w: 48, h: 72 });
     expect(dim('const FOREST_TREE_BROAD =')).toEqual({ w: 44, h: 60 });
+    // Desert ambience (docs/art/theme-art.md §2.10): 16 sprites at exact 2x dims.
+    expect(dim('const SAND_RIPPLE =')).toEqual({ w: 20, h: 6 });
+    expect(dim('const PEBBLE_A =')).toEqual({ w: 12, h: 7 });
+    expect(dim('const PEBBLE_B =')).toEqual({ w: 14, h: 8 });
+    expect(dim('const SCRUB_A =')).toEqual({ w: 16, h: 10 });
+    expect(dim('const SCRUB_B =')).toEqual({ w: 14, h: 12 });
+    expect(dim('const TUMBLEWEED =')).toEqual({ w: 16, h: 14 });
+    expect(dim('const BARREL_CACTUS =')).toEqual({ w: 14, h: 12 });
+    expect(dim('const DEAD_BRANCH =')).toEqual({ w: 20, h: 10 });
+    expect(dim('const BONES =')).toEqual({ w: 16, h: 10 });
+    expect(dim('const HOOF_PRINTS =')).toEqual({ w: 12, h: 8 });
+    expect(dim('const SAGUARO =')).toEqual({ w: 28, h: 64 });
+    expect(dim('const SAGUARO_TALL =')).toEqual({ w: 32, h: 72 });
+    expect(dim('const BARREL_CLUSTER =')).toEqual({ w: 24, h: 20 });
+    expect(dim('const DESERT_SHRUB =')).toEqual({ w: 20, h: 14 });
+    expect(dim('const MESA =')).toEqual({ w: 48, h: 24 });
+    expect(dim('const DEAD_TREE =')).toEqual({ w: 32, h: 56 });
+    // v2 flat floor marks (docs/art/theme-art.md §2.13): 4 marks at exact dims.
+    expect(dim('const WIND_STREAK_A =')).toEqual({ w: 44, h: 8 });
+    expect(dim('const WIND_STREAK_B =')).toEqual({ w: 64, h: 10 });
+    expect(dim('const DRIFT_MOUND =')).toEqual({ w: 32, h: 10 });
+    expect(dim('const HOOF_TRAIL =')).toEqual({ w: 40, h: 10 });
   });
 
-  test('every forest sprite legend char resolves through its own palette', () => {
+  test('v2 flat floor marks: legend-only chars, clean border, documented blobs', () => {
+    // docs/art/theme-art.md §2.13/§5 acceptance for the four flat marks: every
+    // matrix is rectangular, uses only its legend chars plus '.', keeps a 1 px
+    // transparent border (row 0/h-1 and col 0/w-1 all '.', no strays), and is a
+    // single 4-connected blob - except the two documented multi-blob exceptions,
+    // HOOF_TRAIL (4 prints) and HOOF_PRINTS (2 prints).
+    const html = readIndexHtml();
+    const V2 = [
+      { decl: 'const WIND_STREAK_A =', legend: /^[.ORS]*$/, blobs: 1 },
+      { decl: 'const WIND_STREAK_B =', legend: /^[.ORS]*$/, blobs: 1 },
+      { decl: 'const DRIFT_MOUND =', legend: /^[.OBS]*$/, blobs: 1 },
+      { decl: 'const HOOF_TRAIL =', legend: /^[.ODS]*$/, blobs: 4 },
+    ];
+    const components = (rows) => {
+      const h = rows.length, w = rows[0].length;
+      const seen = new Set();
+      let n = 0;
+      const fill = (x, y) => x >= 0 && y >= 0 && x < w && y < h && rows[y][x] !== '.';
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          if (!fill(x, y) || seen.has(y * w + x)) continue;
+          n += 1;
+          const stack = [[x, y]];
+          while (stack.length) {
+            const [cx, cy] = stack.pop();
+            if (!fill(cx, cy) || seen.has(cy * w + cx)) continue;
+            seen.add(cy * w + cx);
+            stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+          }
+        }
+      }
+      return n;
+    };
+    for (const { decl, legend, blobs } of V2) {
+      const rows = extractMatrixRows(html, decl);
+      const w = Math.max(...rows.map((r) => r.length));
+      expect(rows.length, decl).toBeGreaterThan(1);
+      expect(rows.join('').replace(/\./g, '').length, `${decl} has fill`).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.length, `${decl} rectangular`).toBe(w);
+        expect(row, `${decl} legend-only`).toMatch(legend);
+      }
+      // Clean transparent border on all four sides (no stray/border pixels).
+      expect(rows[0], `${decl} top border`).toMatch(/^\.*$/);
+      expect(rows[rows.length - 1], `${decl} bottom border`).toMatch(/^\.*$/);
+      for (const row of rows) {
+        expect(row[0], `${decl} left border`).toBe('.');
+        expect(row[w - 1], `${decl} right border`).toBe('.');
+      }
+      expect(components(rows), `${decl} blob count`).toBe(blobs);
+    }
+  });
+
+  test('every decor sprite legend char resolves through its own palette', () => {
     // drawSprite skips a char with no palette/CHAR_KEY mapping, so an undefined
     // legend char yields invisible art instead of an error. Assert each documented
     // sprite's own palette keys cover every non-'.' char in its matrix
@@ -708,6 +791,30 @@ test.describe('Renderer camera and bounds', () => {
       ['const STONE =', 'const STONE_PAL ='],
       ['const STONE_ALT =', 'const STONE_PAL ='],
       ['const PINE_NEEDLES =', 'const NEEDLES_PAL ='],
+      // Desert ambience (docs/art/theme-art.md §2.9/§2.10). HOOF_PRINTS/MESA
+      // override `O` (sand ink / haze outline) and must still resolve per letter.
+      ['const SAND_RIPPLE =', 'const SAND_RIPPLE_PAL ='],
+      ['const PEBBLE_A =', 'const PEBBLE_PAL ='],
+      ['const PEBBLE_B =', 'const PEBBLE_PAL ='],
+      ['const SCRUB_A =', 'const SCRUB_PAL ='],
+      ['const SCRUB_B =', 'const SCRUB_PAL ='],
+      ['const TUMBLEWEED =', 'const TUMBLEWEED_PAL ='],
+      ['const BARREL_CACTUS =', 'const BARREL_CACTUS_PAL ='],
+      ['const DEAD_BRANCH =', 'const DEAD_BRANCH_PAL ='],
+      ['const BONES =', 'const BONES_PAL ='],
+      ['const HOOF_PRINTS =', 'const HOOF_PRINTS_PAL ='],
+      ['const SAGUARO =', 'const SAGUARO_PAL ='],
+      ['const SAGUARO_TALL =', 'const SAGUARO_TALL_PAL ='],
+      ['const BARREL_CLUSTER =', 'const BARREL_CLUSTER_PAL ='],
+      ['const DESERT_SHRUB =', 'const DESERT_SHRUB_PAL ='],
+      ['const MESA =', 'const MESA_PAL ='],
+      ['const DEAD_TREE =', 'const DEAD_TREE_PAL ='],
+      // v2 flat floor marks (docs/art/theme-art.md §2.13). HOOF_TRAIL reuses
+      // HOOF_PRINTS_PAL like its 2-blob sibling.
+      ['const WIND_STREAK_A =', 'const WIND_STREAK_PAL ='],
+      ['const WIND_STREAK_B =', 'const WIND_STREAK_PAL ='],
+      ['const DRIFT_MOUND =', 'const DRIFT_MOUND_PAL ='],
+      ['const HOOF_TRAIL =', 'const HOOF_PRINTS_PAL ='],
     ];
     for (const [spr, pal] of SPRITES) {
       const keys = paletteKeys(pal);
@@ -820,7 +927,6 @@ test.describe('Renderer camera and bounds', () => {
     }
   });
 });
-// ---------------------------------------------------------------------------
 // drawSprite run-coalescing guard (perf fix: one fillRect per contiguous
 // same-colour run per row, was one per pixel). Both tests assert OUTPUT
 // IDENTITY, not call counts: a per-pixel revert (same pixels, slower) must

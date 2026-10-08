@@ -1,7 +1,32 @@
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
+const fs = require('node:fs');
 
-const INDEX_URL = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
+const INDEX_PATH = path.resolve(__dirname, '..', 'index.html');
+const INDEX_URL = pathToFileURL(INDEX_PATH).href;
+
+// Static index.html source for byte-level art contracts (sprite matrices,
+// palettes). Shared so spec files do not re-implement the string-aware scan.
+function readIndexHtml() {
+  return fs.readFileSync(INDEX_PATH, 'utf8');
+}
+
+// Extract the string rows of `const NAME = [ 'row', ... ];` by depth-counting
+// brackets while ignoring quotes ('[' inside a row string must not count).
+function extractMatrixRows(html, decl) {
+  const idx = html.indexOf(decl);
+  if (idx < 0) throw new Error('missing declaration: ' + decl);
+  const start = html.indexOf('[', idx);
+  let depth = 0, i = start, inStr = false;
+  for (; i < html.length; i += 1) {
+    const ch = html[i];
+    if (ch === "'") inStr = !inStr;
+    if (inStr) continue;
+    if (ch === '[') depth += 1;
+    else if (ch === ']') { depth -= 1; if (depth === 0) { i += 1; break; } }
+  }
+  return [...html.slice(start, i).matchAll(/'([^']*)'/g)].map((m) => m[1]);
+}
 
 async function gotoGame(page) {
   await page.goto(INDEX_URL);
@@ -34,4 +59,4 @@ async function openHttpGame(page, url) {
   return { errors, requests };
 }
 
-module.exports = { INDEX_URL, gotoGame, openGame, openHttpGame };
+module.exports = { INDEX_URL, readIndexHtml, extractMatrixRows, gotoGame, openGame, openHttpGame };

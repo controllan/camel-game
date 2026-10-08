@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { gotoGame, INDEX_URL } = require('./helpers');
+const { gotoGame, readIndexHtml, extractMatrixRows, INDEX_URL } = require('./helpers');
 
 test.describe('Default theme + registry', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
@@ -73,11 +73,189 @@ test.describe('Theme registry (desert)', () => {
     expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 66, h: 62 });
   });
 
-  test('desert still renders dunes and decor kinds', async ({ page }) => {
+  test('desert ambience density: per-layer stream caps hold and the sand carpet covers the lanes', async ({ page }) => {
+    // docs/art/theme-art.md §2.11.3 / §2.14.1: at the default camera (W=100,
+    // 4 lanes) the v2 desert dresses the dune with 3 background / 2 midground /
+    // 35 floor props, 12 of them `flat` mid-field marks (§2.13). The doc's
+    // generator counts 33 floor at this camera; this renderer's stream sampling
+    // (unchanged since v1) admits 2 more candidates, so pin the measured,
+    // seeded value (deterministic). The floor cap (180/lane-spread) is the
+    // clutter guard.
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
     await page.evaluate(() => GameCore.setTheme('desert'));
-    await expect.poll(() => page.evaluate(() => GameDebug.getScene().decorDrawn)).toBeGreaterThan(0);
-    const kinds = await page.evaluate(() => GameDebug.getScene().decorKinds);
-    expect(kinds.length).toBeGreaterThan(0);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const scene = await page.evaluate(() => {
+      const s = GameDebug.getScene();
+      return { drawn: s.decorDrawn, flat: s.decorFlat, layers: s.decorLayers, kinds: s.decorKinds, midground: s.midground.length };
+    });
+    expect(scene.layers).toEqual({ background: 3, midground: 2, floor: 35 });
+    expect(scene.midground).toBe(2);
+    expect(scene.drawn).toBe(40);
+    expect(scene.flat).toBe(12); // §2.14: 12 large flat marks roam the lane field
+    // Density guard: soft sand detail dominates (>= 30 floor props); caps bounded.
+    expect(scene.layers.floor).toBeGreaterThanOrEqual(30);
+    expect(scene.flat).toBeGreaterThan(0);
+    expect(scene.flat).toBeLessThan(scene.layers.floor);
+    expect(scene.layers.background).toBeLessThanOrEqual(14);
+    expect(scene.layers.midground).toBeLessThanOrEqual(10);
+    expect(scene.drawn).toBeLessThanOrEqual(204); // 14 + 10 + 180 (§2.14.2)
+    // Desert families only — no forest kind may leak into the desert registry.
+    const FOREST_KINDS = new Set(['trees', 'grass_tufts', 'fern', 'moss', 'pine_needles', 'leaf_litter', 'mushrooms', 'stones', 'midground']);
+    expect(scene.kinds.length).toBeGreaterThan(0);
+    for (const k of scene.kinds) expect(FOREST_KINDS.has(k), k).toBe(false);
+    // v2 tones (§2.8 / §2.12 / §2.13) rasterise in the lane band: lit grain
+    // #dcb87a, dark grain + streak #a8813f, the three ramp zones
+    // #c39d5a/#bd985a/#b8935a, and the DRIFT_MOUND lit crest #d8b87a (unique to
+    // a flat mark, so it proves the §2.14 mid-field placement actually drew).
+    const carpet = await page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const d = g.getImageData(0, 120, 1280, 720 - 120).data;
+      const tones = { speckle: 0, dark: 0, zone2: 0, zone3: 0, zone4: 0, mound: 0 };
+      const map = { 0xdcb87a: 'speckle', 0xa8813f: 'dark', 0xc39d5a: 'zone2', 0xbd985a: 'zone3', 0xb8935a: 'zone4', 0xd8b87a: 'mound' };
+      for (let i = 0; i < d.length; i += 4) {
+        const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        const key = map[h];
+        if (key) tones[key] += 1;
+      }
+      return tones;
+    });
+    expect(carpet.speckle).toBeGreaterThan(100); // lit sand grain (§2.8)
+    expect(carpet.dark).toBeGreaterThan(100);    // dark grain clusters + dune streaks
+    expect(carpet.zone2).toBeGreaterThan(100);   // ramp zone 2 (§2.12)
+    expect(carpet.zone3).toBeGreaterThan(100);   // ramp zone 3 (§2.12)
+    expect(carpet.zone4).toBeGreaterThan(100);   // ramp toe zone 4 (§2.12)
+    expect(carpet.mound).toBeGreaterThan(0);     // flat DRIFT_MOUND crest (§2.13/§2.14)
+  });
+
+  test('desert ground v2: 3-tone lane ramp in every lane and dune streaks clamped to the lane', async ({ page }) => {
+    // §2.12: after the base fill each lane paints 3 hard-edged ramp zones at
+    // 40/60/80 % laneH, then 3 sine streak bands in ground.shade, each clamped
+    // to [crest+5, laneBottom-2-(thick-1)] so it never crosses the rim (which
+    // itself paints shade at crest+3..crest+4) or the bottom edge.
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await page.evaluate(() => GameCore.setTheme('desert'));
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const res = await page.evaluate(({ BANDS }) => {
+      const W = 1280, HORIZON = 120, LANE_BOTTOM = 712;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON) / n;
+      const win = GameDebug.getCameraWindow();
+      const span = win.max - win.min;
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, W, 720).data;
+      const at = (x, y) => { const i = (y * W + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+      const RAMP = [0xc39d5a, 0xbd985a, 0xb8935a];
+      const SHADE = 0xa8813f;
+      const lanes = [];
+      for (let i = 0; i < n; i += 1) {
+        const top = Math.round(HORIZON + i * laneH);
+        const bottom = Math.round(HORIZON + (i + 1) * laneH);
+        const zones = [0, 0, 0];
+        let above = 0, below = 0;
+        const bands = BANDS.map((b) => ({ hit: 0, cols: 0, clamped: 0 }));
+        for (let x = 0; x < W; x += 1) {
+          const world = win.min + ((x + 0.5) / W) * span;
+          let crest = Math.max(HORIZON, top - Math.round(GameCore.terrainHeightAt(world)));
+          if (crest > bottom - 2) crest = bottom - 2;
+          for (let y = top; y <= bottom; y += 1) {
+            const h = at(x, y);
+            const zi = RAMP.indexOf(h);
+            if (zi >= 0) zones[zi] += 1;
+            if (h === SHADE && y < crest + 3) above += 1;
+            if (h === SHADE && y > bottom - 2) below += 1;
+          }
+          BANDS.forEach((b, bi) => {
+            const periodWorld = span / W * b.periodPx;
+            const y0 = top + Math.round(b.frac * (bottom - top));
+            let y = y0 + Math.round(b.amp * Math.sin(2 * Math.PI * (world / periodWorld + b.phase + i * 0.17)));
+            const raw = y;
+            y = Math.min(Math.max(y, crest + 5), bottom - 2 - (b.thick - 1));
+            if (y !== raw) bands[bi].clamped += 1;
+            bands[bi].cols += 1;
+            // The streak row must actually be painted in ground.shade. Carpet
+            // speckle may overwrite a few columns, so require a high hit rate.
+            if (at(x, y) === SHADE) bands[bi].hit += 1;
+          });
+        }
+        lanes.push({ i, top, bottom, zones, above, below, bands });
+      }
+      return lanes;
+    }, { BANDS: [
+      { thick: 2, amp: 7, periodPx: 360, phase: 0.00, frac: 0.30 },
+      { thick: 1, amp: 5, periodPx: 260, phase: 0.33, frac: 0.55 },
+      { thick: 1, amp: 8, periodPx: 400, phase: 0.66, frac: 0.80 },
+    ] });
+    expect(res.length).toBe(4);
+    for (const lane of res) {
+      // All three ramp zones are painted in EVERY lane (not just canvas-wide).
+      lane.zones.forEach((count, zi) => expect(count, `lane ${lane.i} zone ${zi + 1}`).toBeGreaterThan(1000));
+      expect(lane.above, `lane ${lane.i} shade above the rim band`).toBe(0);
+      expect(lane.below, `lane ${lane.i} shade below the bottom rim`).toBe(0);
+      lane.bands.forEach((b, bi) => {
+        expect(b.hit / b.cols, `lane ${lane.i} band ${bi + 1} streak hit rate`).toBeGreaterThan(0.9);
+      });
+    }
+  });
+
+  test('desert v2 flat marks land inside the lane field, never on the lane edge', async ({ page }) => {
+    // §2.14: `flat:true` kinds are seeded into [laneTop+8, laneBottom-6-spriteH],
+    // so their rendered position must be mid-field, not lane-surface-rooted. The
+    // mound's lit crest #d8b87a is unique to DRIFT_MOUND, so scanning that tone
+    // bounds the real placements; the sprite rows carrying the tone are read
+    // from the shipped matrix so the bounds follow the art, not magic offsets.
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
+    await page.evaluate(() => GameCore.setTheme('desert'));
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const html = readIndexHtml();
+    const rows = extractMatrixRows(html, 'const DRIFT_MOUND =');
+    const spriteH = rows.length;
+    // The scan tone must be a palette tone of the mound; its sprite rows give the
+    // row window any crest pixel can occupy.
+    const palIdx = html.indexOf('const DRIFT_MOUND_PAL = {');
+    const pal = html.slice(palIdx, html.indexOf('}', palIdx));
+    const tone = [...pal.matchAll(/([A-Za-z])\s*:\s*'(#[0-9a-f]{6})'/g)].find((m) => m[2] === '#d8b87a');
+    expect(tone, 'DRIFT_MOUND_PAL must map a char to the scan tone #d8b87a').not.toBeUndefined();
+    const toneRows = rows.map((r, y) => (r.includes(tone[1]) ? y : -1)).filter((y) => y >= 0);
+    expect(toneRows.length).toBeGreaterThan(0);
+    const toneFirst = toneRows[0];
+    const toneLast = toneRows[toneRows.length - 1];
+    const res = await page.evaluate(() => {
+      const { width: W, height: H } = GameDebug.getCanvasSize();
+      const HORIZON = 120, LANE_BOTTOM = H - 8;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON) / n;
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, W, H).data;
+      const lanes = [];
+      for (let i = 0; i < n; i += 1) {
+        lanes.push({ i, top: Math.round(HORIZON + i * laneH), bottom: Math.round(HORIZON + (i + 1) * laneH), count: 0, minRow: 1e9, maxRow: -1 });
+      }
+      for (let y = HORIZON; y < LANE_BOTTOM; y += 1) {
+        for (let x = 0; x < W; x += 1) {
+          const k = (y * W + x) * 4;
+          if (((d[k] << 16) | (d[k + 1] << 8) | d[k + 2]) !== 0xd8b87a) continue;
+          const lane = lanes[Math.min(n - 1, Math.floor((y - HORIZON) / laneH))];
+          lane.count += 1;
+          if (y < lane.minRow) lane.minRow = y;
+          if (y > lane.maxRow) lane.maxRow = y;
+        }
+      }
+      const scene = GameDebug.getScene();
+      return { lanes, flat: scene.decorFlat };
+    });
+    expect(res.flat).toBeGreaterThan(0); // flat kinds were placed this frame
+    const placed = res.lanes.filter((l) => l.count > 0);
+    expect(placed.length).toBeGreaterThan(0); // non-vacuous: at least one mound visible
+    for (const lane of placed) {
+      // Every visible crest pixel belongs to a mound whose anchor (sprite top
+      // edge) was seeded into [laneTop+8, laneBottom-6-spriteH]; the tone spans
+      // sprite rows toneFirst..toneLast, so minRow-toneFirst lower-bounds an
+      // anchor and maxRow-toneLast upper-bounds one (robust to crest-top
+      // occlusion). Lane-surface rooting drifts marks toward laneBottom and
+      // fails; so does seeding a mark above laneTop+8.
+      expect(lane.minRow - toneFirst, `lane ${lane.i} top anchor >= laneTop+8`).toBeGreaterThanOrEqual(lane.top + 8);
+      expect(lane.maxRow - toneLast, `lane ${lane.i} bottom anchor <= laneBottom-6-spriteH`).toBeLessThanOrEqual(lane.bottom - 6 - spriteH);
+    }
   });
 });
 
@@ -580,7 +758,7 @@ test.describe('Theme selector UI + persistence', () => {
 // The boar blanket flat area + bob are pinned by docs/art/boar-sprite.md. The
 // camel blanket tests in render.spec sample the whole 66x62 sprite buffer, so
 // without these the forest anchor (18,18) and the separate +1 px blanket drop
-// are untested.
+// (18,18) and the separate +1 px blanket drop are untested.
 test.describe('Forest boar blanket', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
