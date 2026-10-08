@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
-const { gotoGame, readIndexHtml, extractMatrixRows } = require('./helpers');
+const { gotoGame, readIndexHtml, extractMatrixRows, settleAndPaint, waitAnimsDone } = require('./helpers');
 
 // Rider robe colour for lane index i = GameCore.PALETTE[i % 8] (see index.html).
 const LANE_ROBE = [
@@ -158,12 +158,10 @@ test.describe('Renderer camera and bounds', () => {
   }
 
   test('scene draws sky, sun, dunes and decor (expected colors present)', async ({ page }) => {
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    // isSettled() is trivially true before the first frame; let the loop paint the
-    // desert scene before sampling so the tally cannot read a stale/empty canvas.
-    await page.evaluate(() => new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
-    }));
+    await settleAndPaint(page);
+    // The desert scene must already be on the canvas; the paint wait also
+    // rules out a stale pre-setTheme frame (isSettled() alone cannot see a
+    // theme change that leaves every target x untouched).
     const tally = await pixelTally(page);
     for (const color of ['#1a1030', '#241640', '#2e1c4a']) { // sky bands
       expect(tally[color] || 0).toBeGreaterThan(0);
@@ -177,7 +175,7 @@ test.describe('Renderer camera and bounds', () => {
   });
 
   test('camels rasterise fixed body/shade plus per-lane robe and blanket colours', async ({ page }) => {
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await settleAndPaint(page);
     const tally = await pixelTally(page);
     // Body and shade are fixed warm-sand tones shared by every camel (only the
     // robe is palette-swapped); the saddle blanket is a fixed light blue with no
@@ -257,12 +255,11 @@ test.describe('Renderer camera and bounds', () => {
       GameCore.setGoal(null);
       GameCore.resetRace();
     });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    // Ensure the scene is painted before capturing the idle reference pose
-    // (isSettled() is trivially true while visualLeft is still null).
-    await page.evaluate(() => new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
-    }));
+    // Paint the mutated scene, settle the camera glide, and pin the exact
+    // eased-in sprite position before capturing the idle reference pose: a
+    // sub-pixel lerp tail would otherwise shift the 92 px snapshot crop between
+    // samples and inflate distinctWalkFrames with non-pose variants.
+    await settleAndPaint(page);
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // walk gait frame length (index.html ANIM_FRAME_MS)
       const canvas = document.getElementById('game');
@@ -322,7 +319,7 @@ test.describe('Renderer camera and bounds', () => {
       GameCore.setGoal(null);
       GameCore.resetRace();
     });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await settleAndPaint(page);
     const same = await page.evaluate(() => new Promise((resolve) => {
       const canvas = document.getElementById('game');
       const snap = () => {
@@ -347,19 +344,15 @@ test.describe('Renderer camera and bounds', () => {
     const decorRegion = () => page.evaluate(
       () => document.getElementById('game').getContext('2d').getImageData(0, 0, 1280, 120).data.join(','),
     );
-    // isSettled() tracks camel positions, not the sky: wait for a completed
-    // paint after the theme has been applied before sampling the top band.
-    const settleAndPaint = async () => {
-      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-    };
-    await settleAndPaint();
+    // isSettled() tracks camel positions, not the sky: a paint wait after the
+    // theme has been applied is required before sampling the top band.
+    await settleAndPaint(page);
     const first = await decorRegion();
     await gotoGame(page);
     // Reload restores the persisted desert theme, but only if the debounced save
     // already flushed; pin it again so the comparison is theme-stable either way.
     await page.evaluate(() => GameCore.setTheme('desert'));
-    await settleAndPaint();
+    await settleAndPaint(page);
     const second = await decorRegion();
     expect(second).toBe(first);
   });
@@ -387,7 +380,7 @@ test.describe('Renderer camera and bounds', () => {
       GameCore.setGoal(null);
       GameCore.resetRace();
     });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await settleAndPaint(page);
     // Collect the x-columns occupied by decor body colors only (sky/sun/dune use
     // different colors), so the comparison isolates decor from the dune bands.
     const decorColumns = () => page.evaluate(() => {
@@ -410,7 +403,7 @@ test.describe('Renderer camera and bounds', () => {
     await page.evaluate(() => {
       for (const c of GameCore.getState().camels) GameCore.setScore(c.id, 400);
     });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await settleAndPaint(page);
     const after = await decorColumns();
     expect(after.window).not.toEqual(before.window); // camera actually panned
     expect(before.cols.length).toBeGreaterThan(0); // decor drawn before
@@ -463,7 +456,7 @@ test.describe('Renderer camera and bounds', () => {
 
   test('92x70 camel sprite rasterises blanket, body, shade and outline', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await settleAndPaint(page);
     const b = await page.evaluate(() => GameDebug.getCamelSpriteBounds()[0]);
     expect(b.right - b.left).toBeCloseTo(92, 9); // SPRITE_W buffer
     expect(b.bottom - b.top).toBeCloseTo(70, 9); // SPRITE_H buffer
@@ -554,13 +547,10 @@ test.describe('Renderer camera and bounds', () => {
   test('saddle blanket stays one plain light-blue patch for every lane, with no digit ink', async ({ page }) => {
     for (const count of [2, 8]) {
       await page.evaluate((n) => { GameCore.setCamelCount(n); GameCore.setGoal(null); GameCore.resetRace(); }, count);
-      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
       // isSettled() is trivially true while visualLeft is still null on a fresh
-      // page, so the canvas can still hold the pre-reset layout's pixels. Let the
-      // game loop paint the current scene before sampling it.
-      await page.evaluate(() => new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
-      }));
+      // page, so the canvas can still hold the pre-reset layout's pixels. Paint
+      // the mutated scene and pin the eased position before sampling it.
+      await settleAndPaint(page);
       const res = await page.evaluate(() => {
         const g = document.getElementById('game').getContext('2d');
         return GameDebug.getCamelSpriteBounds().map((b) => {
@@ -586,11 +576,7 @@ test.describe('Renderer camera and bounds', () => {
 
   test('saddle blanket rises 1 px with the body on the pass frames (2 and 4)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    // Paint the settled scene before the walk so the sample buffer is current.
-    await page.evaluate(() => new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
-    }));
+    await settleAndPaint(page);
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // ANIM_FRAME_MS
       const canvas = document.getElementById('game');
@@ -646,10 +632,7 @@ test.describe('Renderer camera and bounds', () => {
 
   test('rider robe takes each lane palette colour (8 camels)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.resetRace(); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    await page.evaluate(() => new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
-    }));
+    await settleAndPaint(page);
     // Count every lane-palette robe pixel inside the sprite's 92x70 buffer: the
     // per-lane robe is the only thing that differs, so each lane must paint its
     // own colour and none of the other lanes' colours.
@@ -679,7 +662,7 @@ test.describe('Renderer camera and bounds', () => {
 
   test('dune lane tokens rasterise (top, shade, edge, rim)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await settleAndPaint(page);
     const tally = await pixelTally(page);
     for (const c of ['#c9a25a', '#a8813f', '#6e4f2a', '#523a1e']) {
       expect(tally[c] || 0).toBeGreaterThan(0);
@@ -713,7 +696,7 @@ test.describe('Renderer camera and bounds', () => {
 
   test('rendered dune crest is continuous across the whole track', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.resetRace(); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await settleAndPaint(page);
     const res = await page.evaluate(() => {
       const W = 1280, Y0 = 120, H = 8;
       const d = document.getElementById('game').getContext('2d').getImageData(0, Y0, W, H).data;
@@ -1064,10 +1047,13 @@ test.describe('Renderer camera and bounds', () => {
       expect(p.top).toBeGreaterThanOrEqual(p.laneTop);
       expect(p.bottom).toBeLessThanOrEqual(p.laneBottom);
     }
-    // Repaint at score 0 and read the hoof row + the row below it.
+    // Repaint at score 0 and read the hoof row + the row below it. setScore
+    // triggers a 1400ms walk on every lane, and a pass frame leaves only two
+    // hooves planted on the bottom sprite row (12 px for the last lane), so
+    // wait for the walk to end instead of sampling whatever phase is current.
     await page.evaluate(() => { for (const c of GameCore.getState().camels) GameCore.setScore(c.id, 0); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await waitAnimsDone(page);
+    await settleAndPaint(page);
     const rows = await page.evaluate(() => {
       const tones = new Set([0x1c1208, 0xd9a05b, 0xb4763a, 0x82521f, 0x53565e, 0xe84a3a,
         0x3a6ae8, 0x3aa84a, 0xe8c83a, 0x9a4ae8, 0xe88a3a, 0x3ad8d8, 0xe85a9a,
@@ -1100,10 +1086,9 @@ test.describe('Renderer camera and bounds', () => {
 
   test('every walk frame keeps the sprite inside 92x70 with feet on the bottom row', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.resetRace(); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    await page.evaluate(() => new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
-    }));
+    // Exact painted position before the walk: the min/max column assertions
+    // below compare against fixed sprite columns, so a wandering crop fails.
+    await settleAndPaint(page);
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // ANIM_FRAME_MS
       const canvas = document.getElementById('game');

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { gotoGame } = require('./helpers');
+const { gotoGame, settleAndPaint } = require('./helpers');
 
 // Team-name labels above each animal. Geometry is exposed through the debug
 // surface (GameDebug.getScene().teamLabels) so these tests assert positions
@@ -12,13 +12,14 @@ async function settle(page) {
 // After a score batch that widens the camera window, isSettled() can be
 // transiently true until the next frame recomputes the window (the stale window
 // still targets the old positions); wait for the widened window first, then for
-// the ease to finish. Keeps the edge/name tests free of a settle race.
+// a painted, fully settled scene. Keeps the edge/name tests free of a settle
+// race AND of a stale pre-mutation paint (labels are only updated by drawScene).
 async function settleWide(page) {
   await expect.poll(() => page.evaluate(() => {
     const w = GameDebug.getCameraWindow();
     return w.max - w.min;
   })).toBeGreaterThan(50000);
-  await settle(page);
+  await settleAndPaint(page);
 }
 
 // FNV-1a hash of a canvas rect: cheap signature for a before/after pixel diff.
@@ -58,7 +59,10 @@ test.describe('Team name labels', () => {
         GameCore.setGoal(null);
         GameCore.resetRace();
       }, themeId);
-      await settle(page);
+      // settleAndPaint: isSettled() only checks x targets, which a fresh page's
+      // score-0 frame already satisfies, so it can be true while the canvas
+      // still shows the PREVIOUS lane count's labels.
+      await settleAndPaint(page);
       const r = await page.evaluate(() => ({
         labels: GameDebug.getScene().teamLabels,
         bounds: GameDebug.getCamelSpriteBounds(),
@@ -93,7 +97,7 @@ test.describe('Team name labels', () => {
       GameCore.resetRace();
       GameCore.setScore('camel-0', 0);
     });
-    await settle(page);
+    await settleAndPaint(page);
     const before = await page.evaluate(() => ({
       l: GameDebug.getScene().teamLabels[0],
       b: GameDebug.getCamelSpriteBounds()[0],
@@ -118,7 +122,10 @@ test.describe('Team name labels', () => {
     });
     expect(mid.settled).toBe(false); // genuinely sampled mid-motion
     expect(Math.abs((mid.l.x + mid.l.w / 2) - (mid.b.left + mid.b.right) / 2)).toBeLessThanOrEqual(1);
-    await settle(page);
+    // Paint + exact position before re-reading: the label metadata comes from
+    // the last painted frame, the bounds are live, so both must be pinned to
+    // the same finished frame or the centre check compares different moments.
+    await settleAndPaint(page);
     const after = await page.evaluate(() => ({
       l: GameDebug.getScene().teamLabels[0],
       b: GameDebug.getCamelSpriteBounds()[0],
@@ -139,7 +146,10 @@ test.describe('Team name labels', () => {
         GameCore.setGoal(null);
         GameCore.resetRace();
       }, themeId);
-      await settle(page);
+      // settleAndPaint: the band geometry must come from a frame that painted
+      // THIS lane count/theme, otherwise the rect can be sampled from stale
+      // label coordinates and both hashes miss the label entirely.
+      await settleAndPaint(page);
       const before = await page.evaluate(() => GameDebug.getScene().teamLabels[0]);
       expect(before.name).toBe('Team 1');
       const band = fixedLabelBand(before);
@@ -231,13 +241,18 @@ test.describe('Team name labels', () => {
 
     // Shrink must not deadlock: deleted ids linger in runtime.visualLeft, but the
     // hook only inspects current lanes, so it settles again to the 2-lane scene.
+    // The label count is a PAINTED signal (drawScene rewrites it every frame):
+    // unlike isSettled() it cannot be satisfied by the previous frame, so poll
+    // it directly instead of assuming a frame ran after the shrink.
     await page.evaluate(() => GameCore.setCamelCount(2));
-    await settle(page);
-    expect(await page.evaluate(() => GameDebug.getScene().teamLabels.length)).toBe(2);
+    await expect.poll(() => page.evaluate(() => GameDebug.getScene().teamLabels.length)).toBe(2);
     expect(await page.evaluate(() => GameDebug.isSettled())).toBe(true);
   });
 
   test('getScene keeps its existing fields alongside teamLabels', async ({ page }) => {
+    // teamLabels is written by drawScene, so a frame must have painted before
+    // a fresh page can report the field at all.
+    await settleAndPaint(page);
     const scene = await page.evaluate(() => GameDebug.getScene());
     expect(scene).toHaveProperty('finishVisible');
     expect(scene).toHaveProperty('goalScreenX');
