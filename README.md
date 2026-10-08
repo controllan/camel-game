@@ -19,7 +19,7 @@ Open `index.html` in a browser — double-click it or drag it into a tab. No ser
 - **Language** — the `EN` / `DE` toggle in the header switches every string. Default EN.
 - **Theme** — the `Desert` / `Forest` toggle in the header, next to the language toggle, swaps the art instantly. Default Forest.
 
-All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride grass lanes under a treeline. Each animal carries a colored rider and a numbered light-blue saddle blanket.
+All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride grass lanes under a treeline. Each animal carries a colored rider and a plain light-blue saddle blanket; its team name is drawn on a canvas label above it.
 
 Out of scope: sound, cross-device sync, multiplayer, betting.
 
@@ -44,7 +44,7 @@ Switch with the theme toggle in the header next to the language toggle — the s
 instant, does not reset scores, and the selection is persisted. **Forest is the
 default**: a fresh game (or one with no saved theme) opens as `BOAR RACE` /
 `WILDSCHWEIN RENNEN`. A persisted theme — desert included — overrides the default on
-reload. Both themes share one score set, the lane colours, and the numbered blanket.
+reload. Both themes share one score set, the lane colours, and the team-name labels above the animals.
 The in-game title follows the
 theme and language: `BOAR RACE` / `WILDSCHWEIN RENNEN` in the forest theme, `CAMEL RACE`
 / `KAMEL RENNEN` in the desert theme (header and browser tab).

@@ -1,13 +1,18 @@
-# Boar sprite (Wildschwein) — hunter rider + numbered saddle blanket
+# Boar sprite (Wildschwein) — hunter rider + plain saddle blanket
 
 Procedural pixel art for the **forest** theme racer. Faces **right**, one boar per lane.
 Traced from the user reference `wildschwein-pixelart.jpeg` (repo root, `448×362`,
 user-mirrored to face right). No image files at runtime: the matrices below drive
 `drawSprite`. Conventions follow [`docs/art/camel-sprite.md`](camel-sprite.md)
 (legend discipline, `O`-enclosure pass, single 4-connected blob, feet on the bottom
-row, 1 standing + 4 walk frames, digit-on-blanket, per-lane robe char `R`).
+row, 1 standing + 4 walk frames, plain saddle blanket (team name = canvas label above
+the animal), per-lane robe char `R`).
 
-> **Change log.** 2026-10-04 (user request): enlarged tusks (near canine + a
+> **Change log.** 2026-10-06 (user request): per-lane digit retired from the saddle
+> blanket; the team name is drawn as a canvas label above the animal (12 px monospace
+> `#e8e0d0` on a dark pill, clamped to the canvas).
+>
+> 2026-10-04 (user request): enlarged tusks (near canine + a
 > smaller far-side tusk) and white-sclera eyes with a black pupil dot.
 
 > **Reference is copyrighted & gitignored.** `.gitignore` keeps
@@ -21,7 +26,7 @@ row, 1 standing + 4 walk frames, digit-on-blanket, per-lane robe char `R`).
 | Feet | on the **bottom row** (`row 41`) in every frame |
 | Height budget | 42 px sprite (42 ≤ `laneFit.spriteHMax = 70`); 8-lane slack `74 − 70 = 4 px` |
 | Rider | **hunter** — forest-green cap `C`, skin `K`, lane-colour tunic/robe `R`, reins `D`, boots `D` |
-| Blanket | `L #bfe3ea`, flat **6 wide × 10 tall** digit area, digit ink `#123a44` |
+| Blanket | `L #bfe3ea`, plain pad **6 wide × 10 tall** (`cols 18–23, rows 18–27`); no digit area, no digit |
 | Status | authoritative forest animal; consumed by `THEMES.forest.animal` (Task 9) |
 
 ## Reference trace — detected native grid
@@ -70,8 +75,7 @@ Contrast ratios are WCAG (luminance method).
 | `robe` | `R` | **lane colour** | hunter tunic (per-lane) |
 | `skin` | `K` | `#d8a878` | hunter face + hand |
 | `cap` | `C` | `#2f6b3a` | forest-green hunter cap |
-| `blanket` | `L` | `#bfe3ea` | saddle blanket |
-| `digit` | — | `#123a44` | number on blanket (drawn by code) |
+| `blanket` | `L` | `#bfe3ea` | saddle blanket (plain) |
 
 Lane colours (tunic `R` only, in lane order, shared with the camel):
 
@@ -79,8 +83,7 @@ Lane colours (tunic `R` only, in lane order, shared with the camel):
 |---|---|---|---|---|---|---|---|---|
 | | `#e84a3a` | `#3a6ae8` | `#3aa84a` | `#e8c83a` | `#9a4ae8` | `#e88a3a` | `#3ad8d8` | `#e85a9a` |
 
-Contrast: digit `#123a44` on blanket `#bfe3ea` = **8.98** (≥ AA 4.5 ✓);
-tusk `#f0ece0` on body `#4c4332` = **8.25**; blanket on body = **7.14**;
+Contrast: tusk `#f0ece0` on body `#4c4332` = **8.25**; blanket on body = **7.14**;
 outline on a forest-floor green `#5a7a3a` = **3.80** (silhouette reads; large flat
 shape, outline-on-background — same reading rule as the camel).
 
@@ -437,25 +440,18 @@ sequenceDiagram
   A-->>T: walk active?
   T->>D: frame = animUntil>now ? (floor(now/320)%4)+1 : 0
   D->>D: paint matrix (R = lane colour)
-  D->>D: overlay 6x10 digit on blanket (anchor 18,18; +1 row on 2/4)
+  D->>D: paint matrix (plain blanket; team name = canvas label)
 ```
 
-## Saddle blanket + number
+## Saddle blanket
 
 - **Blanket area** = `rows 18–27` × `cols 18–23` (6 wide × 10 tall), flat `L` on
   every frame; on bob frames `2, 4` it shifts **1 px down** (`rows 19–28`).
-- **Digit** = `6 × 10` px, drawn by code as an exact **2 × nearest-neighbour upscale
-  of the existing `3 × 5` `DIGIT_FONT`** (single source of truth — same rule as the
-  camel). Anchor **sprite-local `(col 18, row 18)`** → occupies `cols 18–23,
-  rows 18–27`. On bob frames add **+1 to the row** (anchor `(18, 19)`).
-  Colour `#123a44`. One glyph per lane = the boar's 1-based lane number (fallback `0`).
-- Verified: the digit area `cols 18–23 × rows 18–27` is flat `L` in all five frames
-  (`+1` row on bob frames 2/4).
-
-| | digit area (6×10) |
-|---|---|
-| anchor (standing/contact, frames 0,1,3) | `(col 18, row 18)` |
-| anchor (bob, frames 2,4) | `(col 18, row 19)` |
+- The pad is **plain** `#bfe3ea` — **no digit, no reserved digit area**, nothing is
+  painted on the blanket.
+- Lane/team identity = the **canvas team-name label above the animal**: team name in
+  **12 px monospace** `#e8e0d0` on a dark pill, 4 px above the sprite, **clamped to
+  the canvas** (plus the lane colour). Digit `#123a44` retired (user request).
 
 ## Similarity evidence
 
@@ -486,7 +482,7 @@ excluded) to its painted bbox `57 × 38`, resize the reference boar mask to `57 
 | single 4-connected blob (no strays / border fill) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | feet on bottom row (row 41) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | painted bbox ≤ 57 × 42 | 57×42 | 57×42 | 57×41 | 57×42 | 57×41 |
-| digit area flat `L` (6×10, +1 row bob) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| blanket pad flat `L` (6×10, +1 row bob) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | tusk pixels `T` | 11 | 11 | 11 | 11 | 11 |
 | eye-white pixels `W` | 3 | 3 | 3 | 3 | 3 |
 | pupil/eye pixels `Y` (1 boar + 1 hunter) | 2 | 2 | 2 | 2 | 2 |
@@ -522,16 +518,16 @@ excluded) to its painted bbox `57 × 38`, resize the reference boar mask to `57 
   the sprite's palette object; keep the fallback `COL` for decoration sprites.
 - **Per-frame data**: bob on frames `2, 4` (upper body + rider + blanket `+1 row`);
   feet always on row 41; hooves are `O` blocks and never move with the bob.
-- **Where the number is drawn**: after `drawSprite(BOAR[frame], left, top, BOAR_PAL(c.color))`,
-  overlay the `6 × 10` glyph at **`(left + 18, top + 18)`** (`+1` row on bob frames
-  2, 4), colour `#123a44`. One glyph per lane, index = the boar's 1-based lane number.
+- **Digit draw retired** (user request): do not overlay a glyph on the blanket after
+  `drawSprite(BOAR[frame], left, top, BOAR_PAL(c.color))`; `BOAR_ANCHOR`,
+  `blanket.anchor` and `blanket.digitColor` go with it. The team is identified by the
+  canvas team-name label above the animal (same label code as the camel).
 - **Forest-theme wiring** (`THEMES.forest.animal`):
 
   ```js
   animal: {
     id: 'boar', sprite: BOAR, pal: BOAR_PAL, w: 60, h: 42,
     rider: 'hunter',
-    blanket: { anchor: { x: 18, y: 18 }, w: 6, h: 10, digitColor: '#123a44' },
     bobOffset: 1,
   },
   laneFit: { spriteHMax: 70, laneMinPx: 74 },
@@ -546,7 +542,7 @@ needed for human review out of `test-results/` before running the suite.
 
 - `test-results/ux-tmp/boar-hires-frames.png` — 5 frames 8× + 10 px grid, forest green
 - `test-results/ux-tmp/boar-hires-vs-trace.png` — standing boar 8× beside the downsampled reference silhouette at matched bbox scale
-- `test-results/ux-tmp/boar-hires-dressed.png` — 3 robe colours (red/blue/green) × digits 1–8
+- `test-results/ux-tmp/boar-hires-dressed.png` — 3 robe colours (red/blue/green) × 8 lanes (pre-retirement preview: still shows the retired digit)
 - `test-results/ux-tmp/boar-hires-1x.png` — 1× strip on forest-floor green
 - `test-results/ux-tmp/boar-tusks-frames.png` — 5 frames 8× + grid (tusk/eye tweak)
 - `test-results/ux-tmp/boar-tusks-1x.png` — 1× strip on forest-floor green (tusk/eye tweak)
@@ -560,7 +556,7 @@ needed for human review out of `test-results/` before running the suite.
 4. **Walk cycle** — after a score change the frame index advances `1→2→3→4→1` at 320 ms steps and returns to 0 after `ANIM_MS`.
 5. **Bob** — on frames 2 and 4 the upper body + rider + blanket sit exactly `1 px` lower than on frames 0/1/3; the hoof blocks stay on the bottom row.
 6. **Palette-swap** — blanket pixels are `#bfe3ea`; tunic pixels (`R`) equal the lane colour (`#e84a3a` for lane 0, `#3a6ae8` for lane 1, …); cap is `#2f6b3a`; outline/hooves are `#16120b` in every lane.
-7. **Number** — pixels at sprite-relative `cols 18–23 / rows 18–27` (`+1` row on bob frames 2, 4) match the `6 × 10` glyph for the boar's 1-based lane number, colour `#123a44`.
+7. **Team name** — the team name is drawn as a canvas label above the boar (12 px monospace `#e8e0d0` on a dark pill, clamped to the canvas); no digit is painted on the blanket.
 8. **Fixed tones** — body `#4c4332`, tusk `#f0ece0`, eye-white `#f0ece0`, pupil `#14100b`, ear `#787160`, legs `#2e2918` in every lane; only `R` changes with lane colour.
 9. **Distinct poses** — all 5 frames pairwise distinct (IoU `< 0.98`); the 4 walk frames alternate contact/pass.
 10. **Boar face reads** — every frame has exactly 11 `T` (tusk), 3 `W` (eye-white) and 1 boar `Y` (pupil) at fixed sprite-relative cells: `W` `(15,44),(16,44),(16,45)`, pupil `(15,45)` (all `+1` row on bob frames 2, 4); tusk near canine `cols 47–48 / rows 19–23`, far tusk `col 46 / rows 21–22` (same `+1` row on bob frames).
