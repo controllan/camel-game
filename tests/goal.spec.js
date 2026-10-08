@@ -240,10 +240,9 @@ test.describe('Goal end state and infinite mode', () => {
     await settle(page);
 
     const { frames, drawn } = await page.evaluate(() => new Promise((resolve, reject) => {
-      // Confetti is the only art drawn as 4x4 fillRect (the saddle digit is
-      // 2x2, sprites are 1x1, the finish stripe is 8x8, lane/banner fills are
-      // larger), so counting 4x4 draw calls per frame proves the burst is
-      // spawned, updated and cleared.
+      // Confetti is the only art drawn as 4x4 fillRect (sprites are 1x1, the
+      // finish stripe is 8x8, lane/banner fills are larger), so counting 4x4
+      // draw calls per frame proves the burst is spawned, updated and cleared.
       const proto = CanvasRenderingContext2D.prototype;
       const original = proto.fillRect;
       let current = [];

@@ -577,70 +577,59 @@ test.describe('Theme selector UI + persistence', () => {
   });
 });
 
-// The boar digit anchor + bob are pinned by docs/art/boar-sprite.md. The desert
-// digit tests in render.spec sample +24/+36 and +2 bob, so without these the
-// forest anchor (18,18) and +1 bob are untested.
-test.describe('Forest boar blanket digit', () => {
+// The boar blanket flat area + bob are pinned by docs/art/boar-sprite.md. The
+// camel blanket tests in render.spec sample the whole 66x62 sprite buffer, so
+// without these the forest anchor (18,18) and the separate +1 px blanket drop
+// are untested.
+test.describe('Forest boar blanket', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
-  // 3x5 source glyphs; each is the exact 2x nearest-neighbour upscale used by the
-  // renderer, so a wrong/offset sample shows up as non-zero mismatches.
-  const SRC = {
-    '1': ['.#.', '##.', '.#.', '.#.', '###'],
-    '2': ['###', '..#', '###', '#..', '###'],
-    '3': ['###', '..#', '###', '..#', '###'],
-    '4': ['#.#', '#.#', '###', '..#', '..#'],
-  };
-  function glyphs() {
-    const up = (row) => row[0] + row[0] + row[1] + row[1] + row[2] + row[2];
-    const out = {};
-    for (const n in SRC) { const rows = []; for (const row of SRC[n]) { const u = up(row); rows.push(u, u); } out[n] = rows; }
-    return out;
-  }
-
-  test('digit sits at the boar anchor (18,18) for every lane', async ({ page }) => {
+  test('blanket flat area stays solid at the boar anchor (18,18) for every lane', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     // isSettled() is trivially true on a fresh page; paint the current scene first.
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-    const res = await page.evaluate(({ want }) => {
-      const bounds = GameDebug.getCamelSpriteBounds();
+    const res = await page.evaluate(() => {
       const g = document.getElementById('game').getContext('2d');
-      return bounds.map((b, lane) => {
-        const d = g.getImageData(Math.round(b.left) + 18, Math.round(b.top) + 18, 6, 10).data;
-        const glyph = want[String(lane + 1)];
-        let bad = 0;
-        for (let ry = 0; ry < 10; ry += 1) {
-          for (let rx = 0; rx < 6; rx += 1) {
-            const i = (ry * 6 + rx) * 4;
-            const ink = d[i] === 0x12 && d[i + 1] === 0x3a && d[i + 2] === 0x44;
-            if (ink !== (glyph[ry][rx] === '#')) bad += 1;
-          }
+      return GameDebug.getCamelSpriteBounds().map((b) => {
+        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 60, 42).data;
+        let blanket = 0, digitInk = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+          if (h === 0xbfe3ea) blanket += 1;
+          else if (h === 0x123a44) digitInk += 1;
         }
-        return bad;
+        // The idle boar's whole blanket is the flat 6x10 area at the anchor.
+        const p = g.getImageData(Math.round(b.left) + 18, Math.round(b.top) + 18, 6, 10).data;
+        let patch = 0;
+        for (let i = 0; i < p.length; i += 4) {
+          if (((p[i] << 16) | (p[i + 1] << 8) | p[i + 2]) === 0xbfe3ea) patch += 1;
+        }
+        return { blanket, digitInk, patch };
       });
-    }, { want: glyphs() });
-    expect(res).toEqual([0, 0, 0, 0]);
+    });
+    expect(res.length).toBe(4);
+    for (const lane of res) {
+      expect(lane.blanket).toBe(60);  // all 60 blanket px sit in the flat area
+      expect(lane.patch).toBe(60);    // ...which is solid at the documented anchor
+      expect(lane.digitInk).toBe(0);  // no digit ink remains on the blanket
+    }
   });
 
-  test('digit drops +1 px with the body on bob frames 2 and 4', async ({ page }) => {
+  test('blanket drops +1 px with the body on bob frames 2 and 4', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // ANIM_FRAME_MS
-      const GLYPH = ['..##..', '..##..', '####..', '####..', '..##..', '..##..', '..##..', '..##..', '######', '######'];
       const canvas = document.getElementById('game');
+      // Non-blanket pixels in the 6x10 rect at anchor row 18 (+1 row for the bob).
       function mismatch(rowOffset) {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const d = canvas.getContext('2d').getImageData(Math.round(b.left) + 18, Math.round(b.top) + 18 + rowOffset, 6, 10).data;
         let bad = 0;
-        for (let ry = 0; ry < 10; ry += 1) {
-          for (let rx = 0; rx < 6; rx += 1) {
-            const i = (ry * 6 + rx) * 4;
-            const ink = d[i] === 0x12 && d[i + 1] === 0x3a && d[i + 2] === 0x44;
-            if (ink !== (GLYPH[ry][rx] === '#')) bad += 1;
-          }
+        for (let i = 0; i < d.length; i += 4) {
+          if (!(d[i] === 0xbf && d[i + 1] === 0xe3 && d[i + 2] === 0xea)) bad += 1;
         }
         return bad;
       }
@@ -669,12 +658,12 @@ test.describe('Forest boar blanket digit', () => {
     }));
     expect(Object.keys(res).sort()).toEqual(['1', '2', '3', '4']);
     const off = (fi) => res[fi].split('/').map(Number);
-    // Contact frames (1, 3): digit at anchor row 18; the +1 offset must NOT match.
+    // Contact frames (1, 3): blanket sits at anchor row 18; the +1 offset is not all blanket.
     expect(off(1)[0]).toBe(0);
     expect(off(1)[1]).toBeGreaterThan(0);
     expect(off(3)[0]).toBe(0);
     expect(off(3)[1]).toBeGreaterThan(0);
-    // Bob frames (2, 4): digit drops 1 px to row 19; only the +1 offset matches.
+    // Bob frames (2, 4): the blanket drops 1 px to row 19; only the +1 offset is all blanket.
     expect(off(2)[1]).toBe(0);
     expect(off(2)[0]).toBeGreaterThan(0);
     expect(off(4)[1]).toBe(0);
@@ -741,7 +730,7 @@ test.describe('Forest boar v6 art (enlarged tusk + white eye / dark pupil)', () 
 
   // Acceptance #10 says the T/W/Y cells hold in EVERY frame; the standing test
   // above only renders frame 0. Sweep the 4 walk frames (2/4 bob +1 row) using the
-  // same rAF grouping as the blanket-digit bob test.
+  // same rAF grouping as the blanket bob test.
   test('face cells hold in all 5 frames (tusk/sclera/pupil shift +1 row on bob frames 2, 4)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);

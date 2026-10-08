@@ -887,20 +887,6 @@ window.GameCore = (function () {
     robe: robe, eyeWhite: '#f0ece0', skin: '#d8a878', blanket: '#bfe3ea',
   });
 
-  // 3x5 digit font for the numbered saddle blanket ('#' lit, '.' transparent).
-  const DIGIT_FONT = {
-    '1': ['.#.', '##.', '.#.', '.#.', '###'],
-    '2': ['###', '..#', '###', '#..', '###'],
-    '3': ['###', '..#', '###', '..#', '###'],
-    '4': ['#.#', '#.#', '###', '..#', '..#'],
-    '5': ['###', '#..', '###', '..#', '###'],
-    '6': ['###', '#..', '###', '#.#', '###'],
-    '7': ['..#', '..#', '..#', '..#', '..#'],
-    '8': ['###', '#.#', '###', '#.#', '###'],
-    '9': ['###', '#.#', '###', '..#', '###'],
-    '0': ['###', '#.#', '#.#', '#.#', '###'],
-  };
-
   const SEED = 1337;
   // Per-layer decor streams + the grass carpet (docs/art/theme-art.md §3.4). Each
   // layer owns a seeded stream (distinct salt); floor runs one stream per lane.
@@ -914,8 +900,7 @@ window.GameCore = (function () {
   // Camel v5 66x62, 5 frames: 0 standing (idle), 1-4 walk (contact A, pass A,
   // contact B, pass B). Legend (docs/art/camel-sprite.md): . transparent,
   // O outline, B body, S shade, G harness (fixed), R robe (per-lane colour),
-  // W eye-white (turban), K skin (face), L saddle blanket. Blanket flat area holds a
-  // 6x10 digit drawn by code at sprite-local (24, 36) (+2 rows on bob frames 2, 4).
+  // W eye-white (turban), K skin (face), L plain saddle blanket (no code-drawn digit).
   const CAMEL = [
     [ // frame 0 — standing (idle)
       '..................................................................',
@@ -1407,8 +1392,7 @@ window.GameCore = (function () {
   // 2 pass A (bob), 3 contact B, 4 pass B (bob). Legend: . transparent,
   // O outline/hooves, B body, S shade, D bristle/reins/boots, H highlight,
   // E ear, T tusk (near + far), W eye-white sclera, Y eye pupil, G legs,
-  // R hunter tunic (per-lane), K skin, C cap, L saddle blanket. Digit flat
-  // area cols 18-23 x rows 18-27 (+1 row on bob).
+  // R hunter tunic (per-lane), K skin, C cap, L saddle blanket.
   const BOAR = [
     [ // frame 0 — standing (idle; traced gait, feet row 41)
       '.......................OOOOO................................',
@@ -1640,7 +1624,6 @@ window.GameCore = (function () {
     highlight: '#5f5745', ear: '#787160', tusk: '#f0ece0', eyeWhite: '#f0ece0', eye: '#14100b',
     legs: '#2e2918', harness: '#2e2918', robe: robe, skin: '#d8a878', cap: '#2f6b3a', blanket: '#bfe3ea',
   });
-  const BOAR_ANCHOR = { x: 18, y: 18 }; // pinned by docs/art/boar-sprite.md
 
   // Forest decor sprites (docs/art/theme-art.md). Legends via CHAR_KEY +
   // per-sprite palette objects keyed by their own letters.
@@ -2080,7 +2063,6 @@ window.GameCore = (function () {
   // ---------- theme registry (single source of truth for per-theme art) ----------
   // Some fields are declarative-only (shape fixed by docs/art/theme-art.md) and are
   // not read by the renderer; each is marked below.
-  const CAMEL_ANCHOR = { x: 24, y: 36 }; // docs/art/camel-sprite.md v5 digit anchor
   const THEMES = {
     desert: {
       id: 'desert',
@@ -2100,7 +2082,6 @@ window.GameCore = (function () {
       },
       animal: {
         id: 'camel', sprite: CAMEL, pal: CAMEL_PAL, w: 66, h: 62, rider: 'turban', // rider: declarative-only
-        blanket: { anchor: CAMEL_ANCHOR, w: 6, h: 10, digitColor: '#123a44' }, bobOffset: 2,
       },
       laneFit: { spriteHMax: 70, laneMinPx: 74 }, // declarative-only (bounds documented, not enforced at runtime)
     },
@@ -2147,7 +2128,6 @@ window.GameCore = (function () {
       },
       animal: {
         id: 'boar', sprite: BOAR, pal: BOAR_PAL, w: 60, h: 42, rider: 'hunter', // rider: declarative-only
-        blanket: { anchor: BOAR_ANCHOR, w: 6, h: 10, digitColor: '#123a44' }, bobOffset: 1,
       },
       laneFit: { spriteHMax: 70, laneMinPx: 74 }, // declarative-only (bounds documented, not enforced at runtime)
     },
@@ -2193,28 +2173,6 @@ window.GameCore = (function () {
         if (color === undefined) continue;
         ctx.fillStyle = color;
         ctx.fillRect(ox + rx, oy + ry, 1, 1);
-      }
-    }
-  }
-
-  // Draw the animal's 1-based lane digit on its saddle blanket, in the theme's
-  // blanket-number ink, after the sprite pass. The 6x10 glyph is the exact 2x
-  // nearest-neighbour upscale of the 3x5 DIGIT_FONT above (single source of
-  // truth). The blanket (and digit) drop `bobOffset` rows with the body on the
-  // bob frames (2, 4).
-  function drawBlanketNumber(left, top, laneIndex, frameIndex) {
-    let n = laneIndex + 1;
-    if (n > 9) n = 0; // unreachable safety fallback: lane count is capped at 8
-    const glyph = DIGIT_FONT[String(n)];
-    if (!glyph) return;
-    const blanket = theme.animal.blanket;
-    const anchor = blanket.anchor;
-    const rowOffset = (frameIndex === 2 || frameIndex === 4) ? theme.animal.bobOffset : 0;
-    ctx.fillStyle = blanket.digitColor;
-    for (let ry = 0; ry < 5; ry++) {
-      const row = glyph[ry];
-      for (let rx = 0; rx < 3; rx++) {
-        if (row[rx] === '#') ctx.fillRect(Math.round(left) + anchor.x + rx * 2, Math.round(top) + anchor.y + rowOffset + ry * 2, 2, 2);
       }
     }
   }
@@ -2593,7 +2551,6 @@ window.GameCore = (function () {
       const frameIndex = (now < c.animUntil) ? (Math.floor(now / ANIM_FRAME_MS) % 4) + 1 : 0;
       const top = camelTopY(i, n, c.score);
       drawSprite(theme.animal.sprite[frameIndex], left, top, theme.animal.pal(c.color));
-      drawBlanketNumber(left, top, i, frameIndex);
     });
   }
 
