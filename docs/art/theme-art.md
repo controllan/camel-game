@@ -15,8 +15,8 @@ This doc is the authoritative source for the **decor / sky** sprites;
 | `LANE_BOTTOM` | **712** (`720 − 8`) |
 | lane region | **592** |
 | `laneHeight(8)` | **74.0** |
-| Decor spacing / cull | **32 / 48 / 20** (background / midground / floor, world points; desert v2 floor **12**, §2.14) / **1500** (`SEED = 1337`) |
-| Themes | `desert` (camel + dunes + v2 dune shading/floor, §2.7–§2.14), `forest` (boar + grass/treeline) — both run the per-layer decor streams |
+| Decor spacing / cull | **32 / 48 / 12** (background / midground / floor, world points; v2 floor **12** in both themes, §2.14/§3.8) / **1500** (`SEED = 1337`) |
+| Themes | `desert` (camel + dunes + v2 dune shading/floor, §2.7–§2.14), `forest` (boar + grass/treeline + v2 dusk ridges/jag/ripples/dense floor, §3.8) — both run the per-layer decor streams |
 | Previews | gitignored `test-results/ux-tmp/` (see [Previews](#6-previews)) |
 | Reference | `camel-sprite.md` dune tokens + the shipped `640×360` art in `index.html` |
 
@@ -411,18 +411,18 @@ positions, **never culled**. Same code path — only the tones come from the the
 | `ground.shade` | **`#a8813f`** | 40 % | dark sand grain (v2 — was `ground.ripple #b8935a`, too close to the fill) |
 
 **v2 (density pass).** Pitch **`7` screen px per lane** (`ground.carpetSpacing: 7`;
-forest keeps `10` via the `CARPET_SPACING` fallback — its pixels must not move), plus
-**grain clusters**: at **`clusterShare = 0.18`** per column, a 4 px cluster = 3 px dark
+the forest v2 ships its own `7` + clusters too, §3.8), plus **grain clusters**: at
+**`clusterShare = 0.18`** per column, a 4 px cluster = 3 px dark
 run + 1 lit pixel on top (reads as a grain fragment, not noise):
 
 ```js
-const worldSpacing = span / CANVAS_W * (ground.carpetSpacing || CARPET_SPACING);  // 7 | 10
+const worldSpacing = span / CANVAS_W * (ground.carpetSpacing || CARPET_SPACING);  // 7 default
 for (let j = 0; j < count; j++) {                       // count = 1 + (rng() < 0.5 ? 1 : 0)
   const y = lo + Math.floor(nextPrng() * (hi - lo));     // lo = crest + 5, hi = bottom − 2
   ctx.fillStyle = (nextPrng() < share) ? ground.speckle : dark;   // dark = ripple ?? shade
   ctx.fillRect(px, y, 1 + (nextPrng() < 0.5 ? 1 : 0), 1);  // 1–2 px dot
 }
-if (ground.ramp && nextPrng() < (ground.clusterShare || 0)) {     // desert v2 only (1 rng draw)
+if (ground.clusterShare !== undefined && nextPrng() < ground.clusterShare) { // opt-in token
   const cy = lo + 1 + Math.floor(nextPrng() * Math.max(1, hi - lo - 2));
   ctx.fillStyle = dark;             ctx.fillRect(px, cy, 3, 1);    // dark run
   ctx.fillStyle = ground.speckle;   ctx.fillRect(px + 1, cy - 1, 1, 1);  // lit grain above
@@ -440,8 +440,10 @@ reads as a flat empty ribbon.
 
 The dark grain key stays `ground.ripple ?? ground.shade`; desert **retires
 `ground.ripple`** in v2 (§2.12 folds its tone into `ground.ramp[2]`), so the key now
-resolves to `ground.shade #a8813f` in **both** themes — no code change in the carpet
-path, forest pixels untouched. Tone rationale: `#dcb87a` / `#a8813f` bracket the lane
+resolves to `ground.shade` in both themes (forest `#3a6030`, desert `#a8813f`). The
+cluster gate is the opt-in `ground.clusterShare !== undefined` token: the desert ships
+`0.18` exactly as before (same draw order), the forest v2 ships `0.14` and its carpet
+pixels change by design (§3.8). Tone rationale: `#dcb87a` / `#a8813f` bracket the lane
 fill and its ramp zones (measured contrast against `ground.top` **1.27 / 1.50**,
 against the `#b8935a` toe **1.06 / 1.25**) — the desert grain now separates like the
 grass carpet's (1.83 / 1.57) instead of the shipped, near-invisible 1.27 / 1.20.
@@ -1089,7 +1091,7 @@ streak reads on every zone — unlike a light tone, which would vanish on the to
 // same per-lane loop, AFTER the crest rim/shade pass (so ripple lines never cross
 // the rim, the 2 px shade stripe, the lane edge or the next lane):
 const span = Math.max(1e-6, win.max - win.min);
-for (const b of DUNE_STREAKS) {                 // const DUNE_STREAKS = [{thick,amp,periodPx,phase,frac}, ...]
+for (const b of ground.streaks) {               // desert ships streaks: DUNE_STREAKS (verbatim); forest §3.8
   const periodWorld = span / CANVAS_W * b.periodPx;   // 360 px of sand = 28.1 world pts at W = 100
   const y0 = top + Math.round(b.frac * laneH);
   let runX = 0, runY = null;
@@ -1122,12 +1124,15 @@ bands, and the lanes, from stacking into vertical moiré. `heights` is the same
 **Cheap + never culled.** Run-coalesced `fillRect` row runs: **≈1 200 rects/frame at
 4 lanes, ≈2 400 at 8 lanes, independent of zoom** (≈100 runs per band per lane; the
 pure-sine y changes every ≈12 px) — no PRNG, no allocation. Drawn inside the lane pass,
-so it survives `maxSpan = 1500` like the carpet and the lanes themselves.
+so it survives `maxSpan = 1500` like the carpet and the lanes themselves. The band data
+is the `ground.streaks` token: the desert ships the 3 rows above verbatim (unchanged
+pixels), the forest its own 2-band set (§3.8).
 
 **Perceptual effect at 1×:** each lane becomes a dune slope — bright windward crest,
 three broad, gently undulating ripple lines across the field, darker toe in shadow —
 and the four lanes stack into a wind-worked dune field instead of one flat sand field.
-The forest's analogue (crest rim + shade stripe + dense cover) now has a desert match.
+The forest later shipped the same mechanism with its own tokens (2 bands, subtler
+amplitudes) plus dusk ridges and a treeline jag — see §3.8.
 
 ---
 
@@ -1248,7 +1253,8 @@ Flat marks are `0.31` of every floor draw, small surface/rooted detail
 (`sand_ripples`/`pebbles`/`scrub`/`hoof_prints`) `0.48`, and the rare rooted trio
 cactus/wood/bones `0.21` — small marks dominate, cactus/wood/bones stay rare.
 
-**Flat-mark placement rule** (new; only the four `flat:true` kinds):
+**Flat-mark placement rule** (shared by the desert §2.14 four and the forest §3.8 three;
+only `flat:true` kinds):
 
 ```js
 // after roll → jitter → lane, floor streams consume ONE extra nextPrng() draw for flat kinds:
@@ -1283,8 +1289,8 @@ Measured in the shipped renderer (`Chromium`, `index.html`) with the §2.14 para
 
 So the default 4-lane window goes from 21 → **35 floor marks**, of which 12 are large
 flat marks that roam the lane field (the shipped desert had none — all 21 sat on the lane
-bottom line). Forest at the same camera shows ≈20 floor props; the desert is now the
-richer field, as requested.
+bottom line). Forest v2 reaches the same density at the same camera (35 floor / 40 total,
+§3.4.4): the two themes are now parity fields, not desert-only richness.
 
 #### 2.14.2 Size + perf budget
 
@@ -1308,8 +1314,9 @@ suite is the baseline, and the game must not be touched here).
 
 ## 3. Forest theme (new)
 
-Dusk sky + moon over grass lanes with a treeline, midground trees standing in the
-track, and dense procedural floor cover (grass carpet + sprites).
+Dusk sky + moon over grass lanes with a distant-ridge horizon and treeline jag,
+midground trees standing in the track, and dense procedural floor cover (grass
+carpet + sprites + v2 flat marks — see §3.8 for the ambience v2 additions).
 
 ### 3.1 Dusk sky bands + moon
 
@@ -1338,16 +1345,26 @@ by the shared `h(x)`, `rim` 1 px under the crest, `edge` at the ribbon bottom an
 below `LANE_BOTTOM`). Only the palette changes — the terrain silhouette math is
 identical, so lane geometry / fit are untouched.
 
-| Token | Hex | Use |
+| Token | Hex / value | Use |
 |---|---|---|
 | `ground.top` | `#4a7a3a` | lit grass fill |
-| `ground.shade` | `#3a6030` | grass shade stripe (`crest + 3`, 2 px) |
+| `ground.shade` | `#3a6030` | grass shade stripe (`crest + 3`, 2 px) + ripple bands + carpet dark |
 | `ground.edge` | `#26401f` | crease between ribbons / under `LANE_BOTTOM` |
 | `ground.rim` | `#1c3018` | darker rim under the lit crest |
+| `ground.speckle` | `#5a8a48` | carpet lit speck |
+| `ground.speckleShare` | `0.5` | carpet tone split (50 % lit / 50 % shade) |
+| `ground.speckleWidth` | `2` | carpet speck width, `1–2 px` (§3.4.2) |
+| `ground.carpetSpacing` | `7` | carpet pitch in screen px, v2 (was 10) |
+| `ground.clusterShare` | `0.14` | grain-cluster chance per column, v2 (opt-in token) |
+| `ground.streaks` | 2 bands (§3.8) | grass wind-ripple bands (desert ships `DUNE_STREAKS`) |
+| `palette.distant[0]` | `#241634` | far dusk ridge (darkest) — also the treeline-jag tone |
+| `palette.distant[1]` | `#33204a` | front dusk ridge |
+| `palette.treeline` | `true` | treeline-jag gate (desert ships no token) |
 
 `#1a1208` outline on `#4a7a3a` = **3.65** ≥ 3:1 (non-text UI / silhouettes) ✓.
 `ground.top` vs `ground.shade`, `ground.edge`, `ground.rim` all separate cleanly
-(darker greens); grass reads as a continuous band with a `#1c3018` crest line.
+(darker greens); grass reads as a continuous band with a `#1c3018` crest line. The v2
+tokens (speckle/cluster/carpet/streaks/ridges/treeline) are detailed in §3.8.
 
 ### 3.3 Decor set — inventory, sizes, legends
 
@@ -1373,16 +1390,22 @@ lane's `terrainSurfaceY` (negative = up).
 | `stone` | `STONE` | `16 × 10` | `O B S` | floor | −10 |
 | `stone-alt` | `STONE_ALT` | `12 × 8` | `O B S` | floor | −8 |
 | `pine-needles` | `PINE_NEEDLES` | `24 × 8` | `O P` | floor | −8 |
+| `leaf-drift` | `LEAF_DRIFT` | `36 × 8` | `O L H` | floor (**flat**, §3.8) | — |
+| `grass-wave` | `GRASS_WAVE` | `40 × 8` | `O G H` | floor (**flat**, §3.8) | — |
+| `twig` | `TWIG` | `18 × 6` | `O B` | floor (**flat**, §3.8) | — |
 
 Sizes are exact (validated, §5). `yOffset` is signed from the anchor: background
 kinds from `HORIZON_Y`, midground/floor kinds from the lane `terrainSurfaceY`
-(negative = up). **Weights are per placement stream** (background / midground /
+(negative = up); the v2 flat marks carry no `yOffset` — they roam the lane field
+(§3.8). **Weights are per placement stream** (background / midground /
 floor), not global — see §3.4.1.
 
 Legend chars (forest): `.` transparent, `O` outline; `T` canopy light,
 `S` canopy/stone shade, `B` trunk / stone body, `R` root/base dark; `C` mushroom
-cap, `W` cap spot, `G` blade-mid / frond-rib / gills, `H` blade/frond/leaf light,
-`L` leaf body, `M` moss light, `N` moss dark, `P` pine needles.
+cap, `W` cap spot, `G` blade-mid / frond-rib / gills / grass-wave mid, `H`
+blade/frond/leaf light, `L` leaf body, `M` moss light, `N` moss dark, `P` pine
+needles. The v2 flat marks override `O` to the grass shade `#3a6030` (surface
+marks must not ring like black-outlined props — `HOOF_PRINTS`/`MESA` precedent).
 
 ```js
 const FOREST_TREE_PAL_CONIFER   = { outline:'#1a1208', T:'#2f6b3a', S:'#1f4a2a', B:'#4a3320' };
@@ -1397,6 +1420,10 @@ const NEEDLES_PAL       = { outline:'#1a1208', P:'#8a5a3a' };
 const GRASS_TUFT_PAL  = { outline:'#1a1208', G:'#2f6b3a', H:'#7ac25a' };
 const FERN_PAL        = { outline:'#1a1208', G:'#2f6b3a', H:'#7ac25a' };
 const LEAF_LITTER_PAL = { outline:'#1a1208', L:'#8a5a3a', H:'#b07a4a' };
+// --- v2 flat floor marks (§3.8): grass-shade outline, not black ---
+const LEAF_DRIFT_PAL  = { O:'#3a6030', L:'#8a5a3a', H:'#b07a4a' };
+const GRASS_WAVE_PAL  = { O:'#3a6030', G:'#2f6b3a', H:'#7ac25a' };
+const TWIG_PAL        = { O:'#3a6030', B:'#4a3320' };
 // --- new trees (R = dark root/base tone so the trunk reads as standing) ---
 const FOREST_TREE_TALL_PAL  = { outline:'#1a1208', T:'#2f6b3a', S:'#1f4a2a', B:'#4a3320', R:'#2a1c10' };
 const FOREST_TREE_BROAD_PAL = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', B:'#4a3320', R:'#2a1c10' };
@@ -1691,6 +1718,43 @@ const FOREST_TREE_BROAD_PAL = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', B:'
 ..............
 ```
 
+**`LEAF_DRIFT` — `const LEAF_DRIFT` (`36 × 8`)** — v2 flat mark (§3.8): wide fallen-leaf drift, three leaf humps merged into one low body (`L` leaf, `H` lit top), grass-shade `O`.
+
+```
+....................................
+........OOOO.....OOOOOO....OOOO.....
+......OOHHHHOO.OOHHHHHHOOOOHHHHOO...
+....OOHHHHHHHHOHHHHHHHHHHHHHHHHHHO..
+....OOLLLLLLLLLLLLLLLLLLLLLLLLOOO...
+......OOOOOOOOOOOOOOOOOOOOOOOO......
+....................................
+....................................
+```
+
+**`GRASS_WAVE` — `const GRASS_WAVE` (`40 × 8`)** — v2 flat mark (§3.8): wind-brushed grass streak, a long low band (`G`) with three leaning blade humps lit `H` and a grass-shade `O` edge.
+
+```
+........................................
+.........OOO........OOO........OOO......
+........OHHHO......OHHHO......OHHHO.....
+......OOHHHHHOO..OOHHHHHOO..OOHHHHHOO...
+...OOOGGGGGGGGGOOGGGGGGGGGOOGGGGGGGGGO..
+..OOOGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGOO..
+.....OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO....
+........................................
+```
+
+**`TWIG` — `const TWIG` (`18 × 6`)** — v2 flat mark (§3.8): small fallen twig, a 4-connected diagonal branch (`B` trunk) with a grass-shade `O` edge.
+
+```
+..................
+.........OOOOOO...
+......OOOBBOOO....
+...OOOBBBOO.......
+.OOOOOOOO.........
+..................
+```
+
 **`FOREST_TREE_TALL` — `const FOREST_TREE_TALL` (`48 × 72`)** — the **midground** conifer: tall layered canopy (`T`/`S`), a visible 6-px trunk (`B`), root flare in the dark base tone `R` `#2a1c10` so the base reads as standing on the ground.
 
 ```
@@ -1844,8 +1908,8 @@ densities independent:
 ```js
 const SEED = 1337, DECOR_MAX_SPAN = 1500, FLOOR_LANES = 8;
 const DECOR_STREAM  = { background: 0x11, midground: 0x22, floor: 0x33 };
-const DECOR_SPACING = { background: 32,      midground: 48,      floor: 20 };
-const DECOR_CAP     = { background: 14,      midground: 10,      floor: 120 };
+const DECOR_SPACING = { background: 32,      midground: 48,      floor: 12 };  // v2 §3.8 (was 20)
+const DECOR_CAP     = { background: 14,      midground: 10,      floor: 180 }; // v2 §3.8 (was 120)
 
 function streamRng(layer, key) { return mulberry32(hash2(SEED ^ DECOR_STREAM[layer], key)); }
 ```
@@ -1857,7 +1921,7 @@ beyond each window edge, so it spans `⌊W/spacing⌋` interior cells **plus edg
 - **background / midground:** `key = k`; `point = k*spacing + ⌊rng()*(spacing/2) − spacing/4⌋`
   (jitter ±8 / ±12 world points).
 - **floor:** one stream **per lane** `L` (`0 ≤ L < laneCount ≤ 8`); `key = k*8 + L`;
-  `point = k*20 + ⌊rng()*10 − 5⌋` (±5) in lane `L`.
+  `point = k*12 + ⌊rng()*6 − 3⌋` (±3, v2) in lane `L`.
 
 Per-cell draw order is **roll → jitter(point) → lane** (`roll` = weighted kind pick
 = first `rng()` draw; the lane is the third draw, floor/midground only) — the same
@@ -1865,15 +1929,17 @@ order as the shipped `drawDecor`, so a stream reproduces i to i.
 
 **Cull / cap:** skip a candidate whose `point` is outside `[win.min − margin, win.max +
 margin]`, `margin = (win.max − win.min)*(16/CANVAS_W)`. The floor cap is spread per
-lane (`perLaneCap = ⌊120/L⌋` = `15` at `L=8`); each lane keeps at most `perLaneCap`
+lane (`perLaneCap = ⌊180/L⌋` = `22` at `L=8`, v2); each lane keeps at most `perLaneCap`
 props and samples every `step = max(1, ⌈cells/perLaneCap⌉)`-th cell, so capped props
 spread across the whole window instead of bunching at the left edge, and
 `background / midground` stop at their cap (14 / 10). `perLaneCap * lanes ≤ cap`, so the
-total stays `≤ 120`. Past `DECOR_MAX_SPAN` all world decor is culled (sky, ground and
+total stays `≤ 180`. Past `DECOR_MAX_SPAN` all world decor is culled (sky, ground and
 the carpet stay).
 
-**Anchors:** background kinds base on `HORIZON_Y + yOffset`; midground and floor
-kinds base on `laneSurfaceY(lane, laneCount, point) + yOffset`.
+**Anchors:** background kinds base on `HORIZON_Y + yOffset`; midground and rooted
+floor kinds base on `laneSurfaceY(lane, laneCount, point) + yOffset`; `flat:true`
+floor kinds (§3.8) ignore `yOffset` and seed their top edge inside
+`[laneTop + 8, laneBottom − 6 − spriteH]` (the §2.14 rule, shared with the desert).
 
 #### 3.4.1 Stream weights (each column sums to 1.00)
 
@@ -1885,39 +1951,56 @@ kinds base on `laneSurfaceY(lane, laneCount, point) + yOffset`.
 | background | `FOREST_BUSH` | 0.22 |
 | midground | `FOREST_TREE_TALL` | 0.65 |
 | midground | `FOREST_TREE_BROAD` | 0.35 |
-| floor | `GRASS_TUFT_A` | 0.22 |
-| floor | `GRASS_TUFT_B` | 0.20 |
-| floor | `FERN` | 0.12 |
-| floor | `MOSS` | 0.12 |
-| floor | `PINE_NEEDLES` | 0.10 |
-| floor | `LEAF_LITTER` | 0.08 |
-| floor | `MUSHROOM_RED` | 0.08 |
-| floor | `MUSHROOM_BROWN` | 0.03 |
-| floor | `STONE` | 0.04 |
+| floor | `LEAF_DRIFT` (flat, §3.8) | 0.10 |
+| floor | `GRASS_WAVE` (flat, §3.8) | 0.10 |
+| floor | `TWIG` (flat, §3.8) | 0.04 |
+| floor | `GRASS_TUFT_A` | 0.16 |
+| floor | `GRASS_TUFT_B` | 0.14 |
+| floor | `FERN` | 0.10 |
+| floor | `MOSS` | 0.10 |
+| floor | `PINE_NEEDLES` | 0.08 |
+| floor | `LEAF_LITTER` | 0.06 |
+| floor | `MUSHROOM_RED` | 0.06 |
+| floor | `MUSHROOM_BROWN` | 0.02 |
+| floor | `STONE` | 0.03 |
 | floor | `STONE_ALT` | 0.01 |
 
-Floor is grass-tuft dominated (0.42), then moss/fern/needles (0.34), then
-leaf/mushroom (0.19), stones rarest (0.05).
+Floor weights sum to **1.00**: v2 flat marks **0.24** (wide leaf drift + grass
+wave + rare twig), grass tufts **0.30**, moss/fern/needles **0.28**,
+leaf/mushroom **0.14**, stones **0.04**. The v1 weights were reduced (tuft A
+0.22→0.16, tuft B 0.20→0.14, fern/moss 0.12→0.10, needles 0.10→0.08, leaf 0.08→0.06,
+red 0.08→0.06, brown 0.03→0.02, stone 0.04→0.03, alt unchanged 0.01).
 
 #### 3.4.2 Grass carpet (procedural, not sprites)
 
-Per lane, stamp **1–2** `1×1` specks between the lane crest `+5` and the lane bottom
+Per lane, stamp **1–2** specks between the lane crest `+5` and the lane bottom
 `−2`, at seeded positions (`mulberry32(hash2(SEED ^ 0x44, k*8 + lane))`); tone
-alternates `ground.speckle #5a8a48` (lighter) / `ground.shade #3a6030` (darker).
-Spacing is derived from the current window
-(`worldSpacing = (win.max − win.min)/CANVAS_W × 10`) and cells are seeded by world
-index, so at a fixed zoom the columns hold the ~10 screen px pitch and stay
-world-anchored (scrolling with the ground); a zoom change re-spaces them. This is a
-plain `fillRect` loop (≈128 columns × 2 × lanes per frame), **not** `drawSprite`, so it stays cheap
-*and* survives the zoom-out cull (props thin out, the carpet stays), keeping the
-floor reading as grass at every zoom.
+alternates `ground.speckle #5a8a48` (50 %) / `ground.shade #3a6030` (50 %), and the
+speck width is `1–2 px` (`ground.speckleWidth: 2`, 50/50 parity). Spacing is derived
+from the current window
+(`worldSpacing = (win.max − win.min)/CANVAS_W × ground.carpetSpacing = × 7`, v2; v1
+was × 10) and cells are seeded by world index, so at a fixed zoom the columns hold
+the ~7 screen px pitch (≈183 columns/lane) and stay world-anchored (scrolling with
+the ground); a zoom change re-spaces them.
+
+**v2 grain clusters** (§2.8 desert / §3.8 forest): after a column's specks, one
+extra `nextPrng()` draw; at `ground.clusterShare` (forest `0.14`, desert `0.18`) a
+column also gets a 3 px dark run plus one lit pixel above it. The cluster block is
+opt-in via the token (`ground.clusterShare !== undefined`), so a theme without it
+burns no extra PRNG draws; the desert keeps its exact v2 sequence.
+
+This is a plain `fillRect` loop (≈183 columns × 2 × lanes per frame), **not**
+`drawSprite`, so it stays cheap *and* survives the zoom-out cull (props thin out,
+the carpet stays), keeping the floor reading as grass at every zoom. The forest v2
+pitch/width/cluster change is intentional: forest carpet pixels differ from v1
+(flagged as expected in §5/§7); desert pixels are untouched.
 
 #### 3.4.3 Renderer pass order
 
 ```
-drawSky → drawCelestial → drawDunes
+drawSky → drawCelestial → drawDunes → drawTreeline  // treeline jag §3.8 (forest only)
 → drawDecor('background') → drawMilestones        // behind the lanes
-→ drawLanes
+→ drawLanes → drawGroundCarpet
 → drawDecor('floor') → drawDecor('midground')     // on the lanes
 → drawCamels → drawTeamLabels                      // boars pass IN FRONT; labels over animals
 → drawFinish → drawConfetti → drawBanner
@@ -1934,24 +2017,26 @@ top, clamped to the canvas.
 
 #### 3.4.4 Expected on-screen counts (per frame)
 
-Let `W = win.max − win.min`, `L` = lane count (default 4, max 8):
+Let `W = win.max − win.min`, `L` = lane count (default 4, max 8). Counts below are
+measured in the shipped renderer (`SEED 1337`, forest salts, v2 §3.8):
 
 | layer | candidates | cap | at `W=100` | at `W=250` |
 |---|---|---|---|---|
-| background | `⌊W/32⌋` + edge | 14 | ≈4 (L-independent) | ≈8 |
-| midground | `⌊W/48⌋` + edge | 10 | ≈3 | ≈5 |
-| floor | `(⌊W/20⌋ + edge) × L` | 120 (`15`/lane at `L=8`) | 20 (L4) / 40 (L8) | 50 (L4) / 100 (L8) |
-| carpet specks | `≈128 × 2 × L` rects | — | 1024 (L4) | 1024 (L4, W-independent) |
+| background | `⌊W/32⌋` + edge | 14 | 3 (L-independent) | 8 |
+| midground | `⌊W/48⌋` + edge | 10 | 2 | 5 |
+| floor | `(⌊W/12⌋ + edge) × L` | 180 (`22`/lane at `L=8`) | **35 (L4) / 67 (L8)** | **85 (L4) / 88 (L8)** |
+| floor, `flat:true` | subset of the row above | — | 5 (L4) / 10 (L8) | 15 (L4) / 20 (L8) |
+| carpet specks | `≈183 × 2 × L` rects | — | 1464 (L4) | 1464 (L4, W-independent) |
 
-At the default camera (`MIN_WINDOW = 100`, 4 lanes) expect **≈4 background trees,
-≈3 midground trees, ≈20 floor props**; the approved "≈8–30 floor props visible at
-default zoom" holds for `L ≤ 6`, `W ≤ 150`. The carpet is always present. The old
-world-point spacing of `90` (≈1 item per screen) is **superseded** by this per-layer
-model.
+At the default camera (`MIN_WINDOW = 100`, 4 lanes) expect **3 background trees,
+2 midground trees, 35 floor props** (5 of them v2 flat marks) — **40 props total,
+parity with desert v2**. At `W = 1400`, 8 lanes: 11 / 7 / 159 (44 flat), 177 total.
+The carpet is always present. The old world-point spacing of `90` (≈1 item per
+screen) is **superseded** by this per-layer model.
 
 Candidate counts iterate the inclusive `k` range `⌊(win.min − spacing)/spacing⌋ …
 ⌈(win.max + spacing)/spacing⌉` (`+edge`, one spacing past each window edge). Floor
-props are capped per lane (`⌊120/L⌋`, `15` at `L=8`) and stride-sampled across the
+props are capped per lane (`⌊180/L⌋`, `22` at `L=8`) and stride-sampled across the
 window (§3.4).
 
 ### 3.5 Size budget at `1280×720`
@@ -1960,12 +2045,21 @@ window (§3.4).
 |---|---|
 | lane region | `712 − 120 = 592` px |
 | `laneHeight(8)` | `74.0` px |
-| tallest floor decor | `FERN 16×12` px (≪ 74, no lane overflow) |
+| tallest floor decor | `FERN 16×12` px (≪ 74, no lane overflow); v2 flat marks ≤ `8` px tall |
+| widest floor decor | `GRASS_WAVE 40×8` px |
 | tallest background decor | `FOREST_TREE_BROAD 44×60` px (base `120`, top `60`, inside sky) |
 | midground tree | `FOREST_TREE_TALL 48×72` px — ≈ one 8-lane lane tall, stands on the surface |
 | boar lane fit | `60×42` + feet `2` → `44` px in a `74` px lane (slack `30` px) |
-| max decor sprites / frame | `background 14 + midground 10 + floor 120 = 144` (worst case; typical ≈25) |
-| grass carpet | `≈128 × 2 × L` `fillRect` specks/frame (no sprite loop) |
+| max decor sprites / frame | `background 14 + midground 10 + floor 180 = 204` (v2 worst case; typical 40) |
+| grass carpet | `≈183 × 2 × L` `fillRect` specks/frame (no sprite loop) |
+| dusk ridges + jag (§3.8) | 2 ridge bands ≈ `2 × 1280` 1 px `fillRect`s + jag ≈ `1 100–1 200` run-rects, zoom-independent |
+| grass ripple bands (§3.8) | 2 bands ≈ `730` run-rects at 4 lanes / ≈ `1 465` at 8 (zoom-independent) |
+
+**Perf (measured, M1 Max + ANGLE/Metal):** the v2 forest dense-decor path (8 lanes,
+spread 1400, 186 sprites / 12 kinds) runs at **60.0 fps** after the change — identical
+to the v1 forest (132 sprites) and to desert v2; the `≥55 fps` gate keeps headroom,
+and the added rect work (ridges + jag + 2 ripple bands) is well under one desert dune
+band pair. Rects are plain `fillRect`s — no PRNG, no allocation.
 
 ### 3.6 Forest palette table (every token)
 
@@ -1999,26 +2093,45 @@ window (§3.4).
 | leaf body | `#8a5a3a` | `L` (leaf litter; = pine-needle tone) |
 | leaf light | `#b07a4a` | `H` (leaf litter) |
 | tree base dark | `#2a1c10` | `R` (root flare / base grounding) |
-| carpet speckle | `#5a8a48` | grass-carpet light speck (dark speck = `ground.shade`) |
-| outline | `#1a1208` | `O` (all sprites) |
+| carpet speckle | `#5a8a48` | grass-carpet light speck (dark speck = `ground.shade`); `speckleShare 0.5`, `speckleWidth 2`, `carpetSpacing 7`, `clusterShare 0.14` |
+| far dusk ridge | `#241634` | `palette.distant[0]` — also the treeline-jag tone |
+| front dusk ridge | `#33204a` | `palette.distant[1]` |
+| treeline gate | `true` | `palette.treeline` (desert ships none) |
+| grass ripples | `#3a6030` | `ground.streaks` bands (`ground.shade`) |
+| leaf-drift body | `#8a5a3a` | `L` (`LEAF_DRIFT_PAL`) |
+| leaf-drift light | `#b07a4a` | `H` (`LEAF_DRIFT_PAL`) |
+| grass-wave mid / light | `#2f6b3a` / `#7ac25a` | `G` / `H` (`GRASS_WAVE_PAL`) |
+| twig trunk | `#4a3320` | `B` (`TWIG_PAL`) |
+| flat-mark outline | `#3a6030` | `O` of the three v2 flat marks (grass shade, not black) |
+| outline | `#1a1208` | `O` (all other sprites) |
 
 Contrast spot checks: spot `#f0ece0` on cap `#c0392b` = **4.60** ✓ AA;
 outline `#1a1208` on grass = **3.65** ≥ 3:1 (silhouettes); moon on sky = **10.99** ✓;
 blade light `#7ac25a` on grass `#4a7a3a` = **1.83**, blade mid `#2f6b3a` on grass = **1.21**
 (grass tufts are silhouetted by the `O` outline, so they read despite the low fill
 contrast). `moss`/`pine-needles`/carpet are intentionally low-contrast floor texture.
+V2 atmospheric checks: far ridge `#241634` vs horizon sky `#7a3f4a` = **2.13** (dark
+silhouette on dusk glow) and vs conifer canopy `#2f6b3a` = **2.65** + violet/green hue
+separation; the treeline jag (`distant[0]`) sits above the front ridge (`distant[1]`;
+far vs front **1.17**) and reads as one darker atmospheric layer. Flat-mark `O
+#3a6030` on grass `#4a7a3a` = **1.43** (soft edge, not a ring); the v2 marks read
+through their lit tones — leaf `H` 1.39, grass-wave `H` **2.34**, twig `B` **2.32**
+(leaf body `L` 1.15) — the same surface-mark rule as desert §2.13.
 
 ### 3.7 Forest `THEMES.forest` wiring (excerpt)
 
 ```js
-palette: { sky:['#241a3a','#3a2450','#5a3050','#7a3f4a'], sun:'#f0e8c0', sunRim:'#d8c890', accent:'#e8c83a', distant:[] },
-ground:  { top:'#4a7a3a', shade:'#3a6030', edge:'#26401f', rim:'#1c3018', speckle:'#5a8a48' },
+palette: { sky:['#241a3a','#3a2450','#5a3050','#7a3f4a'], sun:'#f0e8c0', sunRim:'#d8c890',
+           accent:'#e8c83a', distant:['#241634','#33204a'], treeline:true },  // v2 §3.8
+ground:  { top:'#4a7a3a', shade:'#3a6030', edge:'#26401f', rim:'#1c3018', speckle:'#5a8a48',
+           speckleShare:0.5, speckleWidth:2, carpetSpacing:7, clusterShare:0.14,
+           streaks: FOREST_STREAKS },                                     // v2 §3.8
 decor: {
   maxSpan: 1500,
   streams: {
     background: { spacing: 32, cap: 14 },
     midground:  { spacing: 48, cap: 10 },
-    floor:      { spacing: 20, cap: 120 },
+    floor:      { spacing: 12, cap: 180 },                                // v2 §3.8
   },
   kinds: [
     // background (base on HORIZON_Y + yOffset)
@@ -2030,15 +2143,19 @@ decor: {
     { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_TALL,      pal:FOREST_TREE_TALL_PAL,      yOffset:-72, weight:0.65 },
     { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_BROAD,     pal:FOREST_TREE_BROAD_PAL,     yOffset:-60, weight:0.35 },
     // floor (per lane)
-    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_A,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.22 },
-    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_B,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.20 },
-    { kind:'fern',         layer:'floor',      sprite:FERN,                  pal:FERN_PAL,                  yOffset:-12, weight:0.12 },
-    { kind:'moss',         layer:'floor',      sprite:MOSS,                  pal:MOSS_PAL,                  yOffset:-8,  weight:0.12 },
-    { kind:'pine_needles', layer:'floor',      sprite:PINE_NEEDLES,          pal:NEEDLES_PAL,               yOffset:-8,  weight:0.10 },
-    { kind:'leaf_litter',  layer:'floor',      sprite:LEAF_LITTER,           pal:LEAF_LITTER_PAL,           yOffset:-6,  weight:0.08 },
-    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_RED,          pal:MUSHROOM_RED_PAL,          yOffset:-12, weight:0.08 },
-    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_BROWN,        pal:MUSHROOM_BROWN_PAL,        yOffset:-12, weight:0.03 },
-    { kind:'stones',       layer:'floor',      sprite:STONE,                 pal:STONE_PAL,                 yOffset:-10, weight:0.04 },
+    // v2 flat marks roam the lane field (no yOffset, §3.8)
+    { kind:'leaf_drift',   layer:'floor',      sprite:LEAF_DRIFT,            pal:LEAF_DRIFT_PAL,            flat:true,   weight:0.10 },
+    { kind:'grass_wave',   layer:'floor',      sprite:GRASS_WAVE,            pal:GRASS_WAVE_PAL,            flat:true,   weight:0.10 },
+    { kind:'twig',         layer:'floor',      sprite:TWIG,                  pal:TWIG_PAL,                  flat:true,   weight:0.04 },
+    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_A,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.16 },
+    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_B,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.14 },
+    { kind:'fern',         layer:'floor',      sprite:FERN,                  pal:FERN_PAL,                  yOffset:-12, weight:0.10 },
+    { kind:'moss',         layer:'floor',      sprite:MOSS,                  pal:MOSS_PAL,                  yOffset:-8,  weight:0.10 },
+    { kind:'pine_needles', layer:'floor',      sprite:PINE_NEEDLES,          pal:NEEDLES_PAL,               yOffset:-8,  weight:0.08 },
+    { kind:'leaf_litter',  layer:'floor',      sprite:LEAF_LITTER,           pal:LEAF_LITTER_PAL,           yOffset:-6,  weight:0.06 },
+    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_RED,          pal:MUSHROOM_RED_PAL,          yOffset:-12, weight:0.06 },
+    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_BROWN,        pal:MUSHROOM_BROWN_PAL,        yOffset:-12, weight:0.02 },
+    { kind:'stones',       layer:'floor',      sprite:STONE,                 pal:STONE_PAL,                 yOffset:-10, weight:0.03 },
     { kind:'stones',       layer:'floor',      sprite:STONE_ALT,             pal:STONE_PAL,                 yOffset:-8,  weight:0.01 },
   ],
 },
@@ -2050,7 +2167,80 @@ stream** (§3.4.1). Mapping: `trees` → `tree-conifer` / `tree-deciduous` / `tr
 / `bush`; `midground` → `tree-tall` / `tree-broad`; `grass_tufts` → `grass-tuft-a` /
 `grass-tuft-b`; `fern` → `fern`; `mushrooms` → `mushroom-red` / `mushroom-brown`;
 `moss` → `moss`; `stones` → `stone` / `stone-alt`; `pine_needles` → `pine-needles`;
-`leaf_litter` → `leaf-litter`.
+`leaf_litter` → `leaf-litter`; `leaf_drift` / `grass_wave` / `twig` → the three v2
+flat marks (`flat:true`, §3.8).
+
+---
+
+### 3.8 Forest ambience v2 — dusk ridges, treeline jag, ripple bands + dense cover
+
+The forest (default theme, boar) catches up with the desert v2 ambience (§2.12–§2.14):
+same renderer paths, own theme data. No new render pass, no new dependency; every
+addition is a `fillRect` run or one extra `nextPrng()` at a theme-gated site.
+
+**(a) Dusk ridges** — `palette.distant: ['#241634', '#33204a']` (far = darkest,
+front = lighter violet). Drawn by the existing `drawDunes(win)` mechanism
+(`drawDuneBand`), unchanged: far band at `HORIZON_Y − 18` with offset
+`(win.min·0.3) % 120`, front at `HORIZON_Y − 6` with `(win.min·0.6) % 90`; each band
+is one 1 px-wide `fillRect` per canvas column (two sine terms, band height `0–12 px`)
+and is drawn before the background decor and the lanes. Themes without `distant` (or
+with fewer than 2 entries) skip both bands.
+
+**(b) Treeline jag (new, forest-only)** — a conifer triangle-tooth silhouette standing on
+`HORIZON_Y`, drawn **after** the ridges (so the teeth read against the ridge/sky) and
+**before** the lanes. Token-gated on `palette.treeline`; the tone is the darkest
+ridge tone `distant[0]` `#241634`:
+
+| Parameter | Value |
+|---|---|
+| gate | `palette.treeline` (`true`; desert ships no token → skipped, 0 rects) |
+| tone | `palette.distant[0]` `#241634` |
+| on-screen period | `20 px` (window-derived: `toothWorld = span/CANVAS_W × 20`) |
+| tooth height | `8 + hash2(0x54, tooth) % 7` → `8–14 px` |
+| profile | symmetric triangle `round(peak·(1 − |2·frac − 1|))`, base on `HORIZON_Y` |
+| technique | run-coalesced 1 px columns (equal-height height-runs merge), no PRNG |
+| cost | **≈1 100–1 200 `fillRect`s/frame at 1×**, zoom-independent, never culled |
+
+The tooth index is a pure function of the world x (`floor(world / toothWorld)`) and
+the height comes from `hash2` — deterministic, world-anchored, draw-order-independent
+(no shared PRNG stream to perturb). Past `maxSpan` the jag still draws (it is painted
+with the sky/ridges, not with culled world decor), like the carpet and the lanes.
+
+**(c) Grass ripple bands (new)** — `ground.streaks: FOREST_STREAKS`, the §2.12(b)
+renderer path with forest data and `ground.shade #3a6030` as the tone:
+
+| Band | Thickness | Amplitude | On-screen wavelength | Phase | `y₀` |
+|---|---|---|---|---|---|
+| A | `2 px` | `±6 px` | `320 px` | `0.00` | `top + 0.30·laneH` |
+| B | `1 px` | `±4 px` | `240 px` | `0.55` | `top + 0.65·laneH` |
+
+Per-lane phase `+ i·0.17`, clamped to `[crest + 5, bottom − 2 − (thick − 1)]` with the
+same crest rule as the desert; run-coalesced ≈`730` rects at 4 lanes / ≈`1 465` at
+8 lanes, zoom-independent, never culled. The desert ships its 3 `DUNE_STREAKS` rows
+verbatim through the same token, so this refactor changes no desert pixel.
+
+**(d) Carpet v2** — `ground.speckleShare 0.5` (kept), `speckleWidth: 2`,
+`carpetSpacing: 7` (was the 10 px fallback), `clusterShare: 0.14` (desert 0.18);
+details and the opt-in cluster gate in §3.4.2. The extra width/cluster draws are new
+forest pixels by design.
+
+**(e) Floor density + flat marks** — floor stream `spacing 20 → 12`,
+`cap 120 → 180`; three new `flat:true` kinds roam the lane field with the §2.14
+placement rule (top edge seeded in `[laneTop + 8, laneBottom − 6 − spriteH]`, one
+extra `nextPrng()` after the jitter draw; rooted kinds keep their draw order because
+the old forest never set `flat`). Weights in §3.4.1; counts in §3.4.4. `LEAF_DRIFT`,
+`GRASS_WAVE` and `TWIG` use soft grass-shade `O` and read as surface marks, matching
+the desert §2.13 rule.
+
+**Desert-unchanged guarantee.** All four new paths are theme-gated and desert keeps
+its exact data: `drawDunes` code is untouched; `drawTreeline` returns immediately
+without `palette.treeline`; `drawLanes` reads `ground.streaks`, and desert ships
+`DUNE_STREAKS` verbatim; the carpet cluster gate is now
+`ground.clusterShare !== undefined` (true for desert before and after, same
+`0.18` and same draw order); no desert sprite/palette/stream/weight changed.
+**Verified:** a desert frame (4 lanes, scores 0, default camera) hashes
+**byte-identical** before/after this change (`sha256 0df0239f…`, canvas PNG), and the
+whole desert test group stays green.
 
 ---
 
@@ -2059,7 +2249,7 @@ stream** (§3.4.1). Mapping: `trees` → `tree-conifer` / `tree-deciduous` / `tr
 ```mermaid
 flowchart TD
   T{"THEMES[state.theme]"} -->|desert| D["Dune ribbon + 3 bands<br/>sun r=32 @ (1020,76)"]
-  T -->|forest| F["Grass ribbon + 4 bands<br/>moon r=32 @ (1020,76)"]
+  T -->|forest| F["Grass ribbon + 4 bands<br/>moon r=32 @ (1020,76)<br/>2 dusk ridges + treeline jag (v2 §3.8)"]
   D --> DB["background (base on HORIZON_Y)"]
   D --> DM["midground (base on lane surface; before the camels)"]
   D --> DF["floor (per lane, base on lane surface)"]
@@ -2074,10 +2264,12 @@ flowchart TD
   DF --> DWS["wind-streak-a 44×8 / b 64×10"] & DDM["drift-mound 32×10"] & DHT["hoof-trail 40×10"]
   F --> FB["background (base on HORIZON_Y)"]
   F --> FM["midground (base on lane surface; drawn before animals)"]
-  F --> FF["floor (per lane, base on lane surface)"]
-  F --> CARP["grass carpet (procedural fillRect speckle, every ~10 px/lane)"]
+  F --> FF["floor (per lane; flat v2 marks roam the field, §3.8)"]
+  F --> CARP["grass carpet (procedural fillRect speckle, 7 px/lane, clusters)"]
+  F --> FRIP["grass ripple bands (2 bands, ground.shade, §3.8)"]
   FB --> FC["tree-conifer 40×56"] & FD["tree-deciduous 40×56"] & FBRO["tree-broad 44×60"] & FBU["bush 28×20"]
   FM --> FT["tree-tall 48×72"] & FBRO
+  FF --> FLD["leaf-drift 36×8"] & FGW["grass-wave 40×8"] & FTW["twig 18×6"]
   FF --> FGA["grass-tuft-a 10×8"] & FGB["grass-tuft-b 12×8"] & FFN["fern 16×12"] & FLL["leaf-litter 14×6"]
   FF --> FM1["mushroom-red 12×12"] & FM2["mushroom-brown 12×12"]
   FF --> FMOS["moss 20×8"] & FST["stone 16×10"] & FST2["stone-alt 12×8"] & FPN["pine-needles 24×8"]
@@ -2205,6 +2397,36 @@ pass), 0 errors**; `counts` (harness window `[0, 100]`) printed
 measures `35 / 68` (§2.14.1). The soft-`O` marks use sand tones on purpose (surface marks, not
 black-ringed props) — the same exception class as `HOOF_PRINTS`/`MESA`.
 
+The forest v2 floor marks (§3.8) were authored/validated by a temp harness
+(`${TMPDIR:-/tmp}/opencode/gen-forest-v2-sprites.js` runs the structural rules against
+the shaped masks; `verify-forest-v2.js` re-reads the shipped `index.html` matrices and
+re-runs them plus the weight sum, the renderer counts and the before/after desktop
+hash). Run with plain `node`; both are throwaway artifacts, not committed.
+
+```
+LEAF_DRIFT: 36x8 cells=123 OK
+GRASS_WAVE: 40x8 cells=153 OK
+TWIG: 18x6 cells=30 OK
+forest floor kinds=13 sum=1 flat=3 (0.10+0.10+0.04+0.16+0.14+0.10+0.10+0.08+0.06+0.06+0.02+0.03+0.01)
+desert pixels: before=0df0239f... after=0df0239f... identical=true
+VERIFY OK
+```
+
+| Check | forest v2 scope |
+|---|---|
+| exact dims | `LEAF_DRIFT 36×8`, `GRASS_WAVE 40×8`, `TWIG 18×6` |
+| legend-only chars | `O L H` / `O G H` / `O B` (all chars resolve through the sprite's own palette; no new `CHAR_KEY` letters) |
+| single 4-connected blob | all 3 (the only documented multi-blob marks stay the desert `HOOF_PRINTS`/`HOOF_TRAIL`) |
+| outline / enclosure + clean border + no isolated fill | all 3 pass |
+| weights | 13 floor kinds, sum **exactly `1`** (`=== 1`, not just close) |
+| counts (§3.4.4) | shipped renderer: 35 / 67 floor at `W=100` (L4/L8), 85 / 88 at `W=250` |
+| desert untouched | desert canvas PNG `sha256 0df0239f…` identical before/after (see §3.8); all desert tests green |
+| forest performance | dense-decor 8-lane path 60.0 fps (M1 Max/ANGLE), `≥55` gate holds (§3.5) |
+
+The desert hash check is the byte-identity proof required by §3.8: the same capture
+script (`capture-frames.js`, temp) froze a 4-lane desert frame before and after the
+`index.html` edits and compared the PNG digests; only the forest digest changed.
+
 Outline/enclosure method: every fill (`B/S/G/F/C/X/W/T/M/N/P`) 4-adjacent to *exterior*
 `.` is recolored `O`; sprite shapes are drawn inset so the `O` ring fits and the outer
 1 px frame stays transparent. Placement determinism is by construction (seeded PRNG,
@@ -2226,6 +2448,10 @@ Written to the gitignored `test-results/ux-tmp/`:
 | `/tmp/art-previews/desert-floor-dense.png` | **1280×720** mock of the desert ambience (§2.8–§2.11) at `W = 250`: night-sky bands + sun, 2 distant dune bands, background palms/cacti/mesas/saguaros/shrubs at spacing `32`, **4 lanes** of sand carpet (spacing-`10` speckle) + floor props at spacing `20` + one midground `SAGUARO_TALL`, with **grey camel placeholder rectangles** (mock `66×62`; shipped camel `76×70`, `#9aa0a6`) drawn in front so midground-overpaint is visible |
 | `/tmp/art-previews/desert-sprites-sheet.png` | all **16** desert ambience sprites at **8×** with `NAME WxH` labels, plus a **1×** strip on the sand floor `#c9a25a` |
 | `/tmp/art-previews/desert-floor-v2.png` | **1280×720** before/after, same camera window (`W = 100`, 4 lanes, 1× height): **left** = shipped desert (flat fill, carpet `10 px` `#dcb87a`/`#b8935a`, floor spacing `20`/cap `120` = 21 marks on the lane bottom line), **right** = §2.12–§2.14 (4-zone ramp + 3 streak bands, carpet `7 px` + clusters, floor spacing `12`/cap `180` = 33 marks, 12 of them flat marks in the field); grey camel placeholders (mock `66×62`; shipped camel `76×70`) in both. Panels are half-width, so prop pitch is 1:1 while world-per-pixel is halved |
+| `/tmp/art-previews/forest-before.png` | **1280×720** shipped-renderer capture (4 lanes, scores 0 ⇒ `W = 100`, default 1×): v1 forest — 24 props (3 background / 2 midground / 19 floor), no ridges/jag/ripples, `10 px` carpet |
+| `/tmp/art-previews/forest-after.png` | same capture after v2 (§3.8): 2 dusk ridges + treeline jag, `7 px` carpet + clusters, 2 ripple bands, **40 props (3 / 2 / 35, 5 flat)**; desert capture (`desert-before/after.png`) hashed byte-identical across the change |
+| `/tmp/art-previews/forest-v2-lane0.png` (+ `forest-v2-before-lane0.png`) | lane-0 crop (`1280×148`, `y 120–268`) of the after (and before) frame — ripple bands, flat marks, midground tree at 1× |
+| `/tmp/art-previews/forest-v2-sprites.png` | the 3 v2 flat marks (`LEAF_DRIFT`/`GRASS_WAVE`/`TWIG`) at **8×** on a checkerboard + a **1×** strip on the grass floor `#4a7a3a` |
 
 > The two desert previews are regenerated by
 > `python3 /tmp/art-gen/gen-desert-art.py preview` (they live in `/tmp`, not
@@ -2262,21 +2488,24 @@ Written to the gitignored `test-results/ux-tmp/`:
    single stream (weights `0.34/0.33/0.33`) is gone (§2.7).
 6. **Forest decor kinds** — `getScene().decorKinds` (or equivalent) reports the
    forest families; every floor family (`grass_tufts`, `fern`, `leaf_litter`,
-   `mushroom*`, `moss`, `stones`, `pine_needles`) plus a tree can appear across a run.
+   `mushroom*`, `moss`, `stones`, `pine_needles`, plus the v2 `leaf_drift` /
+   `grass_wave` / `twig`) and a tree can appear across a run.
 7. **Forest sizes** — conifer/deciduous bbox `40×56`, broad `44×60`, tall `48×72`,
    bush `28×20`, grass tufts `10×8`/`12×8`, fern `16×12`, leaf litter `14×6`,
-   mushrooms `12×12`, moss `20×8`, stones `16×10`/`12×8`, needles `24×8`; each fits
-   its layer budget (floor ≤ lane height, background inside the sky, tall ≈ one lane).
+   mushrooms `12×12`, moss `20×8`, stones `16×10`/`12×8`, needles `24×8`, v2 flat
+   marks `36×8`/`40×8`/`18×6`; each fits its layer budget (floor ≤ lane height,
+   background inside the sky, tall ≈ one lane, flat marks inside one lane field).
 8. **Placement determinism** — two identical runs produce identical decor positions;
    `Math.random` is never called for decor; past `maxSpan 1500` world decor is culled
-   while sky + ground + carpet still render.
-9. **Density** — at a 4-lane, `W ≈ 100` window expect ≈3 background trees, ≈2
-   midground trees and ≈20 floor props (carpet always on); caps respected
-   (background ≤14, midground ≤10, floor ≤120).
+   while sky + ground + carpet + treeline jag still render.
+9. **Density** — at a 4-lane, `W ≈ 100` window expect 3 background trees, 2
+   midground trees and **35 floor props (5 flat, 40 total** — desert v2 parity;
+   §3.4.4); caps respected (background ≤14, midground ≤10, floor ≤180).
 10. **Midground layering** — a midground `FOREST_TREE_TALL` on a lane is over-painted
     by a boar at the same screen x (boar passes in front).
-11. **Grass carpet** — grass lanes carry procedural speckle (`#5a8a48`/`#3a6030`
-    `fillRect`s, ~every 10 px per lane) that survives the zoom-out cull.
+11. **Grass carpet (v2)** — grass lanes carry procedural speckle (`#5a8a48`/`#3a6030`
+    `fillRect`s, `1–2 px` wide, ~every **7** screen px per lane) plus 3 px grain
+    clusters at `clusterShare 0.14`, and survive the zoom-out cull (§3.4.2).
 12. **Milestone** — sprite `20×28`, label font `12px monospace`, label at
     `(x+20, flagY+8)` in `#e8e0d0`, skipped when the step is narrower than the label.
 13. **Finish** — sprite `24×28`; code stripe `8×8` checker starting `x+8`,
@@ -2295,8 +2524,9 @@ Written to the gitignored `test-results/ux-tmp/`:
 18. **Sand carpet** — desert lanes carry procedural speckle (`#dcb87a` / `#a8813f`
     `fillRect`s, 1–2 px, ~every 7 screen px per lane) plus 4 px grain clusters
     (~18 % of columns) that **survive the zoom-out cull**: at `W > 1500` decor props
-    are 0 while carpet rects still render; forest pitch stays 10 px and its carpet
-    pixels are byte-identical to the shipped build.
+    are 0 while carpet rects still render; forest v2 ships its own `7 px` carpet
+    (§3.4.2/§3.8), so only the desert carpet is pinned byte-identical to its shipped
+    build.
 19. **Desert sprites + layers** — the 16 §2.10 bboxes are exact (`SAND_RIPPLE 20×6`,
     `PEBBLE_A 12×7`, `PEBBLE_B 14×8`, `SCRUB_A 16×10`, `SCRUB_B 14×12`,
     `TUMBLEWEED 16×14`, `BARREL_CACTUS 14×12`, `DEAD_BRANCH 20×10`, `BONES 16×10`,
@@ -2321,14 +2551,22 @@ Written to the gitignored `test-results/ux-tmp/`:
     zooms yields the same on-screen streak wavelength (360 / 260 / 400 px), the
     streaks are world-anchored (panning scrolls them with the terrain) and survive
     `W > 1500`; no `Math.random`, `THEMES.forest.ground` has no `ramp`.
-22. **Flat marks roam the lane field** — `wind_streaks`, `drift_mounds`,
-    `hoof_trails` draw fully inside `[laneTop + 8, laneBottom − 6 − spriteH]`
-    (never chained to the lane bottom line), while every rooted floor kind still
-    bottoms out on `laneSurfaceY`; two runs produce identical y values.
-23. **Forest untouched** — switching to forest renders byte-identical lane, carpet and
-    decor pixels to the shipped build: every v2 branch is gated on `ground.ramp`,
-    which `THEMES.forest.ground` does not define, and the desert-only stream/sprite
-    changes live in `THEMES.desert.decor` only.
+22. **Flat marks roam the lane field** — desert `wind_streaks`, `drift_mounds`,
+    `hoof_trails` and forest `leaf_drift`, `grass_wave`, `twig` draw fully inside
+    `[laneTop + 8, laneBottom − 6 − spriteH]` (never chained to the lane bottom
+    line), while every rooted floor kind still bottoms out on `laneSurfaceY`; two
+    runs produce identical y values.
+23. **Desert untouched** — switching to desert renders byte-identical lane, carpet and
+    decor pixels to the shipped v2 build (canvas PNG `sha256 0df0239f…` before/after
+    §3.8): `drawDunes` is unchanged, `drawTreeline` returns without
+    `palette.treeline`, `ground.streaks` carries the same `DUNE_STREAKS` values and
+    the cluster gate is logically identical at `clusterShare 0.18`.
+24. **Forest dusk ambience v2** — forest draws 2 `palette.distant` ridge bands plus a
+    `palette.treeline` conifer triangle-tooth jag on `HORIZON_Y` (world-anchored 20 px tooth
+    period, `hash2` height `8–14 px`, darkest ridge tone `#241634`, never culled)
+    and 2 `ground.shade` grass ripple bands per lane (thick `2/1`, amp `±6/±4`,
+    wavelength `320/240 px`, phase `+ i·0.17`); switching to desert renders none of
+    them and desert keeps zero new pixels.
 
 ---
 
@@ -2337,9 +2575,9 @@ Written to the gitignored `test-results/ux-tmp/`:
 **Constants to add / change in `index.html`** (`#app` art section):
 `SKY_BANDS` (desert, unchanged) + `FOREST_SKY`; `HORIZON_Y = 120`,
 `LANE_BOTTOM = 712`, `DECOR_MAX_SPAN = 1500`; per-layer
-`DECOR_SPACING = { background:32, midground:48, floor:20 }`,
-`DECOR_CAP = { background:14, midground:10, floor:120 }`,
-`DECOR_STREAM = { background:0x11, midground:0x22, floor:0x33 }`;
+`DECOR_SPACING = { background:32, midground:48, floor:20 }` (both themes **v2: floor 12**,
+§3.8), `DECOR_CAP = { background:14, midground:10, floor:120 }` (both themes **v2: floor
+180**), `DECOR_STREAM = { background:0x11, midground:0x22, floor:0x33 }`;
 sun/moon `cx 1020, cy 76, r 32`; milestone font `12px`, finish stripe `8×8`,
 confetti `4×4`, banner `16px`.
 
@@ -2355,7 +2593,8 @@ midground `dead_trees` (`DEAD_TREE` is the one sprite listed in two layers).
 (desert, 2×); `FOREST_TREE_CONIFER`, `FOREST_TREE_DECIDUOUS`, `FOREST_TREE_BROAD`,
 `FOREST_BUSH`, `FOREST_TREE_TALL`, `GRASS_TUFT_A`, `GRASS_TUFT_B`, `FERN`,
 `LEAF_LITTER`, `MUSHROOM_RED`, `MUSHROOM_BROWN`, `MOSS`, `STONE`, `STONE_ALT`,
-`PINE_NEEDLES` (forest) — paste matrices verbatim; **no new `CHAR_KEY` entries**:
+`PINE_NEEDLES`, **v2:** `LEAF_DRIFT`, `GRASS_WAVE`, `TWIG` (forest) — paste matrices
+verbatim; **no new `CHAR_KEY` entries**:
 `T/S/B/R/C/W/G/H/P` are already there, and `L` (`LEAF_LITTER_PAL`), `M`/`N` (`MOSS_PAL`)
 resolve **only** through their sprites' own palettes under the shipped order
 `palette[ch]` → `palette[CHAR_KEY[ch]]` → `COL[CHAR_KEY[ch]]` — per-sprite palettes
@@ -2392,6 +2631,7 @@ decor salts are §2.7's; the only per-theme data is `palette` / `ground` / `deco
 must not survive).
 
 **Desert floor v2 (§2.12–§2.14)** — theme data: `ground.ramp` (3 tones, §2.12),
+`ground.streaks: DUNE_STREAKS` (the 3 bands are the token the renderer reads),
 `ground.carpetSpacing: 7`, `ground.clusterShare: 0.18`, drop `ground.ripple`; floor
 stream `spacing 20 → 12`, `cap 120 → 180`; add the four floor kind entries
 `wind_streaks` (`WIND_STREAK_A`/`B`, `WIND_STREAK_PAL`), `drift_mounds`
@@ -2402,16 +2642,35 @@ matrices (`O R S` / `O B S` / `O D S`; no new `CHAR_KEY` letters). Kinds carryin
 − spriteH + 1)⌋`, consuming **one extra `nextPrng()` after the jitter draw** (rooted
 kinds keep their draw order). Renderer: the 3 lane-ramp `fillRect`s go into
 `drawLanes` right after the `ground.top` base fill (before the edge row) and the 3
-run-coalesced streak bands right after its crest rim/shade loop — all gated on
-`ground.ramp`, so `THEMES.forest` pixels never move; the carpet cluster block is one
-guarded `nextPrng()` in `drawGroundCarpet` (also gated on `ground.ramp`). No new
+run-coalesced streak bands right after its crest rim/shade loop — the streak gate is
+`ground.streaks` (desert ships `DUNE_STREAKS` verbatim, so its pixels never move);
+the carpet cluster block is one guarded `nextPrng()` in `drawGroundCarpet`, opt-in via
+`ground.clusterShare !== undefined` (desert 0.18 keeps its exact draw order). Forest v2
+reuses all three paths with its own tokens (§3.8) — no desert branch remains. No new
 passes, no changed pass order (§2.11.2).
+
+**Forest v2 (§3.8)** — theme data: `palette.distant: ['#241634','#33204a']` +
+`palette.treeline: true`; `ground.speckleShare: 0.5`, `ground.speckleWidth: 2`,
+`ground.carpetSpacing: 7`, `ground.clusterShare: 0.14`,
+`ground.streaks: FOREST_STREAKS` (`[{thick:2,amp:6,periodPx:320,phase:0,frac:0.30},
+{thick:1,amp:4,periodPx:240,phase:0.55,frac:0.65}]`); floor stream `spacing 20 → 12`,
+`cap 120 → 180`; add the three floor kind entries `leaf_drift` (`LEAF_DRIFT`,
+`LEAF_DRIFT_PAL`), `grass_wave` (`GRASS_WAVE`, `GRASS_WAVE_PAL`), `twig` (`TWIG`,
+`TWIG_PAL`) with `flat:true` and the §3.4.1 weights. Renderer: `drawTreeline(win)`
+after `drawDunes` (gate `palette.treeline`, tone `palette.distant[0]`, 20 px
+window-derived tooth period, `hash2(0x54, tooth)` height 8–14, run-coalesced 1 px
+columns, never culled); the streak block already reads `ground.streaks`; the carpet
+cluster block is now opt-in (`ground.clusterShare !== undefined`). The desert token
+values are untouched and a frozen desert frame hashes byte-identical before/after
+(§3.8/§5).
 
 **Size budgets:** floor decor ≤ `12` px tall (lane `74` px at 8 lanes) — v2 flat marks
 ≤ `10` px tall / `64` px wide and stay inside one lane; background trees ≤ `60` px
 basing at `HORIZON_Y`; midground tree `72` px (≈ one lane); worst-case
-`14 + 10 + 180 = 204` decor sprites/frame (desert v2; forest still `14 + 10 + 120 = 144`;
-typical 40 at default zoom) plus the carpet `fillRect` pass, the 4-zone ramp (`3 × L`
-rects) and the streak run-rects (≈1.2 k / 2.4 k, zoom-independent) — see §2.14.2;
-boar lane fit unchanged (`60×42`). Art only — no game code,
-tests, or commits in this task.
+`14 + 10 + 180 = 204` decor sprites/frame (both themes in v2; typical 40 at default
+zoom) plus the carpet `fillRect` pass, the desert 4-zone ramp (`3 × L` rects), the streak
+run-rects (desert ≈1.2 k / 2.4 k, forest ≈0.73 k / 1.47 k, zoom-independent —
+§2.14.2 / §3.5) and the forest ridge/jag rects (§3.8); boar lane fit unchanged
+(`60×42`). The original desert art pass was art-only; the v2 rounds (desert
+§2.12–§2.14, forest §3.8) also touched the renderer, and `tests/**` is owned by the
+test-engineer.
