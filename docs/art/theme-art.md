@@ -1349,7 +1349,9 @@ identical, so lane geometry / fit are untouched.
 
 | Token | Hex / value | Use |
 |---|---|---|
-| `ground.top` | `#4a7a3a` | lit grass fill |
+| `ground.top` | `#4a7a3a` | lit grass fill (top 40 % of the lane) |
+| `ground.ramp` | `['#447338','#3d6832','#345a2b']` | v4 3-zone depth ramp: 40–60 / 60–80 / 80–100 % of `laneH` (§3.8i) |
+| `ground.crestShadow` | `#2b4a24` | v4 2 px band at `crest + 1` (between rim and shade stripe) |
 | `ground.shade` | `#3a6030` | grass shade stripe (`crest + 3`, 2 px) + ripple bands + carpet dark |
 | `ground.edge` | `#26401f` | crease between ribbons / under `LANE_BOTTOM` |
 | `ground.rim` | `#1c3018` | darker rim under the lit crest |
@@ -1358,7 +1360,7 @@ identical, so lane geometry / fit are untouched.
 | `ground.speckleWidth` | `2` | carpet speck width, `1–2 px` (§3.4.2) |
 | `ground.carpetSpacing` | `7` | carpet pitch in screen px, v2 (was 10) |
 | `ground.clusterShare` | `0.14` | grain-cluster chance per column, v2 (opt-in token) |
-| `ground.streaks` | 2 bands (§3.8) | grass wind-ripple bands (desert ships `DUNE_STREAKS`) |
+| `ground.streaks` | 3 bands (§3.8i) | grass wind-ripple bands (desert ships `DUNE_STREAKS`) |
 | `palette.distant[0]` | `#241634` | far dusk ridge (darkest) — also the front treeline-jag tone |
 | `palette.distant[1]` | `#33204a` | front dusk ridge — also the back treeline-jag tone |
 | `palette.treeline` | `true` | treeline-jag gate (desert ships no token); v3 draws two tiers |
@@ -1370,7 +1372,17 @@ identical, so lane geometry / fit are untouched.
 `#1a1208` outline on `#4a7a3a` = **3.65** ≥ 3:1 (non-text UI / silhouettes) ✓.
 `ground.top` vs `ground.shade`, `ground.edge`, `ground.rim` all separate cleanly
 (darker greens); grass reads as a continuous band with a `#1c3018` crest line. The v2
-tokens (speckle/cluster/carpet/streaks/ridges/treeline) are detailed in §3.8.
+tokens (speckle/cluster/carpet/streaks/ridges/treeline) are detailed in §3.8; the v4
+ground-depth tokens (ramp/crestShadow/3rd band) in §3.8i.
+
+**Ground depth ramp (v4, §3.8i).** Steps `top → toe`: `#4a7a3a → #447338`
+**1.101** → `#3d6832` **1.165** → `#345a2b` **1.220**, total `top → toe` **1.565**
+(desert reference: 1.061/1.063/1.060, total 1.196) — a bolder lit-crest → shaded-toe
+fall while staying lush green. Zone separation from the reused tones: ramp1/2/3 vs
+`ground.shade` 1.297 / 1.114 / 1.095 (ramp3 is close to the band tone, so the
+ripple/shade lines read as in-zone texture, not another zone) and vs `ground.edge`
+2.046 / 1.757 / 1.440; `crestShadow #2b4a24` sits between rim and shade — **1.419**
+over the rim, **1.374** over the shade stripe, **1.962** over `ground.top`.
 
 **Mountain tones (v3, §3.8f).** Both silhouettes are darker than every sky band
 they overlap; the far layer tops span 30–58 px above `HORIZON_Y` (top y ≥ 62 →
@@ -1402,10 +1414,16 @@ lane's `terrainSurfaceY` (negative = up).
 | `bush` | `FOREST_BUSH` | `28 × 20` | `O T S` | background | −20 |
 | `tree-spruce-tall` | `FOREST_TREE_SPRUCE_TALL` | `40 × 64` | `O T S B` | background | −64 |
 | `tree-snag` | `FOREST_TREE_SNAG` | `24 × 48` | `O B S` | background | −48 |
+| `tree-wide` | `FOREST_TREE_WIDE` | `56 × 64` | `O T S B R` | midground | −64 |
+| `bush-cluster` | `BUSH_CLUSTER` | `36 × 24` | `O T S` | background **and** midground | −20 |
+| `berry-bush` | `BERRY_BUSH` | `28 × 20` | `O T S C` | background | −20 |
 | `tree-tall` | `FOREST_TREE_TALL` | `48 × 72` | `O T S B R` | midground | −72 |
 | `grass-tuft-a` | `GRASS_TUFT_A` | `10 × 8` | `O G H` | floor | −8 |
 | `grass-tuft-b` | `GRASS_TUFT_B` | `12 × 8` | `O G H` | floor | −8 |
+| `grass-clump-tall` | `GRASS_CLUMP_TALL` | `16 × 12` | `O G H` | floor | −12 |
+| `grass-flower` | `GRASS_FLOWER` | `14 × 10` | `O G H W` | floor | −10 |
 | `fern` | `FERN` | `16 × 12` | `O G H` | floor | −12 |
+| `fern-curled` | `FERN_CURLED` | `20 × 14` | `O G H` | floor | −14 |
 | `leaf-litter` | `LEAF_LITTER` | `14 × 6` | `O L H` | floor | −6 |
 | `mushroom-red` | `MUSHROOM_RED` | `12 × 12` | `O C W T` | floor | −12 |
 | `mushroom-brown` | `MUSHROOM_BROWN` | `12 × 12` | `O C G T` | floor | −12 |
@@ -1416,6 +1434,7 @@ lane's `terrainSurfaceY` (negative = up).
 | `leaf-drift` | `LEAF_DRIFT` | `36 × 8` | `O L H` | floor (**flat**, §3.8) | — |
 | `grass-wave` | `GRASS_WAVE` | `40 × 8` | `O G H` | floor (**flat**, §3.8) | — |
 | `twig` | `TWIG` | `18 × 6` | `O B` | floor (**flat**, §3.8) | — |
+| `grass-patch` | `GRASS_PATCH` | `32 × 8` | `O G H` (surface `O` `#3a6030`) | floor (**flat**, §3.8i) | — |
 
 Sizes are exact (validated, §5). `yOffset` is signed from the anchor: background
 kinds from `HORIZON_Y`, midground/floor kinds from the lane `terrainSurfaceY`
@@ -1431,10 +1450,11 @@ registered as background `trees` kinds, like their base sprites.
 
 Legend chars (forest): `.` transparent, `O` outline; `T` canopy light,
 `S` canopy/stone shade, `B` trunk / stone body, `R` root/base dark; `C` mushroom
-cap, `W` cap spot, `G` blade-mid / frond-rib / gills / grass-wave mid, `H`
-blade/frond/leaf light, `L` leaf body, `M` moss light, `N` moss dark, `P` pine
-needles. The v2 flat marks override `O` to the grass shade `#3a6030` (surface
-marks must not ring like black-outlined props — `HOOF_PRINTS`/`MESA` precedent).
+cap / v4 berry `#c0392b`, `W` cap spot / v4 flower head `#f0ece0`, `G` blade-mid /
+frond-rib / gills / grass-wave mid, `H` blade/frond/leaf light, `L` leaf body,
+`M` moss light, `N` moss dark, `P` pine needles. The v2/v4 flat marks override `O`
+to the grass shade `#3a6030` (surface marks must not ring like black-outlined props
+— `HOOF_PRINTS`/`MESA` precedent).
 
 ```js
 const FOREST_TREE_PAL_CONIFER   = { outline:'#1a1208', T:'#2f6b3a', S:'#1f4a2a', B:'#4a3320' };
@@ -1463,6 +1483,15 @@ const FOREST_TREE_PAL_SPRUCE_DARK = { outline:'#1a1208', T:'#1f4a2a', S:'#14301c
 // --- v3 new sprites (§3.3) ---
 const FOREST_TREE_PAL_SPRUCE_TALL = { outline:'#1a1208', T:'#2a6234', S:'#1b4024', B:'#4a3320' };
 const FOREST_TREE_PAL_SNAG        = { outline:'#1a1208', B:'#6b5a42', S:'#3f3222' };
+// --- v4 sprites (§3.8i): bushes (background/midground), wide tree (midground),
+// and the four new floor grass/fern sprites (flat patch uses surface-tone O) ---
+const BUSH_CLUSTER_PAL     = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234' };
+const BERRY_BUSH_PAL       = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', C:'#c0392b' };
+const FOREST_TREE_WIDE_PAL = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', B:'#4a3320', R:'#2a1c10' };
+const GRASS_CLUMP_PAL      = { outline:'#1a1208', G:'#2f6b3a', H:'#7ac25a' };
+const GRASS_FLOWER_PAL     = { outline:'#1a1208', G:'#2f6b3a', H:'#7ac25a', W:'#f0ece0' };
+const FERN_CURLED_PAL      = { outline:'#1a1208', G:'#2f6b3a', H:'#7ac25a' };
+const GRASS_PATCH_PAL      = { O:'#3a6030', G:'#2f6b3a', H:'#7ac25a' };
 ```
 
 V3 variant contrast vs the overlapped dusk bands: autumn `T #c9803a` on `sky[2]`
@@ -2062,6 +2091,193 @@ its `S #14301c` 1.34. `FOREST_TREE_SPRUCE_TALL` `T #2a6234` **1.47** on `sky[2]`
 ........................
 ```
 
+**`BUSH_CLUSTER` — `const BUSH_CLUSTER` (`36 × 24`)** — forest v4 (§3.8i): legend `O T S`.
+
+```
+....................................
+....................................
+..................O.................
+..............OOOOTOOOO.............
+.............OTTTTTTSSSO............
+............OSTTTTTTSSSSO...........
+..........OOTSTTTTTTSSSSSOO.........
+.......OOOTTTSTTTTTTTSSSSSSOOO......
+......OTTTTTTSTTTTTTTSSSSSSSSSO.....
+.....OTTTTTTTSTTTTTTTSSSSSSSSSSO....
+.....OTTTTTTTSTTTTTTTSSSSSSSSSSO....
+....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...
+....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...
+....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...
+....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...
+....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...
+....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...
+....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...
+.....OTTTTTTTSTTTTTTTSSSSSSSSSSO....
+.....OTTTTTTTSTOOOTOOOSSSSSSSSSO....
+......OTTTTSSSO...O...OSTTTSSSO.....
+.......OOOTOOO.........OOOTOOO......
+..........O...............O.........
+....................................
+```
+
+**`BERRY_BUSH` — `const BERRY_BUSH` (`28 × 20`)** — forest v4 (§3.8i): legend `O T S C`.
+
+```
+............................
+............................
+...........O......O.........
+........OOOTOOOOOOSOOOO.....
+......OOTTTTTTTTTTSSSSSO....
+......OTTTTTTTTTTTSSSSSSO...
+.....OTTTTTTTTTCTTTSSSSSSO..
+.....OTTTTTTTTTTTCTSSSSSSO..
+....OTTTTTCTTTTTTTTSSSSSSSO.
+....OTTTTTTTTTTTTTTSSCSSSSO.
+....OTTTTTTTTTTTTTTSSSSSSSO.
+....OTTTTTTTTTTTTTTSSSSSSSO.
+....OTTTTTTTTCTTTTTSSSCSSSO.
+.....OTTTTTTTTTTTTTSSSSSSO..
+.....OTTTTTTTTTTTTTSSSSSSO..
+......OTTTTTTTTTTTSSSSSSO...
+......OOTTTTTTTTTTSSSSSO....
+........OOOTOOOOOOSOOOO.....
+...........O......O.........
+............................
+```
+
+**`FOREST_TREE_WIDE` — `const FOREST_TREE_WIDE` (`56 × 64`)** — forest v4 (§3.8i): legend `O T S B R`.
+
+```
+........................................................
+........................................................
+........................OOOOOOOO........................
+....................OOOOTTTTTSSSOOOO....................
+..................OOTTTTTTTTTTSSSSSSOO..................
+................OOTTTTTTTTTTTTSSSSSSSSOO................
+..............OOTTTTTTTTTTTTTTSSSSSSSSSSOO..............
+.............OTTTTTTTTTTTTTTTTSSSSSSSSSSSSO.............
+...........OOTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSOO...........
+..........OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO..........
+.........OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO.........
+........OTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO........
+.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......
+.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......
+......OTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO......
+.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....
+.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....
+....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...
+...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...
+...OTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSO...
+...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...
+...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...
+...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...
+...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...
+....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....
+.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....
+.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....
+......OTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO......
+.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......
+.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......
+........OTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO........
+.........OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO.........
+..........OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO..........
+...........OOTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSOO...........
+.............OTTTTTTTTTTTTTTTTSSSSSSSSSSSSO.............
+..............OOTTTTTTTTTTTTTTSSSSSSSSSSOO..............
+................OOTTTTTTTTTTTTSSSSSSSSOO................
+..................OOTTTTTTTTTTSSSSSSOO..................
+....................OOOOTTTTTSSSOOOO....................
+........................OTTTTSSO........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+.........................OBBBBO.........................
+........................ORRRRRRO........................
+.......................ORRRRRRRRO.......................
+......................OOOOOOOOOOOO......................
+........................................................
+........................................................
+```
+
+**`GRASS_CLUMP_TALL` — `const GRASS_CLUMP_TALL` (`16 × 12`)** — forest v4 (§3.8i): legend `O G H`.
+
+```
+................
+.......OO.......
+......OHO.......
+....OOGHHOO.....
+....OHGGGHO.....
+....OGGHGGGO....
+...OGGGGGGGO....
+...OGGGGGGGO....
+...OGGGGGGGGO...
+...OGGGGGGGGO...
+...OOOOOOOOOO...
+................
+```
+
+**`GRASS_FLOWER` — `const GRASS_FLOWER` (`14 × 10`)** — forest v4 (§3.8i): legend `O G H W`.
+
+```
+..............
+......OOO.....
+.....OOWO.....
+.....OOOO.....
+....OGGGHOOO..
+...OHGGGGGHO..
+...OGGGGGGGO..
+...OGGGGGGGO..
+...OOOOOOOOOO.
+..............
+```
+
+**`FERN_CURLED` — `const FERN_CURLED` (`20 × 14`)** — forest v4 (§3.8i): legend `O G H`.
+
+```
+....................
+....................
+.........OOOOO......
+........OHHOOGOO....
+.......OHOO..OGGO...
+......OHO.....OGGO..
+......OO.......OGO..
+.....OHO........OGO.
+.....OHO.........OO.
+.....OHO.........OO.
+......OHOOO......OO.
+......OHHHHOO....OO.
+.......OOOOOO.......
+....................
+```
+
+**`GRASS_PATCH` — `const GRASS_PATCH` (`32 × 8`)** — forest v4 (§3.8i): legend `O G H`.
+
+```
+................................
+................................
+.........OOO........OOO.........
+....OOOOOHHHOO..OOOOHHHOOO......
+.OOOHHHHHHHHHHOOHHHHHHHHHHOOOOO.
+.OGGGGGGGGGGGGGGGGGGGGGGGGGGGGO.
+.OOOOOOOOOOOOOOOOOOOOOOOOOOOOOO.
+................................
+```
+
 ### 3.4 Deterministic placement — per-layer streams
 
 Each layer draws from its **own** seeded candidate stream
@@ -2110,42 +2326,51 @@ floor kinds (§3.8) ignore `yOffset` and seed their top edge inside
 
 | layer | kind | sprite / palette | weight |
 |---|---|---|---|
-| background | `trees` | `FOREST_TREE_CONIFER` | 0.16 |
-| background | `trees` | `FOREST_TREE_DECIDUOUS` | 0.14 |
-| background | `trees` | `FOREST_TREE_BROAD` | 0.13 |
-| background | `trees` | `FOREST_BUSH` | 0.10 |
-| background | `trees` | `FOREST_TREE_DECIDUOUS` + `FOREST_TREE_PAL_AUTUMN` | 0.12 |
-| background | `trees` | `FOREST_TREE_DECIDUOUS` + `FOREST_TREE_PAL_BIRCH` | 0.10 |
-| background | `trees` | `FOREST_TREE_CONIFER` + `FOREST_TREE_PAL_SPRUCE_DARK` | 0.10 |
-| background | `trees` | `FOREST_TREE_SPRUCE_TALL` | 0.09 |
-| background | `trees` | `FOREST_TREE_SNAG` | 0.06 |
-| midground | `FOREST_TREE_TALL` | — | 0.65 |
-| midground | `FOREST_TREE_BROAD` | — | 0.35 |
-| floor | `LEAF_DRIFT` (flat, §3.8) | — | 0.10 |
-| floor | `GRASS_WAVE` (flat, §3.8) | — | 0.10 |
-| floor | `TWIG` (flat, §3.8) | — | 0.04 |
-| floor | `GRASS_TUFT_A` | — | 0.16 |
-| floor | `GRASS_TUFT_B` | — | 0.14 |
-| floor | `FERN` | — | 0.10 |
-| floor | `MOSS` | — | 0.10 |
-| floor | `PINE_NEEDLES` | — | 0.08 |
-| floor | `LEAF_LITTER` | — | 0.06 |
-| floor | `MUSHROOM_RED` | — | 0.06 |
-| floor | `MUSHROOM_BROWN` | — | 0.02 |
-| floor | `STONE` | — | 0.03 |
-| floor | `STONE_ALT` | — | 0.01 |
+| background | `trees` | `FOREST_TREE_CONIFER` | 0.14 |
+| background | `trees` | `FOREST_TREE_DECIDUOUS` | 0.12 |
+| background | `trees` | `FOREST_TREE_BROAD` | 0.11 |
+| background | `trees` | `FOREST_BUSH` | 0.08 |
+| background | `trees` | `FOREST_TREE_DECIDUOUS` + `FOREST_TREE_PAL_AUTUMN` | 0.10 |
+| background | `trees` | `FOREST_TREE_DECIDUOUS` + `FOREST_TREE_PAL_BIRCH` | 0.09 |
+| background | `trees` | `FOREST_TREE_CONIFER` + `FOREST_TREE_PAL_SPRUCE_DARK` | 0.09 |
+| background | `trees` | `FOREST_TREE_SPRUCE_TALL` | 0.08 |
+| background | `trees` | `FOREST_TREE_SNAG` | 0.05 |
+| background | `trees` | `BUSH_CLUSTER` (v4) | 0.08 |
+| background | `trees` | `BERRY_BUSH` (v4) | 0.06 |
+| midground | `midground` | `FOREST_TREE_TALL` | 0.40 |
+| midground | `midground` | `FOREST_TREE_BROAD` | 0.24 |
+| midground | `midground` | `FOREST_TREE_WIDE` (v4) | 0.22 |
+| midground | `midground` | `BUSH_CLUSTER` (v4) | 0.14 |
+| floor | `leaf_drift` | `LEAF_DRIFT` (flat, §3.8) | 0.07 |
+| floor | `grass_wave` | `GRASS_WAVE` (flat, §3.8) | 0.07 |
+| floor | `twig` | `TWIG` (flat, §3.8) | 0.03 |
+| floor | `grass_patch` | `GRASS_PATCH` (flat, v4 §3.8i) | 0.06 |
+| floor | `grass_tufts` | `GRASS_TUFT_A` | 0.12 |
+| floor | `grass_tufts` | `GRASS_TUFT_B` | 0.13 |
+| floor | `grass_clump` | `GRASS_CLUMP_TALL` (v4) | 0.08 |
+| floor | `fern` | `FERN` | 0.08 |
+| floor | `fern_curled` | `FERN_CURLED` (v4) | 0.05 |
+| floor | `grass_flower` | `GRASS_FLOWER` (v4) | 0.05 |
+| floor | `moss` | `MOSS` | 0.08 |
+| floor | `pine_needles` | `PINE_NEEDLES` | 0.04 |
+| floor | `leaf_litter` | `LEAF_LITTER` | 0.04 |
+| floor | `mushrooms` | `MUSHROOM_RED` | 0.06 |
+| floor | `mushrooms` | `MUSHROOM_BROWN` | 0.01 |
+| floor | `stones` | `STONE` | 0.02 |
+| floor | `stones` | `STONE_ALT` | 0.01 |
 
-**v3 background** (9 kinds) sums to **exactly `1`**: conifer 0.16, deciduous 0.14,
-broad 0.13, bush 0.10, autumn 0.12, birch 0.10, deep-shadow spruce 0.10, tall
-spruce 0.09, snag 0.06 (v2 was conifer 0.30 / deciduous 0.26 / broad 0.22 / bush
-0.22). The three palette variants share the base matrices (no new art) and are
-separate kinds, so each can be weighted.
-
-Floor weights sum to **1.00**: v2 flat marks **0.24** (wide leaf drift + grass
-wave + rare twig), grass tufts **0.30**, moss/fern/needles **0.28**,
-leaf/mushroom **0.14**, stones **0.04**. The v1 weights were reduced (tuft A
-0.22→0.16, tuft B 0.20→0.14, fern/moss 0.12→0.10, needles 0.10→0.08, leaf 0.08→0.06,
-red 0.08→0.06, brown 0.03→0.02, stone 0.04→0.03, alt unchanged 0.01).
+**v4 background** (11 kinds) sums to **exactly `1`**: conifer 0.14, deciduous 0.12,
+broad 0.11, bush 0.08, autumn 0.10, birch 0.09, deep-shadow spruce 0.09, tall
+spruce 0.08, snag 0.05, bush-cluster 0.08, berry-bush 0.06 (v3 was 0.16/0.14/0.13/
+0.10/0.12/0.10/0.10/0.09/0.06). **v4 midground** (4 kinds) sums to **exactly `1`**:
+tall 0.40, broad 0.24, wide 0.22, bush-cluster 0.14 (v3 was 0.65/0.35).
+**v4 floor** (17 kinds — the v2/v3 13 plus the 4 new grass/fern sprites) sums to
+**exactly `1`**: flat marks **0.23** (leaf drift 0.07 + grass wave 0.07 + twig 0.03
++ grass patch 0.06), grass/fern **0.56** (tuft A 0.12 + tuft B 0.13 + clump 0.08 +
+fern 0.08 + curled 0.05 + flower 0.05), moss/needles **0.12**, leaf/mushroom
+**0.11**, stones **0.03**. The grass/fern share was raised (`0.40 → 0.56`) and the
+others trimmed (moss 0.10→0.08, needles 0.08→0.04, leaf litter 0.06→0.04, flat
+marks 0.24→0.23, brown 0.02→0.01, stone 0.03→0.02).
 
 #### 3.4.2 Grass carpet (procedural, not sprites)
 
@@ -2195,28 +2420,28 @@ top, clamped to the canvas.
 #### 3.4.4 Expected on-screen counts (per frame)
 
 Let `W = win.max − win.min`, `L` = lane count (default 4, max 8). Counts below are
-measured in the shipped renderer (`SEED 1337`, forest salts, v2/v3 §3.8):
+measured in the shipped renderer (`SEED 1337`, forest salts, v4 §3.8i):
 
 | layer | candidates | cap | at `W=100` | at `W=250` |
 |---|---|---|---|---|
-| background | `⌊W/20⌋` + edge | 24 | 5 (L-independent; 6 candidates, 1 margin-culled) | 13 |
-| midground | `⌊W/48⌋` + edge | 10 | 2 | 5 |
-| floor | `(⌊W/12⌋ + edge) × L` | 180 (`22`/lane at `L=8`) | **35 (L4) / 67 (L8)** | **85 (L4) / 88 (L8)** |
-| floor, `flat:true` | subset of the row above | — | 5 (L4) / 10 (L8) | 15 (L4) / 20 (L8) |
+| background | `⌊W/14⌋` + edge | 30 | 7 (L-independent) | 18 |
+| midground | `⌊W/36⌋` + edge | 14 | 3 | 7 |
+| floor | `(⌊W/12⌋ + edge) × L` | 220 (`27`/lane at `L=8`) | **35 (L4) / 67 (L8)** | **85 (L4) / 170 (L8)** |
+| floor, `flat:true` | subset of the row above | — | 4 (L4) / 9 (L8) | 14 (L4) / 34 (L8) |
 | carpet specks | `≈183 × 2 × L` rects | — | 1464 (L4) | 1464 (L4, W-independent) |
 
-At the default camera (`MIN_WINDOW = 100`, 4 lanes) expect **5 background trees
-(≈6 candidates), 2 midground trees, 35 floor props** (5 of them v2 flat marks) —
-**42 props total**. At `W = 250`: **13 / 5 / 85 (L4) and 13 / 5 / 88 (L8)**. At
-`W = 1400`, 8 lanes: **18 / 7 / 159 (44 flat), 184 total**; the shipped perf
-window (spread 1400 → `W = 1440`): 18 / 7 / 168 (44 flat), **193 total** — under
-the `24 + 10 + 180 = 214` static bound. The carpet is always present. The old
+At the default camera (`MIN_WINDOW = 100`, 4 lanes) expect **7 background trees,
+3 midground trees, 35 floor props** (4 of them flat marks) — **45 props total**.
+At `W = 250`: **18 / 7 / 85 (L4) and 18 / 7 / 170 (L8)**. At `W = 1400`, 8 lanes:
+**25 / 10 / 191 (37 flat), 226 total**; the shipped perf window (spread 1400 →
+`W = 1440`): 26 / 10 / 200 (37 flat), **236 total** — under the
+`30 + 14 + 220 = 264` static bound. The carpet is always present. The old
 world-point spacing of `90` (≈1 item per screen) is **superseded** by this
 per-layer model.
 
 Candidate counts iterate the inclusive `k` range `⌊(win.min − spacing)/spacing⌋ …
 ⌈(win.max + spacing)/spacing⌉` (`+edge`, one spacing past each window edge). Floor
-props are capped per lane (`⌊180/L⌋`, `22` at `L=8`) and stride-sampled across the
+props are capped per lane (`⌊220/L⌋`, `27` at `L=8`) and stride-sampled across the
 window (§3.4).
 
 ### 3.5 Size budget at `1280×720`
@@ -2225,23 +2450,25 @@ window (§3.4).
 |---|---|
 | lane region | `712 − 120 = 592` px |
 | `laneHeight(8)` | `74.0` px |
-| tallest floor decor | `FERN 16×12` px (≪ 74, no lane overflow); v2 flat marks ≤ `8` px tall |
+| tallest floor decor | `FERN_CURLED 20×14` px (≪ 74, no lane overflow); flat marks ≤ `8` px tall |
 | widest floor decor | `GRASS_WAVE 40×8` px |
 | tallest background decor | `FOREST_TREE_SPRUCE_TALL 40×64` px (base `120`, top `56`, inside sky) |
+| widest background/midground decor | `FOREST_TREE_WIDE 56×64` px (midground, base on the lane surface) |
 | midground tree | `FOREST_TREE_TALL 48×72` px — ≈ one 8-lane lane tall, stands on the surface |
 | boar lane fit | `60×42` + feet `2` → `44` px in a `74` px lane (slack `30` px) |
-| max decor sprites / frame | `background 24 + midground 10 + floor 180 = 214` (v3 worst case; typical 42; measured worst 193 at `W=1440`, 8 lanes) |
+| max decor sprites / frame | `background 30 + midground 14 + floor 220 = 264` (v4 worst case; typical 45; measured worst 236 at `W=1440`, 8 lanes) |
 | grass carpet | `≈183 × 2 × L` `fillRect` specks/frame (no sprite loop) |
+| ground depth (§3.8i) | 3 ramp zone `fillRect`s/lane + 1 crest-shadow `fillRect`/column/lane (≈`10 240` at 8 lanes, `5 120` at 4) |
 | dusk ridges + jag (§3.8b/g) | 2 ridge bands ≈ `2 × 1280` 1 px `fillRect`s + 2 jag tiers ≈ `2 180–2 380` run-rects, zoom-independent |
 | mountains (§3.8f) | 2 layers, run-coalesced screen-px peaks: ≈`3 840` rects (body + 1 px rim per run) at every zoom (`3 858` at `W=100`, `3 832` at `W=250`, `3 842` at `W=1440`), zoom-independent |
-| grass ripple bands (§3.8c) | 2 bands ≈ `730` run-rects at 4 lanes / ≈ `1 465` at 8 (zoom-independent) |
+| grass ripple bands (§3.8i) | 3 bands ≈ `1 090` run-rects at 4 lanes / ≈ `2 190` at 8 (zoom-independent) |
 
-**Perf (measured, M1 Max + ANGLE/Metal):** the v3 forest dense-decor path (8 lanes,
-spread 1400 → `W=1440`) runs at **60.0 fps** with **193 sprites / 12 kinds** — the
-same 60.0 fps as desert v2 (186 sprites / 19 kinds) and as the v2 forest
-(186 sprites) before this change; the `≥55 fps` gate keeps headroom even with the
-mountains (≈3 840 screen-space rects at any zoom) + two jag tiers on screen. Rects
-are plain `fillRect`s — no PRNG, no allocation.
+**Perf (measured, M1 Max + ANGLE/Metal):** the v4 forest dense-decor path (8 lanes,
+spread 1400 → `W=1440`) runs at **60.0 fps** with **236 sprites / 16 kinds** — the
+same 60.0 fps as desert v2 (186 sprites / 19 kinds) and as the v3 forest
+(193 sprites) before this change; the `≥55 fps` gate keeps headroom even with the
+mountains (≈3 840 screen-space rects at any zoom) + two jag tiers + the crest
+shadow. Rects are plain `fillRect`s — no PRNG, no allocation.
 
 ### 3.6 Forest palette table (every token)
 
@@ -2254,7 +2481,9 @@ are plain `fillRect`s — no PRNG, no allocation.
 | `moon` | `#f0e8c0` | moon disc |
 | `moonRim` | `#d8c890` | moon ring |
 | `accent` | `#e8c83a` | milestone flag / accents |
-| `ground.top` | `#4a7a3a` | grass fill |
+| `ground.top` | `#4a7a3a` | grass fill (top 40 %) |
+| `ground.ramp[0..2]` | `#447338` / `#3d6832` / `#345a2b` | v4 depth zones 40–60 / 60–80 / 80–100 % of `laneH` (§3.8i) |
+| `ground.crestShadow` | `#2b4a24` | v4 2 px band at `crest + 1` (between rim and shade stripe) |
 | `ground.shade` | `#3a6030` | grass shade stripe |
 | `ground.edge` | `#26401f` | lane crease / bottom |
 | `ground.rim` | `#1c3018` | crest rim |
@@ -2266,6 +2495,12 @@ are plain `fillRect`s — no PRNG, no allocation.
 | deep-shadow canopy light / dark | `#1f4a2a` / `#14301c` | `T` / `S` (`FOREST_TREE_PAL_SPRUCE_DARK`, v3) |
 | tall-spruce canopy light / dark | `#2a6234` / `#1b4024` | `T` / `S` (`FOREST_TREE_PAL_SPRUCE_TALL`, v3) |
 | snag body / shade | `#6b5a42` / `#3f3222` | `B` / `S` (`FOREST_TREE_PAL_SNAG`, v3) |
+| bush-cluster canopy light / dark | `#3a8a4a` / `#2a6234` | `T` / `S` (`BUSH_CLUSTER_PAL`, v4) |
+| berry | `#c0392b` | `C` (`BERRY_BUSH_PAL`, v4; = mushroom cap tone) |
+| wide-tree canopy / trunk / base | `#3a8a4a` / `#2a6234` / `#4a3320` / `#2a1c10` | `T` / `S` / `B` / `R` (`FOREST_TREE_WIDE_PAL`, v4) |
+| grass clump / curled frond | `#2f6b3a` / `#7ac25a` | `G` / `H` (`GRASS_CLUMP_PAL`, `FERN_CURLED_PAL`, v4) |
+| flower head | `#f0ece0` | `W` (`GRASS_FLOWER_PAL`, v4; = mushroom spot tone) |
+| grass-patch edge | `#3a6030` | `O` (`GRASS_PATCH_PAL`, v4 flat mark) |
 | mushroom red cap | `#c0392b` | `C` |
 | mushroom spot | `#f0ece0` | `W` |
 | mushroom brown cap | `#8a5a3a` | `C` |
@@ -2319,44 +2554,53 @@ palette: { sky:['#241a3a','#3a2450','#5a3050','#7a3f4a'], sun:'#f0e8c0', sunRim:
            accent:'#e8c83a', distant:['#241634','#33204a'], treeline:true,
            mountains:{ back:'#3b2a56', backRim:'#4d3a6d',
                        body:'#140b26', rim:'#2e1f52' } },                  // v3 §3.8f
-ground:  { top:'#4a7a3a', shade:'#3a6030', edge:'#26401f', rim:'#1c3018', speckle:'#5a8a48',
+ground:  { top:'#4a7a3a', ramp:['#447338','#3d6832','#345a2b'], crestShadow:'#2b4a24',
+           shade:'#3a6030', edge:'#26401f', rim:'#1c3018', speckle:'#5a8a48',
            speckleShare:0.5, speckleWidth:2, carpetSpacing:7, clusterShare:0.14,
-           streaks: FOREST_STREAKS },                                     // v2 §3.8
+           streaks: FOREST_STREAKS },                                     // v4 §3.8i
 decor: {
   maxSpan: 1500,
   streams: {
-    background: { spacing: 20, cap: 24 },                                 // v3 §3.8h
-    midground:  { spacing: 48, cap: 10 },
-    floor:      { spacing: 12, cap: 180 },                                // v2 §3.8
+    background: { spacing: 14, cap: 30 },                                 // v4 §3.8i
+    midground:  { spacing: 36, cap: 14 },                                 // v4 §3.8i
+    floor:      { spacing: 12, cap: 220 },                                // v4 §3.8i
   },
   kinds: [
-    // background (base on HORIZON_Y + yOffset); v3: 9 kinds, weights sum exactly 1
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,       pal:FOREST_TREE_PAL_CONIFER,       yOffset:-56, weight:0.16 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_DECIDUOUS,     yOffset:-56, weight:0.14 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_BROAD,         pal:FOREST_TREE_BROAD_PAL,         yOffset:-60, weight:0.13 },
-    { kind:'trees',        layer:'background', sprite:FOREST_BUSH,               pal:FOREST_BUSH_PAL,               yOffset:-20, weight:0.10 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_AUTUMN,        yOffset:-56, weight:0.12 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_BIRCH,         yOffset:-56, weight:0.10 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,       pal:FOREST_TREE_PAL_SPRUCE_DARK,   yOffset:-56, weight:0.10 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_SPRUCE_TALL,   pal:FOREST_TREE_PAL_SPRUCE_TALL,   yOffset:-64, weight:0.09 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_SNAG,          pal:FOREST_TREE_PAL_SNAG,          yOffset:-48, weight:0.06 },
-    // midground (base on lane terrainSurfaceY + yOffset)
-    { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_TALL,      pal:FOREST_TREE_TALL_PAL,      yOffset:-72, weight:0.65 },
-    { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_BROAD,     pal:FOREST_TREE_BROAD_PAL,     yOffset:-60, weight:0.35 },
-    // floor (per lane)
-    // v2 flat marks roam the lane field (no yOffset, §3.8)
-    { kind:'leaf_drift',   layer:'floor',      sprite:LEAF_DRIFT,            pal:LEAF_DRIFT_PAL,            flat:true,   weight:0.10 },
-    { kind:'grass_wave',   layer:'floor',      sprite:GRASS_WAVE,            pal:GRASS_WAVE_PAL,            flat:true,   weight:0.10 },
-    { kind:'twig',         layer:'floor',      sprite:TWIG,                  pal:TWIG_PAL,                  flat:true,   weight:0.04 },
-    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_A,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.16 },
-    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_B,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.14 },
-    { kind:'fern',         layer:'floor',      sprite:FERN,                  pal:FERN_PAL,                  yOffset:-12, weight:0.10 },
-    { kind:'moss',         layer:'floor',      sprite:MOSS,                  pal:MOSS_PAL,                  yOffset:-8,  weight:0.10 },
-    { kind:'pine_needles', layer:'floor',      sprite:PINE_NEEDLES,          pal:NEEDLES_PAL,               yOffset:-8,  weight:0.08 },
-    { kind:'leaf_litter',  layer:'floor',      sprite:LEAF_LITTER,           pal:LEAF_LITTER_PAL,           yOffset:-6,  weight:0.06 },
+    // background (base on HORIZON_Y + yOffset); v4: 11 kinds, weights sum exactly 1
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,       pal:FOREST_TREE_PAL_CONIFER,       yOffset:-56, weight:0.14 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_DECIDUOUS,     yOffset:-56, weight:0.12 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_BROAD,         pal:FOREST_TREE_BROAD_PAL,         yOffset:-60, weight:0.11 },
+    { kind:'trees',        layer:'background', sprite:FOREST_BUSH,               pal:FOREST_BUSH_PAL,               yOffset:-20, weight:0.08 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_AUTUMN,        yOffset:-56, weight:0.10 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_BIRCH,         yOffset:-56, weight:0.09 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,       pal:FOREST_TREE_PAL_SPRUCE_DARK,   yOffset:-56, weight:0.09 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_SPRUCE_TALL,   pal:FOREST_TREE_PAL_SPRUCE_TALL,   yOffset:-64, weight:0.08 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_SNAG,          pal:FOREST_TREE_PAL_SNAG,          yOffset:-48, weight:0.05 },
+    { kind:'trees',        layer:'background', sprite:BUSH_CLUSTER,              pal:BUSH_CLUSTER_PAL,              yOffset:-20, weight:0.08 },
+    { kind:'trees',        layer:'background', sprite:BERRY_BUSH,                pal:BERRY_BUSH_PAL,                yOffset:-20, weight:0.06 },
+    // midground (base on lane terrainSurfaceY + yOffset); v4: 4 kinds, weights sum exactly 1
+    { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_TALL,      pal:FOREST_TREE_TALL_PAL,      yOffset:-72, weight:0.40 },
+    { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_BROAD,     pal:FOREST_TREE_BROAD_PAL,     yOffset:-60, weight:0.24 },
+    { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_WIDE,      pal:FOREST_TREE_WIDE_PAL,      yOffset:-64, weight:0.22 },
+    { kind:'midground',    layer:'midground',  sprite:BUSH_CLUSTER,          pal:BUSH_CLUSTER_PAL,          yOffset:-20, weight:0.14 },
+    // floor (per lane); v4: 17 kinds, weights sum exactly 1
+    // flat marks roam the lane field (no yOffset, §3.8/§3.8i)
+    { kind:'leaf_drift',   layer:'floor',      sprite:LEAF_DRIFT,            pal:LEAF_DRIFT_PAL,            flat:true,   weight:0.07 },
+    { kind:'grass_wave',   layer:'floor',      sprite:GRASS_WAVE,            pal:GRASS_WAVE_PAL,            flat:true,   weight:0.07 },
+    { kind:'twig',         layer:'floor',      sprite:TWIG,                  pal:TWIG_PAL,                  flat:true,   weight:0.03 },
+    { kind:'grass_patch',  layer:'floor',      sprite:GRASS_PATCH,           pal:GRASS_PATCH_PAL,           flat:true,   weight:0.06 },
+    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_A,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.12 },
+    { kind:'grass_tufts',  layer:'floor',      sprite:GRASS_TUFT_B,          pal:GRASS_TUFT_PAL,            yOffset:-8,  weight:0.13 },
+    { kind:'grass_clump',  layer:'floor',      sprite:GRASS_CLUMP_TALL,      pal:GRASS_CLUMP_PAL,           yOffset:-12, weight:0.08 },
+    { kind:'fern',         layer:'floor',      sprite:FERN,                  pal:FERN_PAL,                  yOffset:-12, weight:0.08 },
+    { kind:'fern_curled',  layer:'floor',      sprite:FERN_CURLED,           pal:FERN_CURLED_PAL,           yOffset:-14, weight:0.05 },
+    { kind:'grass_flower', layer:'floor',      sprite:GRASS_FLOWER,          pal:GRASS_FLOWER_PAL,          yOffset:-10, weight:0.05 },
+    { kind:'moss',         layer:'floor',      sprite:MOSS,                  pal:MOSS_PAL,                  yOffset:-8,  weight:0.08 },
+    { kind:'pine_needles', layer:'floor',      sprite:PINE_NEEDLES,          pal:NEEDLES_PAL,               yOffset:-8,  weight:0.04 },
+    { kind:'leaf_litter',  layer:'floor',      sprite:LEAF_LITTER,           pal:LEAF_LITTER_PAL,           yOffset:-6,  weight:0.04 },
     { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_RED,          pal:MUSHROOM_RED_PAL,          yOffset:-12, weight:0.06 },
-    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_BROWN,        pal:MUSHROOM_BROWN_PAL,        yOffset:-12, weight:0.02 },
-    { kind:'stones',       layer:'floor',      sprite:STONE,                 pal:STONE_PAL,                 yOffset:-10, weight:0.03 },
+    { kind:'mushrooms',    layer:'floor',      sprite:MUSHROOM_BROWN,        pal:MUSHROOM_BROWN_PAL,        yOffset:-12, weight:0.01 },
+    { kind:'stones',       layer:'floor',      sprite:STONE,                 pal:STONE_PAL,                 yOffset:-10, weight:0.02 },
     { kind:'stones',       layer:'floor',      sprite:STONE_ALT,             pal:STONE_PAL,                 yOffset:-8,  weight:0.01 },
   ],
 },
@@ -2365,16 +2609,19 @@ decor: {
 **Kind names are family-level.** The `kind` field uses the family names above
 (not the per-sprite labels in §3.3); `weight` is resolved **within its own layer's
 stream** (§3.4.1). Mapping: `trees` → `tree-conifer` / `tree-deciduous` / `tree-broad`
-/ `bush` + the v3 variants (autumn, birch, deep-shadow spruce) and the v3
-`tree-spruce-tall` / `tree-snag`; `midground` → `tree-tall` / `tree-broad`;
-`grass_tufts` → `grass-tuft-a` / `grass-tuft-b`; `fern` → `fern`; `mushrooms` →
+/ `bush` + the v3 variants (autumn, birch, deep-shadow spruce), the v3
+`tree-spruce-tall` / `tree-snag` and the v4 `bush-cluster` / `berry-bush`;
+`midground` → `tree-tall` / `tree-broad` / v4 `tree-wide` / v4 `bush-cluster`;
+`grass_tufts` → `grass-tuft-a` / `grass-tuft-b`; `grass_clump` → v4
+`grass-clump-tall`; `grass_flower` → v4 `grass-flower`; `grass_patch` → v4 flat
+`grass-patch`; `fern` → `fern`; `fern_curled` → v4 `fern-curled`; `mushrooms` →
 `mushroom-red` / `mushroom-brown`; `moss` → `moss`; `stones` → `stone` /
 `stone-alt`; `pine_needles` → `pine-needles`; `leaf_litter` → `leaf-litter`;
 `leaf_drift` / `grass_wave` / `twig` → the three v2 flat marks (`flat:true`, §3.8).
 
 ---
 
-### 3.8 Forest ambience v2/v3 — mountains, treeline tiers, ridges, ripple bands + dense cover
+### 3.8 Forest ambience v2/v3/v4 — mountains, treeline tiers, ridges, ramp + dense cover
 
 The forest (default theme, boar) catches up with the desert v2 ambience (§2.12–§2.14):
 same renderer paths, own theme data. No new render pass, no new dependency; every
@@ -2448,18 +2695,21 @@ kinds whose weights sum exactly `1`** (table in §3.4.1: conifer 0.16, deciduous
 0.14, broad 0.13, bush 0.10, autumn 0.12, birch 0.10, deep-shadow spruce 0.10,
 tall spruce 0.09, snag 0.06). Midground and floor streams are untouched by v3.
 
-**(c) Grass ripple bands (new)** — `ground.streaks: FOREST_STREAKS`, the §2.12(b)
-renderer path with forest data and `ground.shade #3a6030` as the tone:
+**(c) Grass ripple bands (new, v4: 3 bands)** — `ground.streaks: FOREST_STREAKS`,
+the §2.12(b) renderer path with forest data and `ground.shade #3a6030` as the tone:
 
 | Band | Thickness | Amplitude | On-screen wavelength | Phase | `y₀` |
 |---|---|---|---|---|---|
 | A | `2 px` | `±6 px` | `320 px` | `0.00` | `top + 0.30·laneH` |
 | B | `1 px` | `±4 px` | `240 px` | `0.55` | `top + 0.65·laneH` |
+| C (v4) | `1 px` | `±5 px` | `400 px` | `0.90` | `top + 0.85·laneH` |
 
 Per-lane phase `+ i·0.17`, clamped to `[crest + 5, bottom − 2 − (thick − 1)]` with the
-same crest rule as the desert; run-coalesced ≈`730` rects at 4 lanes / ≈`1 465` at
-8 lanes, zoom-independent, never culled. The desert ships its 3 `DUNE_STREAKS` rows
-verbatim through the same token, so this refactor changes no desert pixel.
+same crest rule as the desert; run-coalesced ≈`1 090` rects at 4 lanes / ≈`2 190` at
+8 lanes, zoom-independent, never culled. Band C adds a subtle toe ripple over the
+v4 ramp's darkest zone; bands A/B keep their v2 params verbatim. The desert ships
+its 3 `DUNE_STREAKS` rows verbatim through the same token, so this changes no desert
+pixel.
 
 **(d) Carpet v2** — `ground.speckleShare 0.5` (kept), `speckleWidth: 2`,
 `carpetSpacing: 7` (was the 10 px fallback), `clusterShare: 0.14` (desert 0.18);
@@ -2474,16 +2724,38 @@ the old forest never set `flat`). Weights in §3.4.1; counts in §3.4.4. `LEAF_D
 `GRASS_WAVE` and `TWIG` use soft grass-shade `O` and read as surface marks, matching
 the desert §2.13 rule.
 
+**(i) Forest v4 ground depth + density (new)** — the forest gets the desert's
+3-zone lane depth plus a crest shadow, and denser, more varied cover:
+
+| Token / stream | Value | Effect |
+|---|---|---|
+| `ground.ramp` | `['#447338','#3d6832','#345a2b']` | 3 zones at 40/60/80 % `laneH`, replacing the flat fill's lower 60 % (§3.2 table) |
+| `ground.crestShadow` | `#2b4a24` | 2 px band at `crest + 1`, between the rim and the `crest + 3` shade stripe |
+| `FOREST_STREAKS[2]` | `thick 1, amp 5, periodPx 400, phase 0.90, frac 0.85` | subtle toe ripple (§3.8c) |
+| background | `spacing 14, cap 30` | 7 trees at the default camera, 18 at `W=250` |
+| midground | `spacing 36, cap 14` | 3 at default, 7 at `W=250` |
+| floor | `spacing 12, cap 220` | unchanged default `W=100` count (35), wider-window density (§3.4.4) |
+
+Renderer: the ramp reuses `drawLanes`' existing theme-gated ramp block (no code
+change); the crest shadow is one extra `fillRect` per column inside the crest loop,
+gated on `ground.crestShadow`; the third band is pure theme data. Seven new
+matrices (§3.3) enter the streams: `BUSH_CLUSTER` (background **and** midground),
+`BERRY_BUSH` (background), `FOREST_TREE_WIDE` (midground), and `GRASS_CLUMP_TALL` /
+`GRASS_FLOWER` / `FERN_CURLED` / `GRASS_PATCH` (floor; the patch is a flat mark
+with surface-tone `O`). Weights: §3.4.1 (all three layers sum exactly `1`; the
+floor's grass/fern share rises 0.40 → 0.56). Counts: §3.4.4.
+
 **Desert-unchanged guarantee.** All new paths are theme-gated and desert keeps
 its exact data: `drawDunes` code is untouched; `drawMountains` returns immediately
 without `palette.mountains`; `drawTreeline` returns immediately without
 `palette.treeline` (both v2/v3 tiers); `drawLanes` reads `ground.streaks`, and
-desert ships `DUNE_STREAKS` verbatim; the carpet cluster gate is
-`ground.clusterShare !== undefined` (true for desert before and after, same
-`0.18` and same draw order); no desert sprite/palette/stream/weight changed; the
-forest v3 stream/weights/kinds edits live only in `THEMES.forest`.
-**Verified:** v2→v3 desert frames hash **byte-identical** (`sha256` canvas raw
-pixels: idle 4 lanes `ce6dac5f…`, spread 8 lanes `89baca40…`, culled 8 lanes
+desert ships `DUNE_STREAKS` verbatim; the ramp block only runs with `ground.ramp`
+and the crest shadow only with `ground.crestShadow` (desert ships neither); the
+carpet cluster gate is `ground.clusterShare !== undefined` (true for desert before
+and after, same `0.18` and same draw order); no desert sprite/palette/stream/weight
+changed; the forest v3/v4 stream/weights/kinds edits live only in `THEMES.forest`.
+**Verified:** v2→v4 and v3→v4 desert frames hash **byte-identical** (`sha256` canvas
+raw pixels: idle 4 lanes `ce6dac5f…`, spread 8 lanes `89baca40…`, culled 8 lanes
 `90b7b509…`; §5), and the whole desert test group stays green. The v1→v2 check
 was `sha256 0df0239f…` (§3.8).
 
@@ -2494,7 +2766,7 @@ was `sha256 0df0239f…` (§3.8).
 ```mermaid
 flowchart TD
   T{"THEMES[state.theme]"} -->|desert| D["Dune ribbon + 3 bands<br/>sun r=32 @ (1020,76)"]
-  T -->|forest| F["Grass ribbon + 4 bands<br/>moon r=32 @ (1020,76)<br/>2 mountains (v3) + 2 dusk ridges<br/>+ 2-tier treeline jag (§3.8)"]
+  T -->|forest| F["Grass ribbon + 4 bands<br/>moon r=32 @ (1020,76)<br/>2 mountains (v3) + 2 dusk ridges<br/>+ 2-tier treeline jag<br/>+ 3-zone ramp + crest shadow (v4)"]
   D --> DB["background (base on HORIZON_Y)"]
   D --> DM["midground (base on lane surface; before the camels)"]
   D --> DF["floor (per lane, base on lane surface)"]
@@ -2511,12 +2783,16 @@ flowchart TD
   F --> FM["midground (base on lane surface; drawn before animals)"]
   F --> FF["floor (per lane; flat v2 marks roam the field, §3.8)"]
   F --> CARP["grass carpet (procedural fillRect speckle, 7 px/lane, clusters)"]
-  F --> FRIP["grass ripple bands (2 bands, ground.shade, §3.8)"]
+  F --> FRIP["grass ripple bands (3 bands, ground.shade, §3.8c)"]
+  F --> FRAMP["ground depth ramp (3 zones) + crest shadow (v4 §3.8i)"]
   FB --> FC["tree-conifer 40×56"] & FD["tree-deciduous 40×56"] & FBRO["tree-broad 44×60"] & FBU["bush 28×20"]
   FB --> FVS["tree-spruce-tall 40×64"] & FSN["tree-snag 24×48"] & FVAR["+ 3 palette variants (autumn / birch / deep-shadow spruce, v3 §3.8g)"]
+  FB --> FBC["bush-cluster 36×24 (v4)"] & FBB["berry-bush 28×20 (v4)"]
   FM --> FT["tree-tall 48×72"] & FBRO
-  FF --> FLD["leaf-drift 36×8"] & FGW["grass-wave 40×8"] & FTW["twig 18×6"]
+  FM --> FW["tree-wide 56×64 (v4)"] & FBC
+  FF --> FLD["leaf-drift 36×8"] & FGW["grass-wave 40×8"] & FTW["twig 18×6"] & FGP["grass-patch 32×8 (v4 flat, surface O)"]
   FF --> FGA["grass-tuft-a 10×8"] & FGB["grass-tuft-b 12×8"] & FFN["fern 16×12"] & FLL["leaf-litter 14×6"]
+  FF --> FGC["grass-clump-tall 16×12 (v4)"] & FGF["grass-flower 14×10 (v4)"] & FFC["fern-curled 20×14 (v4)"]
   FF --> FM1["mushroom-red 12×12"] & FM2["mushroom-brown 12×12"]
   FF --> FMOS["moss 20×8"] & FST["stone 16×10"] & FST2["stone-alt 12×8"] & FPN["pine-needles 24×8"]
   T --> SHARED["shared (both themes):<br/>milestone 20×28 + 12px label,<br/>finish 24×28 checker, confetti 4×4,<br/>team labels 12px mono, 8-colour palette"]
@@ -2705,6 +2981,40 @@ VERIFY OK
 | desert untouched | v2→v3 desert raw-pixel `sha256` identical in all 3 setups (§3.8); all desert tests green |
 | forest performance | 8-lane spread-1400 dense path **60.0 fps**, 193 sprites / 12 kinds (M1 Max/ANGLE), `≥55` gate holds (§3.5) |
 
+The forest v4 pass (§3.8i) was authored/validated by temp harnesses in
+`${TMPDIR:-/tmp}/opencode/`: `gen-forest-v4-sprites.js` builds the 7 new matrices
+and re-runs the structural rules; `v4-contrast.js` prints the ramp/crest-shadow
+contrast steps; `v4-desert-bytes.js` freezes the v3→v4 desert frames; `v4-previews.js`
+writes the §6 previews. Run with plain `node`. Counts/perf are from the shipped
+renderer (`pnpm exec playwright test`).
+
+```
+BUSH_CLUSTER: 36x24 cells=445 blobs=1 OK
+BERRY_BUSH: 28x20 cells=307 blobs=1 OK
+FOREST_TREE_WIDE: 56x64 cells=1740 blobs=1 OK
+GRASS_CLUMP_TALL: 16x12 cells=75 blobs=1 OK
+GRASS_FLOWER: 14x10 cells=56 blobs=1 OK
+FERN_CURLED: 20x14 cells=71 blobs=1 OK
+GRASS_PATCH: 32x8 cells=116 blobs=1 OK
+weights: bg 11 sum=1 | mid 4 sum=1 | floor 17 sum=1 (exact ===)
+counts: W=100 bg=7 mid=3 floor=35 flat=4 (L4) / floor=67 flat=9 (L8)
+        W=250 bg=18 mid=7 floor=85 (L4) / floor=170 flat=34 (L8)
+        W=1400 L8 bg=25 mid=10 floor=191 (37 flat) = 226 | W=1440 L8 = 236
+desert pixels: idle ce6dac5f... / spread 89baca40... / culled 90b7b509... identical=true (v3->v4)
+VERIFY OK
+```
+
+| Check | forest v4 scope |
+|---|---|
+| exact dims | `BUSH_CLUSTER 36×24`, `BERRY_BUSH 28×20`, `FOREST_TREE_WIDE 56×64`, `GRASS_CLUMP_TALL 16×12`, `GRASS_FLOWER 14×10`, `FERN_CURLED 20×14`, `GRASS_PATCH 32×8` |
+| legend-only chars | `O T S` / `O T S C` / `O T S B R` / `O G H` / `O G H W` (all chars resolve through the sprite's own palette; no new `CHAR_KEY` letters) |
+| single 4-connected blob | all 7 are 1 blob, `O`-enclosed, 1 px transparent margin |
+| weights | bg 11 / mid 4 / floor 17 kinds, each layer sums **exactly `1`** (`=== 1`) |
+| ground depth | ramp zones at 40/60/80 % (`#447338`/`#3d6832`/`#345a2b`, steps 1.10/1.17/1.22), crest shadow `#2b4a24` 2 px at `crest+1`, 3rd band `1/5/400/0.90/0.85` |
+| counts (§3.4.4) | shipped renderer: 7 / 3 / 35 (4 flat) at `W=100` L4; 18 / 7 / 85 at `W=250` L4 |
+| desert untouched | v3→v4 desert raw-pixel `sha256` identical in all 3 setups (§3.8); all desert tests green |
+| forest performance | 8-lane spread-1400 dense path **60.0 fps**, 236 sprites / 16 kinds (M1 Max/ANGLE), `≥55` gate holds (§3.5) |
+
 The v2→v3 desert byte-identity proof: `v3-desert-bytes.js` snapshots three setups
 (idle 4 lanes, mixed 8-lane spread, 8-lane culled spread) in the pre-change
 `forest-v3-before.html` and the shipped `index.html`, hashes the raw 1280×720
@@ -2739,6 +3049,9 @@ Written to the gitignored `test-results/ux-tmp/`:
 | `/tmp/art-previews/forest-v3-wide250.png` | same capture at `W = 250` (score spread 210): 13 background / 5 midground / 85 floor, mountains peeking over the ridges |
 | `/tmp/art-previews/forest-v3-mountains-crop.png` | sky crop (`y 0–140`) at **2×**: both mountain layers + rims, ridges, two treeline tiers, moon |
 | `/tmp/art-previews/forest-v3-sprites.png` | the 2 v3 sprites + 3 palette variants at **8×** with labels + a **1×** strip on the grass floor `#4a7a3a` (`SPRUCE_TALL`, `SNAG`, autumn, birch, deep-shadow conifer) |
+| `/tmp/art-previews/forest-v4-default.png` | shipped-renderer capture (4 lanes, scores 0 ⇒ `W = 100`): v4 forest — 3-zone ground ramp + crest shadow + 3rd band, 45 props (7 background / 3 midground / 35 floor, 4 flat) |
+| `/tmp/art-previews/forest-v4-lane0.png` | lane-0 crop (`1280×148`, `y 120–268`): ramp zones, crest shadow under the rim, 3 ripple bands, new floor props at 1× |
+| `/tmp/art-previews/forest-v4-sprites.png` | the 7 v4 sprites at **8×** with labels + a **1×** strip over the 3 ramp zones (`BUSH_CLUSTER`, `BERRY_BUSH`, `FOREST_TREE_WIDE`, `GRASS_CLUMP_TALL`, `GRASS_FLOWER`, `FERN_CURLED`, `GRASS_PATCH`) |
 
 > The two desert previews are regenerated by
 > `python3 /tmp/art-gen/gen-desert-art.py preview` (they live in `/tmp`, not
@@ -2778,18 +3091,19 @@ Written to the gitignored `test-results/ux-tmp/`:
    `mushroom*`, `moss`, `stones`, `pine_needles`, plus the v2 `leaf_drift` /
    `grass_wave` / `twig`) and a tree can appear across a run.
 7. **Forest sizes** — conifer/deciduous bbox `40×56`, broad `44×60`, tall `48×72`,
-   bush `28×20`, v3 spruce tall `40×64`, v3 snag `24×48`, grass tufts `10×8`/`12×8`,
-   fern `16×12`, leaf litter `14×6`, mushrooms `12×12`, moss `20×8`, stones
-   `16×10`/`12×8`, needles `24×8`, v2 flat marks `36×8`/`40×8`/`18×6`; each fits
+   bush `28×20`, v3 spruce tall `40×64`, v3 snag `24×48`, v4 bush cluster `36×24`,
+   v4 berry bush `28×20`, v4 wide tree `56×64`, grass tufts `10×8`/`12×8`, v4
+   grass clump `16×12`, v4 grass flower `14×10`, fern `16×12`, v4 curled fern
+   `20×14`, leaf litter `14×6`, mushrooms `12×12`, moss `20×8`, stones
+   `16×10`/`12×8`, needles `24×8`, flat marks `36×8`/`40×8`/`18×6`/v4 `32×8`; each fits
    its layer budget (floor ≤ lane height, background inside the sky, tall ≈ one
    lane, flat marks inside one lane field).
 8. **Placement determinism** — two identical runs produce identical decor positions;
    `Math.random` is never called for decor; past `maxSpan 1500` world decor is culled
    while sky + ground + carpet + treeline jag + mountains still render.
-9. **Density** — at a 4-lane, `W ≈ 100` window expect 5 background trees (≈6
-   candidates, one margin-culled), 2 midground trees and **35 floor props (5 flat,
-   42 total**; §3.4.4); caps respected (background ≤24, midground ≤10,
-   floor ≤180).
+9. **Density** — at a 4-lane, `W ≈ 100` window expect 7 background trees, 3
+   midground trees and **35 floor props (4 flat, 45 total**; §3.4.4); caps
+   respected (background ≤30, midground ≤14, floor ≤220).
 10. **Midground layering** — a midground `FOREST_TREE_TALL` on a lane is over-painted
     by a boar at the same screen x (boar passes in front).
 11. **Grass carpet (v2)** — grass lanes carry procedural speckle (`#5a8a48`/`#3a6030`
@@ -2846,20 +3160,21 @@ Written to the gitignored `test-results/ux-tmp/`:
     line), while every rooted floor kind still bottoms out on `laneSurfaceY`; two
     runs produce identical y values.
 23. **Desert untouched** — switching to desert renders byte-identical lane, carpet and
-    decor pixels to the shipped v2 build (raw RGBA `sha256 ce6dac5f…` idle /
-    `89baca40…` spread / `90b7b509…` culled, before/after §3.8): `drawDunes` is
+    decor pixels to the shipped v3 build (raw RGBA `sha256 ce6dac5f…` idle /
+    `89baca40…` spread / `90b7b509…` culled, v3→v4 §3.8): `drawDunes` is
     unchanged, `drawMountains` returns without `palette.mountains`, `drawTreeline`
-    returns without `palette.treeline`, `ground.streaks` carries the same
+    returns without `palette.treeline`, `drawLanes` paints no ramp/crest shadow
+    without `ground.ramp`/`ground.crestShadow`, `ground.streaks` carries the same
     `DUNE_STREAKS` values and the cluster gate is logically identical at
     `clusterShare 0.18`.
 24. **Forest dusk ambience v2/v3** — forest draws 2 `palette.distant` ridge bands
     plus a `palette.treeline` **two-tier** conifer triangle-tooth jag on `HORIZON_Y`
     (world-anchored 20 px tooth period; back tier `distant[1]` `#33204a` teeth
     `8–12 px` offset half a tooth; front tier `distant[0]` `#241634` teeth
-    `10–16 px`; both `hash2`-seeded, never culled) and 2 `ground.shade` grass ripple
-    bands per lane (thick `2/1`, amp `±6/±4`, wavelength `320/240 px`, phase
-    `+ i·0.17`); switching to desert renders none of them and desert keeps zero new
-    pixels.
+    `10–16 px`; both `hash2`-seeded, never culled) and 3 `ground.shade` grass ripple
+    bands per lane (thick `2/1/1`, amp `±6/±4/±5`, wavelength `320/240/400 px`,
+    phase `+ i·0.17`); switching to desert renders none of them and desert keeps
+    zero new pixels.
 25. **Forest mountains (v3)** — when `palette.mountains` is present (all four
     tones), `drawMountains` paints 2 `hash2`-seeded layers before `drawDunes`:
     back `#3b2a56` `30–58 px` (rim `#4d3a6d`) and near `#140b26` `42–70 px` (rim
@@ -2868,13 +3183,25 @@ Written to the gitignored `test-results/ux-tmp/`:
     (span/CANVAS_W)`), run-coalesced 1 px columns with a 1 px upper rim, ≈`3 840`
     rects and ≈12 peaks/layer at every zoom, never culled, no
     `Math.random`/allocation; desert renders zero mountain-tone pixels.
-26. **Forest background variety (v3)** — background stream `spacing 20 / cap 24`
-    places 5 trees at the default camera (13 at `W ≈ 250`); the 9 background kinds
+26. **Forest background variety (v4)** — background stream `spacing 14 / cap 30`
+    places 7 trees at the default camera (18 at `W ≈ 250`); the 11 background kinds
     (conifer, deciduous, broad, bush, autumn, birch, deep-shadow spruce, spruce
-    tall, snag) share the same `trees` family and their weights sum exactly `1`;
-    autumn/birch map to `FOREST_TREE_DECIDUOUS` + variant palettes, deep-shadow
-    spruce to `FOREST_TREE_CONIFER` + variant palette; midground/floor streams
-    unchanged.
+    tall, snag, bush cluster, berry bush) and the 4 midground kinds (tall, broad,
+    wide, bush cluster) share their layer families and each layer's weights sum
+    exactly `1`; autumn/birch map to `FOREST_TREE_DECIDUOUS` + variant palettes,
+    deep-shadow spruce to `FOREST_TREE_CONIFER` + variant palette.
+27. **Forest ground depth (v4)** — `ground.ramp` paints 3 zones at 40/60/80 %
+    `laneH` (`#447338`/`#3d6832`/`#345a2b`, steps **1.10/1.17/1.22**, top→toe
+    `1.565`), `ground.crestShadow #2b4a24` paints a 2 px band at `crest+1` between
+    the rim and the `crest+3` shade stripe, and `FOREST_STREAKS` carries 3 bands
+    (A/B verbatim + C `1/5/400/0.90/0.85`); switching to desert paints neither the
+    ramp nor the crest shadow (no tokens) and keeps its own exact pixels.
+28. **Forest cover sprites (v4)** — `BUSH_CLUSTER 36×24` (background + midground),
+    `BERRY_BUSH 28×20` with `C #c0392b` berries (background), `FOREST_TREE_WIDE
+    56×64` (midground), and floor `GRASS_CLUMP_TALL 16×12`, `GRASS_FLOWER 14×10`
+    (`W #f0ece0` head), `FERN_CURLED 20×14`, `GRASS_PATCH 32×8` (flat mark,
+    surface-tone `O #3a6030`); the floor puts 35 props at `W=100` (cap 220) and
+    170 at `W=250`/8 lanes, with the grass/fern share raised to `0.56`.
 
 ---
 
@@ -2883,9 +3210,10 @@ Written to the gitignored `test-results/ux-tmp/`:
 **Constants to add / change in `index.html`** (`#app` art section):
 `SKY_BANDS` (desert, unchanged) + `FOREST_SKY`; `HORIZON_Y = 120`,
 `LANE_BOTTOM = 712`, `DECOR_MAX_SPAN = 1500`; per-layer
-`DECOR_SPACING = { background:20, midground:48, floor:20 }` (forest **v3: bg 20**,
-floor **v2: 12**, §3.8), `DECOR_CAP = { background:24, midground:10, floor:120 }`
-(forest **v3: bg 24**, floor **v2: 180**), `DECOR_STREAM = { background:0x11, midground:0x22, floor:0x33 }`;
+`DECOR_SPACING = { background:14, midground:36, floor:12 }` (forest **v4: bg 14**,
+**v4: mid 36**, **v2: floor 12**, §3.8), `DECOR_CAP = { background:30, midground:14, floor:120 }`
+(forest **v4: bg 30 / mid 14**, floor **v2: 180 → v4: 220**),
+`DECOR_STREAM = { background:0x11, midground:0x22, floor:0x33 }`;
 sun/moon `cx 1020, cy 76, r 32`; milestone font `12px`, finish stripe `8×8`,
 confetti `4×4`, banner `16px`.
 
@@ -2901,7 +3229,10 @@ midground `dead_trees` (`DEAD_TREE` is the one sprite listed in two layers).
 (desert, 2×); `FOREST_TREE_CONIFER`, `FOREST_TREE_DECIDUOUS`, `FOREST_TREE_BROAD`,
 `FOREST_BUSH`, `FOREST_TREE_TALL`, `GRASS_TUFT_A`, `GRASS_TUFT_B`, `FERN`,
 `LEAF_LITTER`, `MUSHROOM_RED`, `MUSHROOM_BROWN`, `MOSS`, `STONE`, `STONE_ALT`,
-`PINE_NEEDLES`, **v2:** `LEAF_DRIFT`, `GRASS_WAVE`, `TWIG` (forest) — paste matrices
+`PINE_NEEDLES`, **v2:** `LEAF_DRIFT`, `GRASS_WAVE`, `TWIG`, **v3:**
+`FOREST_TREE_SPRUCE_TALL`, `FOREST_TREE_SNAG`, **v4:** `BUSH_CLUSTER`,
+`BERRY_BUSH`, `FOREST_TREE_WIDE`, `GRASS_CLUMP_TALL`, `GRASS_FLOWER`,
+`FERN_CURLED`, `GRASS_PATCH` (forest) — paste matrices
 verbatim; **no new `CHAR_KEY` entries**:
 `T/S/B/R/C/W/G/H/P` are already there, and `L` (`LEAF_LITTER_PAL`), `M`/`N` (`MOSS_PAL`)
 resolve **only** through their sprites' own palettes under the shipped order
@@ -2985,15 +3316,27 @@ run-coalesced body + 1 px rim, never culled); `drawTreeline` now draws two tiers
 (back `distant[1]` 8–12 px half-offset, front `distant[0]` 10–16 px). Desert keeps
 0 mountain/treeline rects and its frozen frames hash byte-identical v2→v3 (§3.8/§5).
 
-**Size budgets:** floor decor ≤ `12` px tall (lane `74` px at 8 lanes) — v2 flat marks
-≤ `10` px tall / `64` px wide and stay inside one lane; background trees ≤ `64` px
-(v3 spruce tall) basing at `HORIZON_Y`; midground tree `72` px (≈ one lane);
-worst-case forest `24 + 10 + 180 = 214` decor sprites/frame (v3; measured 193 at the
-shipped perf window, typical 42 at default zoom; desert stays
-`14 + 10 + 180 = 204`) plus the carpet `fillRect` pass, the desert 4-zone ramp
-(`3 × L` rects), the streak
-run-rects (desert ≈1.2 k / 2.4 k, forest ≈0.73 k / 1.47 k, zoom-independent —
-§2.14.2 / §3.5) and the forest mountains/ridge/jag rects (§3.8); boar lane fit unchanged
-(`60×42`). The original desert art pass was art-only; the v2 rounds (desert
-§2.12–§2.14, forest §3.8) and the v3 round (forest §3.8f–g) also touched the
-renderer, and `tests/**` is owned by the test-engineer.
+**Forest v4 (§3.8i)** — theme data: `ground.ramp: ['#447338','#3d6832','#345a2b']`,
+`ground.crestShadow: '#2b4a24'`, a 3rd `FOREST_STREAKS` row
+(`1/5/400/0.90/0.85`); streams `background 14/30`, `midground 36/14`,
+`floor 12/220`; 7 new matrices (`BUSH_CLUSTER 36×24` bg+mid,
+`BERRY_BUSH 28×20` bg, `FOREST_TREE_WIDE 56×64` mid, `GRASS_CLUMP_TALL 16×12`,
+`GRASS_FLOWER 14×10`, `FERN_CURLED 20×14`, `GRASS_PATCH 32×8` floor flat) with
+all three weight tables summing exactly `1`. Renderer: the ramp reuses the
+existing `ground.ramp` block in `drawLanes` (no code change); the crest shadow is
+one themed `fillRect(crest + 1, 1, 2)` per column; no new pass. Desert ships none
+of these tokens and its frozen frames hash byte-identical v3→v4 (§3.8/§5).
+
+**Size budgets:** floor decor ≤ `14` px tall (v4 curled fern; lane `74` px at
+8 lanes) — flat marks ≤ `10` px tall / `64` px wide and stay inside one lane;
+background trees ≤ `64` px (v3 spruce tall) basing at `HORIZON_Y`; midground tree
+`72` px (≈ one lane), v4 wide tree `56×64`; worst-case forest
+`30 + 14 + 220 = 264` decor sprites/frame (v4; measured 236 at the shipped perf
+window, typical 45 at default zoom; desert stays `14 + 10 + 180 = 204`) plus the
+carpet `fillRect` pass, the desert 4-zone ramp (`3 × L` rects), the forest v4
+3-zone ramp + crest shadow (`3 + 1` rects per lane/column), the streak
+run-rects (desert ≈1.2 k / 2.4 k, forest ≈1.09 k / 2.19 k, zoom-independent —
+§2.14.2 / §3.5) and the forest mountains/ridge/jag rects (§3.8); boar lane fit
+unchanged (`60×42`). The original desert art pass was art-only; the v2 rounds
+(desert §2.12–§2.14, forest §3.8) and the v3/v4 rounds (forest §3.8f–g/§3.8i)
+also touched the renderer, and `tests/**` is owned by the test-engineer.
