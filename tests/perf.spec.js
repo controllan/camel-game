@@ -113,10 +113,10 @@ test.describe('Performance acceptance', () => {
       await gotoGame(page);
       const tier = await rendererTier(page);
       // Spread 1400 → window span 1440, just inside the decor maxSpan (1500), so
-      // the 8-lane field actually draws world decor (measured ~132 forest /
-      // ~186 desert sprites/frame: background 11 + midground 7 + floor 168, 60 of
-      // them flat marks) instead of culling it. Desert is the heavier path since
-      // v2 (denser floor stream + flat marks), so this test gates it too. The
+      // the 8-lane field actually draws world decor (measured ~186 sprites/frame
+      // in both themes: background 11 + midground 7 + floor 168, dozens of them
+      // flat marks) instead of culling it. Forest v2 is now as dense as desert
+      // v2 (denser floor stream + flat marks), so this test gates both. The
       // 5000-spread case above only exercises the culled one.
       const result = await measure(page, themeId, 1400);
       expect(result.span).toBeLessThanOrEqual(1500);

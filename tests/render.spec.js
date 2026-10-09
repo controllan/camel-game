@@ -855,20 +855,29 @@ test.describe('Renderer camera and bounds', () => {
     expect(dim('const WIND_STREAK_B =')).toEqual({ w: 64, h: 10 });
     expect(dim('const DRIFT_MOUND =')).toEqual({ w: 32, h: 10 });
     expect(dim('const HOOF_TRAIL =')).toEqual({ w: 40, h: 10 });
+    // Forest v2 flat floor marks (docs/art/theme-art.md §3.8).
+    expect(dim('const LEAF_DRIFT =')).toEqual({ w: 36, h: 8 });
+    expect(dim('const GRASS_WAVE =')).toEqual({ w: 40, h: 8 });
+    expect(dim('const TWIG =')).toEqual({ w: 18, h: 6 });
   });
 
-  test('v2 flat floor marks: legend-only chars, clean border, documented blobs', () => {
-    // docs/art/theme-art.md §2.13/§5 acceptance for the four flat marks: every
-    // matrix is rectangular, uses only its legend chars plus '.', keeps a 1 px
-    // transparent border (row 0/h-1 and col 0/w-1 all '.', no strays), and is a
-    // single 4-connected blob - except the two documented multi-blob exceptions,
-    // HOOF_TRAIL (4 prints) and HOOF_PRINTS (2 prints).
+  test('v2 flat floor marks: legend-only chars, clean border, O-enclosed, documented blobs', () => {
+    // docs/art/theme-art.md §2.13/§3.8 acceptance for the flat floor marks:
+    // every matrix is rectangular, uses only its legend chars plus '.', keeps a
+    // 1 px transparent border (row 0/h-1 and col 0/w-1 all '.', no strays), is
+    // `O`-enclosed (no non-`O` cell touches flood-filled transparent space) and
+    // is a single 4-connected blob - except the two documented multi-blob
+    // exceptions (HOOF_TRAIL 4 prints, HOOF_PRINTS 2 prints). The forest v2
+    // marks are surface-tone `O` (#3a6030), not black-ringed props.
     const html = readIndexHtml();
     const V2 = [
       { decl: 'const WIND_STREAK_A =', legend: /^[.ORS]*$/, blobs: 1 },
       { decl: 'const WIND_STREAK_B =', legend: /^[.ORS]*$/, blobs: 1 },
       { decl: 'const DRIFT_MOUND =', legend: /^[.OBS]*$/, blobs: 1 },
       { decl: 'const HOOF_TRAIL =', legend: /^[.ODS]*$/, blobs: 4 },
+      { decl: 'const LEAF_DRIFT =', legend: /^[.OHL]*$/, blobs: 1 },
+      { decl: 'const GRASS_WAVE =', legend: /^[.OHG]*$/, blobs: 1 },
+      { decl: 'const TWIG =', legend: /^[.OB]*$/, blobs: 1 },
     ];
     const components = (rows) => {
       const h = rows.length, w = rows[0].length;
@@ -890,6 +899,37 @@ test.describe('Renderer camera and bounds', () => {
       }
       return n;
     };
+    // Flood-fill transparent space from the border; any non-`O` ink adjacent to
+    // it would read as a floating/leaky silhouette.
+    const exposed = (rows) => {
+      const h = rows.length, w = rows[0].length;
+      const outside = rows.map(() => new Array(w).fill(false));
+      const stack = [];
+      const visit = (x, y) => {
+        if (x < 0 || y < 0 || x >= w || y >= h || outside[y][x] || rows[y][x] !== '.') return;
+        outside[y][x] = true;
+        stack.push([x, y]);
+      };
+      for (let x = 0; x < w; x += 1) { visit(x, 0); visit(x, h - 1); }
+      for (let y = 0; y < h; y += 1) { visit(0, y); visit(w - 1, y); }
+      while (stack.length) {
+        const [x, y] = stack.pop();
+        visit(x + 1, y); visit(x - 1, y); visit(x, y + 1); visit(x, y - 1);
+      }
+      const bad = [];
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          const ch = rows[y][x];
+          if (ch === '.' || ch === 'O') continue;
+          const leaks = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+            const nx = x + dx, ny = y + dy;
+            return nx < 0 || ny < 0 || nx >= w || ny >= h || outside[ny][nx];
+          });
+          if (leaks) bad.push(ch + '@' + x + ',' + y);
+        }
+      }
+      return bad;
+    };
     for (const { decl, legend, blobs } of V2) {
       const rows = extractMatrixRows(html, decl);
       const w = Math.max(...rows.map((r) => r.length));
@@ -906,6 +946,7 @@ test.describe('Renderer camera and bounds', () => {
         expect(row[0], `${decl} left border`).toBe('.');
         expect(row[w - 1], `${decl} right border`).toBe('.');
       }
+      expect(exposed(rows), `${decl} O-enclosure`).toEqual([]);
       expect(components(rows), `${decl} blob count`).toBe(blobs);
     }
   });
@@ -1236,6 +1277,10 @@ test.describe('Renderer camera and bounds', () => {
       ['const WIND_STREAK_B =', 'const WIND_STREAK_PAL ='],
       ['const DRIFT_MOUND =', 'const DRIFT_MOUND_PAL ='],
       ['const HOOF_TRAIL =', 'const HOOF_PRINTS_PAL ='],
+      // Forest v2 flat floor marks (§3.8): surface-tone `O` = ground.shade.
+      ['const LEAF_DRIFT =', 'const LEAF_DRIFT_PAL ='],
+      ['const GRASS_WAVE =', 'const GRASS_WAVE_PAL ='],
+      ['const TWIG =', 'const TWIG_PAL ='],
     ];
     for (const [spr, pal] of SPRITES) {
       const keys = paletteKeys(pal);

@@ -924,13 +924,18 @@ window.GameCore = (function () {
   // laneBottom - 6 - spriteH; one extra nextPrng() draw seeds the offset.
   const FLAT_TOP = 8;
   const FLAT_BOTTOM = 6;
-  // Dune-streak bands (§2.12): thickness/amplitude/on-screen wavelength in px,
-  // phase offset, and y0 as a fraction of the lane height. Drawn only when the
-  // theme ships `ground.ramp` (desert v2), run-coalesced into fillRects.
+  // Broad wind-ripple bands: thickness/amplitude/on-screen wavelength in px,
+  // phase offset, and y0 as a fraction of the lane height, run-coalesced into
+  // fillRects. Each theme ships its own set as `ground.streaks` (§2.12 desert /
+  // §3.8 forest); a theme without the token draws none.
   const DUNE_STREAKS = [
     { thick: 2, amp: 7, periodPx: 360, phase: 0.00, frac: 0.30 },
     { thick: 1, amp: 5, periodPx: 260, phase: 0.33, frac: 0.55 },
     { thick: 1, amp: 8, periodPx: 400, phase: 0.66, frac: 0.80 },
+  ];
+  const FOREST_STREAKS = [
+    { thick: 2, amp: 6, periodPx: 320, phase: 0.00, frac: 0.30 },
+    { thick: 1, amp: 4, periodPx: 240, phase: 0.55, frac: 0.65 },
   ];
 
   // Camel v8 84x70 (docs/art/camel-drafts-v5.md), 5 frames: 0 standing (idle),
@@ -1728,6 +1733,11 @@ window.GameCore = (function () {
   const GRASS_TUFT_PAL = { outline: '#1a1208', G: '#2f6b3a', H: '#7ac25a' };
   const FERN_PAL = { outline: '#1a1208', G: '#2f6b3a', H: '#7ac25a' };
   const LEAF_LITTER_PAL = { outline: '#1a1208', L: '#8a5a3a', H: '#b07a4a' };
+  // v2 flat floor marks (§3.8): surface marks use a grass-tone outline `O`
+  // (`#3a6030`, the ground shade), not black — same rule as §2.13 in the desert.
+  const LEAF_DRIFT_PAL = { O: '#3a6030', L: '#8a5a3a', H: '#b07a4a' };
+  const GRASS_WAVE_PAL = { O: '#3a6030', G: '#2f6b3a', H: '#7ac25a' };
+  const TWIG_PAL = { O: '#3a6030', B: '#4a3320' };
   const FOREST_TREE_TALL_PAL = { outline: '#1a1208', T: '#2f6b3a', S: '#1f4a2a', B: '#4a3320', R: '#2a1c10' };
   const FOREST_TREE_BROAD_PAL = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234', B: '#4a3320', R: '#2a1c10' };
   // Desert ambience palettes (docs/art/theme-art.md §2.9). Per-sprite palettes win
@@ -2027,6 +2037,42 @@ window.GameCore = (function () {
     '.OLLLLLLHO....',
     '..OOOOOOO.....',
     '..............',
+  ];
+
+  // v2 flat forest floor marks (§3.8), surfaces not black-ringed props:
+  // wide fallen-leaf drift, wind-brushed grass streak, small twig.
+  // LEAF_DRIFT 36x8.
+  const LEAF_DRIFT = [
+    '....................................',
+    '........OOOO.....OOOOOO....OOOO.....',
+    '......OOHHHHOO.OOHHHHHHOOOOHHHHOO...',
+    '....OOHHHHHHHHOHHHHHHHHHHHHHHHHHHO..',
+    '....OOLLLLLLLLLLLLLLLLLLLLLLLLOOO...',
+    '......OOOOOOOOOOOOOOOOOOOOOOOO......',
+    '....................................',
+    '....................................',
+  ];
+
+  // GRASS_WAVE 40x8.
+  const GRASS_WAVE = [
+    '........................................',
+    '.........OOO........OOO........OOO......',
+    '........OHHHO......OHHHO......OHHHO.....',
+    '......OOHHHHHOO..OOHHHHHOO..OOHHHHHOO...',
+    '...OOOGGGGGGGGGOOGGGGGGGGGOOGGGGGGGGGO..',
+    '..OOOGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGOO..',
+    '.....OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO....',
+    '........................................',
+  ];
+
+  // TWIG 18x6.
+  const TWIG = [
+    '..................',
+    '.........OOOOOO...',
+    '......OOOBBOOO....',
+    '...OOOBBBOO.......',
+    '.OOOOOOOO.........',
+    '..................',
   ];
 
   // FOREST_TREE_TALL 48x72.
@@ -2648,7 +2694,7 @@ window.GameCore = (function () {
       countLabelKey: 'countLabelCamel', // i18n key for the lane-count label
       label: { en: 'Desert', de: 'W\u00fcste' }, // declarative-only (DOM i18n labels the buttons)
       palette: { sky: ['#1a1030', '#241640', '#2e1c4a'], sun: '#e8a03a', sunRim: '#f0c060', accent: '#e8c83a', distant: ['#3a2a4a', '#4a3550'] }, // accent: declarative-only
-      ground: { top: '#c9a25a', ramp: ['#c39d5a', '#bd985a', '#b8935a'], shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e', speckle: '#dcb87a', speckleShare: 0.6, speckleWidth: 2, carpetSpacing: 7, clusterShare: 0.18 }, // v2: ramp §2.12, carpet §2.8
+      ground: { top: '#c9a25a', ramp: ['#c39d5a', '#bd985a', '#b8935a'], shade: '#a8813f', edge: '#6e4f2a', rim: '#523a1e', speckle: '#dcb87a', speckleShare: 0.6, speckleWidth: 2, carpetSpacing: 7, clusterShare: 0.18, streaks: DUNE_STREAKS }, // v2: ramp §2.12, carpet §2.8, streaks §2.12(b)
       decor: {
         maxSpan: 1500,
         salts: DESERT_DECOR_STREAM, // §2.11 — 0x55 / 0x66 / 0x77
@@ -2705,8 +2751,8 @@ window.GameCore = (function () {
       canvasLabelKey: 'canvasLabelBoar', // i18n key for the canvas aria-label
       countLabelKey: 'countLabelBoar', // i18n key for the lane-count label
       label: { en: 'Forest', de: 'Wald' }, // declarative-only (DOM i18n labels the buttons)
-      palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: [] }, // accent: declarative-only
-      ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018', speckle: '#5a8a48' },
+      palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: ['#241634', '#33204a'], treeline: true }, // v2 dusk ridges + treeline jag §3.8; treeline tone = distant[0]
+      ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018', speckle: '#5a8a48', speckleShare: 0.5, speckleWidth: 2, carpetSpacing: 7, clusterShare: 0.14, streaks: FOREST_STREAKS }, // v2 §3.8
       decor: {
         maxSpan: 1500,
         salts: DECOR_STREAM, // §3.4 — 0x11 / 0x22 / 0x33
@@ -2717,7 +2763,7 @@ window.GameCore = (function () {
         streams: {
           background: { spacing: 32, cap: 14 },
           midground: { spacing: 48, cap: 10 },
-          floor: { spacing: 20, cap: 120 },
+          floor: { spacing: 12, cap: 180 }, // v2 §3.8 (was 20 / 120)
         },
         // Family-level `kind` names (docs/art/theme-art.md §3.3 uses per-sprite names):
         // trees → FOREST_TREE_CONIFER/DECIDUOUS/BROAD/BUSH, midground → TALL/BROAD,
@@ -2730,15 +2776,19 @@ window.GameCore = (function () {
           { kind: 'trees', layer: 'background', weight: 0.22, sprite: FOREST_BUSH, pal: FOREST_BUSH_PAL, yOffset: -20 },
           { kind: 'midground', layer: 'midground', weight: 0.65, sprite: FOREST_TREE_TALL, pal: FOREST_TREE_TALL_PAL, yOffset: -72 },
           { kind: 'midground', layer: 'midground', weight: 0.35, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
-          { kind: 'grass_tufts', layer: 'floor', weight: 0.22, sprite: GRASS_TUFT_A, pal: GRASS_TUFT_PAL, yOffset: -8 },
-          { kind: 'grass_tufts', layer: 'floor', weight: 0.20, sprite: GRASS_TUFT_B, pal: GRASS_TUFT_PAL, yOffset: -8 },
-          { kind: 'fern', layer: 'floor', weight: 0.12, sprite: FERN, pal: FERN_PAL, yOffset: -12 },
-          { kind: 'moss', layer: 'floor', weight: 0.12, sprite: MOSS, pal: MOSS_PAL, yOffset: -8 },
-          { kind: 'pine_needles', layer: 'floor', weight: 0.10, sprite: PINE_NEEDLES, pal: NEEDLES_PAL, yOffset: -8 },
-          { kind: 'leaf_litter', layer: 'floor', weight: 0.08, sprite: LEAF_LITTER, pal: LEAF_LITTER_PAL, yOffset: -6 },
-          { kind: 'mushrooms', layer: 'floor', weight: 0.08, sprite: MUSHROOM_RED, pal: MUSHROOM_RED_PAL, yOffset: -12 },
-          { kind: 'mushrooms', layer: 'floor', weight: 0.03, sprite: MUSHROOM_BROWN, pal: MUSHROOM_BROWN_PAL, yOffset: -12 },
-          { kind: 'stones', layer: 'floor', weight: 0.04, sprite: STONE, pal: STONE_PAL, yOffset: -10 },
+          // floor (one stream per lane; `flat:true` v2 marks roam the lane field, §3.8)
+          { kind: 'leaf_drift', layer: 'floor', weight: 0.10, sprite: LEAF_DRIFT, pal: LEAF_DRIFT_PAL, flat: true },
+          { kind: 'grass_wave', layer: 'floor', weight: 0.10, sprite: GRASS_WAVE, pal: GRASS_WAVE_PAL, flat: true },
+          { kind: 'twig', layer: 'floor', weight: 0.04, sprite: TWIG, pal: TWIG_PAL, flat: true },
+          { kind: 'grass_tufts', layer: 'floor', weight: 0.16, sprite: GRASS_TUFT_A, pal: GRASS_TUFT_PAL, yOffset: -8 },
+          { kind: 'grass_tufts', layer: 'floor', weight: 0.14, sprite: GRASS_TUFT_B, pal: GRASS_TUFT_PAL, yOffset: -8 },
+          { kind: 'fern', layer: 'floor', weight: 0.10, sprite: FERN, pal: FERN_PAL, yOffset: -12 },
+          { kind: 'moss', layer: 'floor', weight: 0.10, sprite: MOSS, pal: MOSS_PAL, yOffset: -8 },
+          { kind: 'pine_needles', layer: 'floor', weight: 0.08, sprite: PINE_NEEDLES, pal: NEEDLES_PAL, yOffset: -8 },
+          { kind: 'leaf_litter', layer: 'floor', weight: 0.06, sprite: LEAF_LITTER, pal: LEAF_LITTER_PAL, yOffset: -6 },
+          { kind: 'mushrooms', layer: 'floor', weight: 0.06, sprite: MUSHROOM_RED, pal: MUSHROOM_RED_PAL, yOffset: -12 },
+          { kind: 'mushrooms', layer: 'floor', weight: 0.02, sprite: MUSHROOM_BROWN, pal: MUSHROOM_BROWN_PAL, yOffset: -12 },
+          { kind: 'stones', layer: 'floor', weight: 0.03, sprite: STONE, pal: STONE_PAL, yOffset: -10 },
           { kind: 'stones', layer: 'floor', weight: 0.01, sprite: STONE_ALT, pal: STONE_PAL, yOffset: -8 },
         ],
       },
@@ -2872,11 +2922,43 @@ window.GameCore = (function () {
 
   function drawDunes(win) {
     // Distant background silhouettes just above the horizon; per-theme colors
-    // (desert dunes / forest hillside). Forest ships none (pure sky + treeline).
+    // (desert dunes / forest dusk ridges, §3.8). Themes without `distant` skip.
     const distant = theme.palette.distant;
     if (!distant || distant.length < 2) return;
     drawDuneBand(HORIZON_Y - 18, (win.min * 0.3) % 120, distant[0]);
     drawDuneBand(HORIZON_Y - 6, (win.min * 0.6) % 90, distant[1]);
+  }
+
+  // Treeline jag (§3.8): a conifer triangle-tooth silhouette standing on HORIZON_Y,
+  // drawn after the ridges in the darkest ridge tone. Theme-gated on
+  // `palette.treeline`, so desert draws none and its pixels stay identical.
+  // World-anchored 20 px tooth period (derived from the window like the carpet
+  // pitch) with a hash2 tooth height of 8-14 px; run-coalesced 1 px columns like
+  // the ripple bands. No PRNG (hash2 is a pure function, draw-order-independent),
+  // never culled (drawn before the lanes, so it survives the maxSpan cull).
+  function drawTreeline(win) {
+    if (!theme.palette.treeline) return;
+    const distant = theme.palette.distant;
+    if (!distant || distant.length < 2) return; // same 2-band minimum as drawDunes
+    const span = Math.max(1e-6, win.max - win.min);
+    const toothWorld = Math.max(1e-6, span / CANVAS_W * 20); // 20 screen px period
+    ctx.fillStyle = distant[0];
+    let runX = 0, runH = -1;
+    for (let x = 0; x <= CANVAS_W; x++) {
+      let h = runH;
+      if (x < CANVAS_W) {
+        const world = win.min + ((x + 0.5) / CANVAS_W) * span;
+        const tooth = Math.floor(world / toothWorld);
+        const frac = world / toothWorld - tooth; // 0..1, stable per world tooth
+        const peak = 8 + (hash2(0x54, tooth) % 7); // 8..14 px
+        h = Math.round(peak * (1 - Math.abs(2 * frac - 1)));
+      }
+      if (h !== runH) {
+        if (runH > 0) ctx.fillRect(runX, HORIZON_Y - runH, x - runX, runH);
+        runX = x; runH = h;
+      }
+    }
+    if (runH > 0) ctx.fillRect(runX, HORIZON_Y - runH, CANVAS_W - runX, runH);
   }
 
   // Draw one decor pass from the theme's per-layer streams (docs/art/theme-art.md
@@ -2952,10 +3034,11 @@ window.GameCore = (function () {
         if (isFloor) anchorLane = lane;
         else if (layer === 'midground' && laneCount > 0) anchorLane = Math.floor(nextPrng() * laneCount);
         const cx = mapX(point, win);
-        // `flat:true` kinds (§2.14) roam the lane field: the top edge is seeded
-        // between laneTop + 8 and laneBottom - 6 - spriteH with one extra
-        // nextPrng() draw. Rooted kinds keep the lane-surface anchor and their
-        // PRNG draw order — the forest never sets `flat`, so its pixels hold.
+        // `flat:true` kinds (§2.14 desert / §3.8 forest) roam the lane field: the
+        // top edge is seeded between laneTop + 8 and laneBottom - 6 - spriteH with
+        // one extra nextPrng() draw. Rooted kinds keep the lane-surface anchor and
+        // their PRNG draw order; the forest v2 flat marks consume the extra draw
+        // by design (new pixels, expected).
         let anchorY;
         if (layer === 'background') anchorY = HORIZON_Y;
         else if (chosen.flat) {
@@ -2979,11 +3062,11 @@ window.GameCore = (function () {
     runtime.decorLayers[layer] += drawn;
   }
 
-  // Ground carpet: cheap procedural speckle (1-2 plain fillRects every ~10 px per
-  // lane, docs/art/theme-art.md §3.4.2 grass / §2.8 sand). Never culled, so the
-  // floor still reads as grass/sand when props thin out; no sprite loop, no
+  // Ground carpet: cheap procedural speckle (1-2 plain fillRects per column,
+  // docs/art/theme-art.md §3.4.2 grass / §2.8 sand). Never culled, so the floor
+  // still reads as grass/sand when props thin out; no sprite loop, no
   // per-speckle allocation. Tones + grain come from the theme's ground tokens:
-  // forest 50/50 1 px (#5a8a48/#3a6030), desert 60/40 1-2 px (#dcb87a/#b8935a).
+  // forest v2 50/50 1-2 px + clusters, desert 60/40 1-2 px + clusters.
   function drawGroundCarpet(s, win) {
     const ground = theme.ground;
     if (!ground.speckle) return;
@@ -2997,8 +3080,8 @@ window.GameCore = (function () {
     // window so the pattern scrolls with the ground (a screen-space pattern
     // stayed frozen while the lanes panned). Cells are seeded by world index.
     const span = Math.max(1e-6, win.max - win.min);
-    // v2 carpet pitch (§2.8): desert ships `carpetSpacing: 7`; the forest keeps
-    // the 10 px fallback so its carpet columns never move.
+    // v2 carpet pitch (§2.8 desert / §3.8 forest): both ship `carpetSpacing: 7`;
+    // a theme without the token falls back to the legacy 10 px pitch.
     const worldSpacing = span / CANVAS_W * (ground.carpetSpacing || CARPET_SPACING);
     const startK = Math.floor(win.min / worldSpacing);
     const endK = Math.ceil(win.max / worldSpacing);
@@ -3019,15 +3102,16 @@ window.GameCore = (function () {
         for (let j = 0; j < count; j++) {
           const y = lo + Math.floor(nextPrng() * (hi - lo));
           ctx.fillStyle = (nextPrng() < share) ? ground.speckle : dark;
-          // Doc draw order: y → tone → width. Forest keeps 1 px and skips the
-          // width draw entirely, so its PRNG sequence (and pixels) are unchanged.
+          // Doc draw order: y → tone → width. A 1 px theme skips the width draw
+          // entirely, so its PRNG sequence (and pixels) match the legacy path.
           const w = (speckleW > 1) ? 1 + (nextPrng() < 0.5 ? 1 : 0) : 1;
           ctx.fillRect(px, y, w, 1);
         }
-        // v2 grain cluster (§2.8): 3 px dark run + 1 lit pixel above it, at
-        // `clusterShare` per column. Gated on `ground.ramp`, so the forest burns
-        // no extra PRNG values and its carpet stays byte-identical.
-        if (ground.ramp && nextPrng() < (ground.clusterShare || 0)) {
+        // v2 grain cluster (§2.8 desert / §3.8 forest): 3 px dark run + 1 lit
+        // pixel above it, at `clusterShare` per column. Opt-in via the token
+        // (desert 0.18 keeps its exact PRNG draw order; a theme without the
+        // token burns no extra draws).
+        if (ground.clusterShare !== undefined && nextPrng() < ground.clusterShare) {
           const cy = lo + 1 + Math.floor(nextPrng() * Math.max(1, hi - lo - 2));
           ctx.fillStyle = dark;
           ctx.fillRect(px, cy, 3, 1);
@@ -3183,15 +3267,18 @@ window.GameCore = (function () {
         ctx.fillStyle = ground.shade;
         ctx.fillRect(x, crest + 3, 1, 2);
       }
-      // v2 dune streaks (§2.12): 3 sine bands per lane in `ground.shade`, drawn
-      // after the crest pass so they never cross the rim/edge. Each band emits
-      // one fillRect per equal-row run (≈100 runs/band/lane at 1×). Theme-gated
-      // on `ground.ramp`; the wavelength tracks the camera window like the
-      // carpet pitch, and lanes get a + i·0.17 phase so they never moiré.
-      if (ramp) {
+      // Broad wind-ripple bands (§2.12 desert / §3.8 forest): sine bands per
+      // lane in `ground.shade`, drawn after the crest pass so they never cross
+      // the rim/edge. Each band emits one fillRect per equal-row run (≈100
+      // runs/band/lane at 1×). Theme data via `ground.streaks`; the wavelength
+      // tracks the camera window like the carpet pitch, and lanes get a
+      // + i·0.17 phase so they never moiré. Desert ships its 3 DUNE_STREAKS
+      // verbatim, so its pixels are unchanged.
+      const streaks = ground.streaks;
+      if (streaks) {
         const span = Math.max(1e-6, win.max - win.min);
         const laneH = bottom - top;
-        for (const b of DUNE_STREAKS) {
+        for (const b of streaks) {
           const periodWorld = span / CANVAS_W * b.periodPx;
           const y0 = top + Math.round(b.frac * laneH);
           let runX = 0, runY = null;
@@ -3338,13 +3425,15 @@ window.GameCore = (function () {
   }
 
   // Render order (docs/art/theme-art.md §2.11.2 / §3.4.3): sky → celestial →
-  // dunes → background decor → milestones → lanes → ground carpet → floor props →
-  // midground → animals → team labels → finish → confetti → banner. Animals last
-  // over the midground so they read in front of in-track scenery.
+  // dunes → treeline jag → background decor → milestones → lanes → ground
+  // carpet → floor props → midground → animals → team labels → finish →
+  // confetti → banner. Animals last over the midground so they read in front of
+  // in-track scenery.
   function drawScene(s, win, now) {
     drawSky();
     drawCelestial();
     drawDunes(win);
+    drawTreeline(win);
     drawDecor(win, 'background');
     drawMilestones(win);
     drawLanes(s, win);
