@@ -716,10 +716,10 @@ test.describe('Theme registry (forest)', () => {
     expect(res.speckR).toBeGreaterThan(0);
     expect(res.darkL).toBeGreaterThan(0);
     expect(res.darkR).toBeGreaterThan(0);
-    expect(res.decorDrawn).toBeLessThanOrEqual(204); // background 14 + midground 10 + floor 180 (§3.5)
+    expect(res.decorDrawn).toBeLessThanOrEqual(214); // background 24 + midground 10 + floor 180 (§3.8h)
   });
 
-  test('forest v2 ambience density: ~35 floor props at default camera, flat marks drawn, caps hold', async ({ page }) => {
+  test('forest v3 ambience density: ~5 background props, ~35 floor props, flat marks, caps hold', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await paint(page);
     const scene = await page.evaluate(() => {
@@ -727,18 +727,31 @@ test.describe('Theme registry (forest)', () => {
       return { layers: s.decorLayers, flat: s.decorFlat, drawn: s.decorDrawn };
     });
     // Measured shipped renderer (SEED 1337) at the default camera (W=100,
-    // 4 lanes): 3 background / 2 midground / 35 floor with 5 flat v2 marks.
+    // 4 lanes): 5 background / 2 midground / 35 floor with 5 flat v2 marks.
     // Bounded ranges so a benign stream tweak passes but a starved or clogged
-    // floor fails; the layer caps are the documented §3.5 bounds.
-    expect(scene.layers.background).toBeGreaterThan(0);
-    expect(scene.layers.background).toBeLessThanOrEqual(14);
+    // layer fails; the layer caps are the documented §3.8h bounds
+    // (background 24, midground 10, floor 180).
+    expect(scene.layers.background).toBeGreaterThanOrEqual(4);
+    expect(scene.layers.background).toBeLessThanOrEqual(6);
     expect(scene.layers.midground).toBeGreaterThan(0);
     expect(scene.layers.midground).toBeLessThanOrEqual(10);
     expect(scene.layers.floor).toBeGreaterThanOrEqual(25);
     expect(scene.layers.floor).toBeLessThanOrEqual(45);
     expect(scene.flat).toBeGreaterThan(0); // flat v2 marks were seeded
     expect(scene.flat).toBeLessThan(scene.layers.floor);
-    expect(scene.drawn).toBeLessThanOrEqual(204); // 14 + 10 + 180 max
+    expect(scene.drawn).toBeLessThanOrEqual(214); // 24 + 10 + 180 max
+
+    // v3 background stream (spacing 20 / cap 24): measured 4-6 per pan. The old
+    // v2 spacing 32 yields 3 and fails this per-pan band.
+    for (const score of [400, 800, 1200, 1400, 1600]) {
+      await page.evaluate((sc) => {
+        for (const c of GameCore.getState().camels) GameCore.setScore(c.id, sc);
+      }, score);
+      await paint(page);
+      const bg = await page.evaluate(() => GameDebug.getScene().decorLayers.background);
+      expect(bg, 'background @' + score).toBeGreaterThanOrEqual(4);
+      expect(bg, 'background @' + score).toBeLessThanOrEqual(6);
+    }
   });
 
   test('forest v2 flat kinds render across the track (leaf_drift / grass_wave / twig)', async ({ page }) => {
@@ -820,42 +833,60 @@ test.describe('Theme registry (forest)', () => {
     }
   });
 
-  test('forest v2 dusk ridges + treeline jag render above the horizon; desert ships neither tone', async ({ page }) => {
+  test('forest v3 dusk ridges + two-tier treeline render above the horizon; desert ships neither tone', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await paint(page);
     const forest = await page.evaluate(() => {
       const W = 1280, HORIZON = 120;
+      const win = GameDebug.getCameraWindow();
       const d = document.getElementById('game').getContext('2d').getImageData(0, 0, W, HORIZON).data;
       const at = (x, y) => { const i = (y * W + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
-      let ridge1 = 0, ridge2 = 0, toothCols = 0, maxDepth = 0;
+      // Analytic ridge2 top (drawDunes: base HORIZON-6 + its sine band); any
+      // distant[1] pixel above it is a back-tier tooth poking through.
+      const ridgeOffset = (win.min * 0.6) % 90;
+      let ridge1 = 0, ridge2 = 0, frontCols = 0, frontMax = 0, backPokeCols = 0, backPokeMax = 0;
       for (let x = 0; x < W; x += 1) {
+        let top332 = -1;
         for (let y = 0; y < HORIZON; y += 1) {
           const h = at(x, y);
           if (h === 0x241634) ridge1 += 1;
-          else if (h === 0x33204a) ridge2 += 1;
+          else if (h === 0x33204a) { ridge2 += 1; if (top332 < 0) top332 = y; }
         }
-        // The treeline is distant[0] drawn after the second ridge: a dark-tone
-        // pixel directly below a ridge2 pixel can only be a tooth (ridge1 is
-        // drawn before ridge2, so it can never sit underneath it).
+        // Front tier: distant[0] drawn after the back tier / second ridge, so a
+        // dark-tone pixel directly below a distant[1] pixel is a front tooth.
         for (let y = 0; y < HORIZON - 1; y += 1) {
           if (at(x, y) === 0x33204a && at(x, y + 1) === 0x241634) {
             let depth = 0, yy = y + 1;
             while (yy < HORIZON && at(x, yy) === 0x241634) { depth += 1; yy += 1; }
-            toothCols += 1;
-            maxDepth = Math.max(maxDepth, depth);
+            frontCols += 1;
+            frontMax = Math.max(frontMax, depth);
             break;
           }
         }
+        if (top332 >= 0) {
+          const tt = (x + ridgeOffset) * 0.05;
+          const rh = 6 + Math.round(Math.sin(tt) * 4 + Math.sin(tt * 0.5) * 2);
+          const ridge2Top = HORIZON - 6 - rh;
+          if (top332 < ridge2Top) {
+            backPokeCols += 1;
+            backPokeMax = Math.max(backPokeMax, ridge2Top - top332);
+          }
+        }
       }
-      return { ridge1, ridge2, toothCols, maxDepth };
+      return { ridge1, ridge2, frontCols, frontMax, backPokeCols, backPokeMax };
     });
     expect(forest.ridge1).toBeGreaterThan(1000); // dusk ridge 1 (#241634)
     expect(forest.ridge2).toBeGreaterThan(1000); // dusk ridge 2 (#33204a)
-    expect(forest.toothCols).toBeGreaterThan(100); // the sawtooth is visible
-    // Visible tooth depth below the second ridge: at least 6 px and never over
-    // the documented 8-14 px tooth height cap.
-    expect(forest.maxDepth).toBeGreaterThanOrEqual(6);
-    expect(forest.maxDepth).toBeLessThanOrEqual(14);
+    // Front tier (distant[0], 10-16 px teeth): visible over the back tier/ridge2.
+    expect(forest.frontCols).toBeGreaterThan(100);
+    expect(forest.frontMax).toBeGreaterThanOrEqual(10);
+    expect(forest.frontMax).toBeLessThanOrEqual(16); // documented tooth cap
+    // Back tier (distant[1], 8-12 px teeth): pokes above the analytic ridge2
+    // top in a stable share of columns; the visible poke cannot exceed the
+    // tooth height.
+    expect(forest.backPokeCols).toBeGreaterThan(10);
+    expect(forest.backPokeMax).toBeGreaterThanOrEqual(1);
+    expect(forest.backPokeMax).toBeLessThanOrEqual(12);
 
     await page.evaluate(() => GameCore.setTheme('desert'));
     await paint(page);
@@ -871,6 +902,166 @@ test.describe('Theme registry (forest)', () => {
     });
     expect(desert.r1).toBe(0); // forest ridge tones never leak into the desert sky
     expect(desert.r2).toBe(0);
+  });
+
+  test('forest v3 mountains paint both layers above the ridges; desert sky has none', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    await paint(page);
+    const forest = await page.evaluate(() => {
+      const W = 1280, HORIZON = 120;
+      const tones = {
+        back: 0x3b2a56, backRim: 0x4d3a6d, body: 0x140b26, rim: 0x2e1f52,
+        ridge1: 0x241634, ridge2: 0x33204a,
+      };
+      const stats = {};
+      for (const k of Object.keys(tones)) stats[k] = { count: 0, min: HORIZON };
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, W, HORIZON).data;
+      for (let y = 0; y < HORIZON; y += 1) {
+        for (let x = 0; x < W; x += 1) {
+          const i = (y * W + x) * 4;
+          const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+          for (const k of Object.keys(tones)) {
+            if (h === tones[k]) { stats[k].count += 1; if (y < stats[k].min) stats[k].min = y; }
+          }
+        }
+      }
+      return stats;
+    });
+    // Both procedural layers rasterise their body tone + 1 px upper rim.
+    expect(forest.back.count).toBeGreaterThan(100);   // back body #3b2a56
+    expect(forest.backRim.count).toBeGreaterThan(10); // back rim #4d3a6d
+    expect(forest.body.count).toBeGreaterThan(100);   // front body #140b26
+    expect(forest.rim.count).toBeGreaterThan(10);     // front rim #2e1f52
+    // Peaks stand above both dusk ridges (front peaks reach ~70 px above
+    // HORIZON_Y; ridge tops stay at 30 px or less).
+    expect(forest.body.min).toBeLessThan(forest.ridge1.min);
+    expect(forest.body.min).toBeLessThan(forest.ridge2.min);
+    expect(forest.back.min).toBeLessThan(forest.ridge1.min);
+
+    await page.evaluate(() => GameCore.setTheme('desert'));
+    await paint(page);
+    const desert = await page.evaluate(() => {
+      const tones = [0x3b2a56, 0x4d3a6d, 0x140b26, 0x2e1f52];
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 1280, 120).data;
+      let hits = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        if (tones.includes(h)) hits += 1;
+      }
+      return hits;
+    });
+    expect(desert).toBe(0); // desert ships no `mountains` token
+  });
+
+  test('forest v3 mountains keep the on-screen pitch at default and wide zoom (gaps 91-139 px)', async ({ page }) => {
+    const probe = () => page.evaluate(() => {
+      const W = 1280, HORIZON = 120;
+      const win = GameDebug.getCameraWindow();
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, W, HORIZON).data;
+      const at = (x, y) => { const i = (y * W + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+      // Topmost front-layer body pixel per column (the 1 px rim sits above it).
+      const top = new Array(W).fill(null);
+      for (let x = 0; x < W; x += 1) {
+        for (let y = 0; y < HORIZON; y += 1) if (at(x, y) === 0x140b26) { top[x] = y; break; }
+      }
+      // Apex of each triangular peak = local minimum of the top-row profile
+      // (window 40 < half the 91 px minimum spacing, so neighbouring peaks
+      // cannot veto each other).
+      const isMin = (x) => {
+        if (top[x] == null) return false;
+        for (let k = -40; k <= 40; k += 1) {
+          if (k === 0) continue;
+          const xx = x + k;
+          if (xx < 0 || xx >= W) continue;
+          if (top[xx] != null && top[xx] < top[x]) return false;
+        }
+        return true;
+      };
+      const peaks = [];
+      for (let x = 0; x < W; x += 1) {
+        if (!isMin(x)) continue;
+        const last = peaks[peaks.length - 1];
+        if (last != null && x - last < 45) {
+          if (top[x] < top[last]) peaks[peaks.length - 1] = x;
+        } else {
+          peaks.push(x);
+        }
+      }
+      const gaps = [];
+      for (let i = 1; i < peaks.length; i += 1) gaps.push(peaks[i] - peaks[i - 1]);
+      const sorted = [...gaps].sort((a, b) => a - b);
+      return {
+        span: win.max - win.min,
+        peaks: peaks.length,
+        gaps,
+        median: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
+      };
+    });
+    const check = (label, r) => {
+      // v3 screen-space peaks: pitch 115 ±12 px -> adjacent gaps 91-139 px at
+      // EVERY zoom, ~12 peaks across the 1280 px canvas. Edge/occluded peaks may
+      // produce a stray gap, so require a clear majority, not all.
+      expect(r.peaks, `${label} peaks`).toBeGreaterThanOrEqual(8);
+      expect(r.median, `${label} median gap`).toBeGreaterThanOrEqual(91);
+      expect(r.median, `${label} median gap`).toBeLessThanOrEqual(139);
+      const inRange = r.gaps.filter((g) => g >= 91 && g <= 139).length;
+      expect(inRange / r.gaps.length, `${label} share of gaps in 91-139`).toBeGreaterThanOrEqual(0.7);
+    };
+
+    // Default camera: W=100 (4 lanes). A world-space pitch would collapse to
+    // ~1 peak here; the >= 8 peak floor is the regression tripwire.
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    await paint(page);
+    const narrow = await probe();
+    expect(narrow.span).toBeLessThanOrEqual(100);
+    check('W=100', narrow);
+
+    // Wide window W=1440 (8 lanes, spread 1400).
+    await page.evaluate(() => {
+      GameCore.setCamelCount(8);
+      GameCore.setGoal(null);
+      GameCore.resetRace();
+      GameCore.setScore('camel-1', 1400);
+      for (let i = 2; i < 8; i += 1) GameCore.setScore('camel-' + i, i * 180);
+    });
+    await paint(page);
+    const wide = await probe();
+    expect(wide.span).toBeGreaterThan(1400);
+    check('W=1440', wide);
+  });
+
+  test('forest v3 tree variants rasterise their distinct tones across sampled pans', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    const hits = { autumn: 0, autumnShade: 0, birch: 0, darkSpruce: 0, darkSpruceShade: 0 };
+    for (const score of [0, 400, 700, 900, 1100, 1200, 1600]) {
+      await page.evaluate((sc) => {
+        for (const c of GameCore.getState().camels) GameCore.setScore(c.id, sc);
+      }, score);
+      await paint(page);
+      const r = await page.evaluate(() => {
+        const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 1280, 120).data;
+        let autumn = 0, autumnShade = 0, birch = 0, dark = 0, darkShade = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+          if (h === 0xc9803a) autumn += 1;          // AUTUMN T
+          else if (h === 0x8f4f22) autumnShade += 1; // AUTUMN S
+          else if (h === 0xd8d2c2) birch += 1;      // BIRCH B (pale trunk)
+          else if (h === 0x1f4a2a) dark += 1;       // deep-spruce T (shared with base conifer S)
+          else if (h === 0x14301c) darkShade += 1;  // deep-spruce S, variant-specific
+        }
+        return { autumn, autumnShade, birch, dark, darkSpruceShade: darkShade, darkSpruce: dark };
+      });
+      for (const k of Object.keys(hits)) hits[k] += r[k];
+    }
+    // All three v3 variants are actually selected and drawn. `#1f4a2a` is shared
+    // with the base conifer shade, so `#14301c` is the variant-specific
+    // deep-spruce probe; the pale birch trunk only shows in some pan windows, so
+    // the pan set is chosen to cover each variant at least once.
+    expect(hits.autumn).toBeGreaterThan(0);
+    expect(hits.autumnShade).toBeGreaterThan(0);
+    expect(hits.birch).toBeGreaterThan(0);
+    expect(hits.darkSpruce).toBeGreaterThan(0);
+    expect(hits.darkSpruceShade).toBeGreaterThan(0);
   });
 
   test('forest v2 ripple bands paint ground.shade inside every lane (§3.8)', async ({ page }) => {

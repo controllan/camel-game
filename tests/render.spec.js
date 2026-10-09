@@ -833,6 +833,9 @@ test.describe('Renderer camera and bounds', () => {
     expect(dim('const LEAF_LITTER =')).toEqual({ w: 14, h: 6 });
     expect(dim('const FOREST_TREE_TALL =')).toEqual({ w: 48, h: 72 });
     expect(dim('const FOREST_TREE_BROAD =')).toEqual({ w: 44, h: 60 });
+    // Forest v3 background sprites (docs/art/theme-art.md §3.3).
+    expect(dim('const FOREST_TREE_SPRUCE_TALL =')).toEqual({ w: 40, h: 64 });
+    expect(dim('const FOREST_TREE_SNAG =')).toEqual({ w: 24, h: 48 });
     // Desert ambience (docs/art/theme-art.md §2.10): 16 sprites at exact 2x dims.
     expect(dim('const SAND_RIPPLE =')).toEqual({ w: 20, h: 6 });
     expect(dim('const PEBBLE_A =')).toEqual({ w: 12, h: 7 });
@@ -861,16 +864,17 @@ test.describe('Renderer camera and bounds', () => {
     expect(dim('const TWIG =')).toEqual({ w: 18, h: 6 });
   });
 
-  test('v2 flat floor marks: legend-only chars, clean border, O-enclosed, documented blobs', () => {
-    // docs/art/theme-art.md §2.13/§3.8 acceptance for the flat floor marks:
-    // every matrix is rectangular, uses only its legend chars plus '.', keeps a
-    // 1 px transparent border (row 0/h-1 and col 0/w-1 all '.', no strays), is
-    // `O`-enclosed (no non-`O` cell touches flood-filled transparent space) and
-    // is a single 4-connected blob - except the two documented multi-blob
-    // exceptions (HOOF_TRAIL 4 prints, HOOF_PRINTS 2 prints). The forest v2
-    // marks are surface-tone `O` (#3a6030), not black-ringed props.
+  test('decor sprites: legend-only chars, clean border, O-enclosed, documented blobs', () => {
+    // docs/art/theme-art.md §2.13/§3.3/§3.8 acceptance for the flat floor marks
+    // and the v3 background trees: every matrix is rectangular, uses only its
+    // legend chars plus '.', keeps a 1 px transparent border (row 0/h-1 and col
+    // 0/w-1 all '.', no strays), is `O`-enclosed (no non-`O` cell touches
+    // flood-filled transparent space) and is a single 4-connected blob - except
+    // the two documented multi-blob exceptions (HOOF_TRAIL 4 prints, HOOF_PRINTS
+    // 2 prints). The forest flat marks are surface-tone `O` (#3a6030), not
+    // black-ringed props; the trees use the usual black ring.
     const html = readIndexHtml();
-    const V2 = [
+    const CONTRACTS = [
       { decl: 'const WIND_STREAK_A =', legend: /^[.ORS]*$/, blobs: 1 },
       { decl: 'const WIND_STREAK_B =', legend: /^[.ORS]*$/, blobs: 1 },
       { decl: 'const DRIFT_MOUND =', legend: /^[.OBS]*$/, blobs: 1 },
@@ -878,6 +882,8 @@ test.describe('Renderer camera and bounds', () => {
       { decl: 'const LEAF_DRIFT =', legend: /^[.OHL]*$/, blobs: 1 },
       { decl: 'const GRASS_WAVE =', legend: /^[.OHG]*$/, blobs: 1 },
       { decl: 'const TWIG =', legend: /^[.OB]*$/, blobs: 1 },
+      { decl: 'const FOREST_TREE_SPRUCE_TALL =', legend: /^[.BOST]*$/, blobs: 1 },
+      { decl: 'const FOREST_TREE_SNAG =', legend: /^[.BOS]*$/, blobs: 1 },
     ];
     const components = (rows) => {
       const h = rows.length, w = rows[0].length;
@@ -930,7 +936,7 @@ test.describe('Renderer camera and bounds', () => {
       }
       return bad;
     };
-    for (const { decl, legend, blobs } of V2) {
+    for (const { decl, legend, blobs } of CONTRACTS) {
       const rows = extractMatrixRows(html, decl);
       const w = Math.max(...rows.map((r) => r.length));
       expect(rows.length, decl).toBeGreaterThan(1);
@@ -1281,6 +1287,12 @@ test.describe('Renderer camera and bounds', () => {
       ['const LEAF_DRIFT =', 'const LEAF_DRIFT_PAL ='],
       ['const GRASS_WAVE =', 'const GRASS_WAVE_PAL ='],
       ['const TWIG =', 'const TWIG_PAL ='],
+      // Forest v3 background trees (§3.3) + palette variants on shared matrices.
+      ['const FOREST_TREE_SPRUCE_TALL =', 'const FOREST_TREE_PAL_SPRUCE_TALL ='],
+      ['const FOREST_TREE_SNAG =', 'const FOREST_TREE_PAL_SNAG ='],
+      ['const FOREST_TREE_DECIDUOUS =', 'const FOREST_TREE_PAL_AUTUMN ='],
+      ['const FOREST_TREE_DECIDUOUS =', 'const FOREST_TREE_PAL_BIRCH ='],
+      ['const FOREST_TREE_CONIFER =', 'const FOREST_TREE_PAL_SPRUCE_DARK ='],
     ];
     for (const [spr, pal] of SPRITES) {
       const keys = paletteKeys(pal);

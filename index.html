@@ -1740,6 +1740,15 @@ window.GameCore = (function () {
   const TWIG_PAL = { O: '#3a6030', B: '#4a3320' };
   const FOREST_TREE_TALL_PAL = { outline: '#1a1208', T: '#2f6b3a', S: '#1f4a2a', B: '#4a3320', R: '#2a1c10' };
   const FOREST_TREE_BROAD_PAL = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234', B: '#4a3320', R: '#2a1c10' };
+  // Forest v3 palette variants (§3.8f): share the existing tree matrices, only
+  // the ink changes. Autumn deciduous (warm canopy), pale-trunk birch (pale B on
+  // the deciduous matrix) and deep-shadow back-row spruce (darker conifer).
+  const FOREST_TREE_PAL_AUTUMN = { outline: '#1a1208', T: '#c9803a', S: '#8f4f22', B: '#4a3320' };
+  const FOREST_TREE_PAL_BIRCH = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234', B: '#d8d2c2' };
+  const FOREST_TREE_PAL_SPRUCE_DARK = { outline: '#1a1208', T: '#1f4a2a', S: '#14301c', B: '#33241a' };
+  // Forest v3 new sprites (§3.3): tall narrow spruce + bare snag.
+  const FOREST_TREE_PAL_SPRUCE_TALL = { outline: '#1a1208', T: '#2a6234', S: '#1b4024', B: '#4a3320' };
+  const FOREST_TREE_PAL_SNAG = { outline: '#1a1208', B: '#6b5a42', S: '#3f3222' };
   // Desert ambience palettes (docs/art/theme-art.md §2.9). Per-sprite palettes win
   // over CHAR_KEY, so shared letters (T/S/B/R/W/L/D) keep their forest meaning
   // there and their desert meaning here; HOOF_PRINTS/MESA override `O` on purpose.
@@ -2213,6 +2222,128 @@ window.GameCore = (function () {
     '.................ORRRRRRRRO.................',
     '.................OOOOOOOOOO.................',
     '............................................',
+  ];
+
+  // FOREST_TREE_SPRUCE_TALL 40x64 (forest v3, §3.3): narrow conical spruce,
+  // five stacked tiers with horizontal `O` breaks, trunk rows 57-62.
+  const FOREST_TREE_SPRUCE_TALL = [
+    '........................................',
+    '..................OOOO..................',
+    '..................OTSO..................',
+    '..................OTSO..................',
+    '..................OTSO..................',
+    '..................OTSO..................',
+    '..................OTSO..................',
+    '.................OTTSSO.................',
+    '.................OTTSSO.................',
+    '.................OTTSSO.................',
+    '.................OTTSSO.................',
+    '................OTTTSSSO................',
+    '...............OOOOOOOOOO...............',
+    '................OTTTSSSO................',
+    '................OTTTSSSO................',
+    '...............OTTTTTSSSO...............',
+    '...............OTTTTTSSSO...............',
+    '...............OTTTTTSSSO...............',
+    '...............OTTTTTSSSO...............',
+    '..............OTTTTTTSSSSO..............',
+    '..............OTTTTTTSSSSO..............',
+    '..............OTTTTTTSSSSO..............',
+    '..............OTTTTTTSSSSO..............',
+    '.............OTTTTTTTSSSSSO.............',
+    '............OOOOOOOOOOOOOOOO............',
+    '.............OTTTTTTTSSSSSO.............',
+    '.............OTTTTTTTSSSSSO.............',
+    '............OTTTTTTTTSSSSSSO............',
+    '............OTTTTTTTTSSSSSSO............',
+    '............OTTTTTTTTSSSSSSO............',
+    '............OTTTTTTTTSSSSSSO............',
+    '............OTTTTTTTTSSSSSSO............',
+    '...........OTTTTTTTTTSSSSSSSO...........',
+    '...........OTTTTTTTTTSSSSSSSO...........',
+    '...........OTTTTTTTTTSSSSSSSO...........',
+    '...........OTTTTTTTTTSSSSSSSO...........',
+    '.........OOOOOOOOOOOOOOOOOOOOOO.........',
+    '..........OTTTTTTTTTTSSSSSSSSO..........',
+    '..........OTTTTTTTTTTSSSSSSSSO..........',
+    '..........OTTTTTTTTTTSSSSSSSSO..........',
+    '.........OTTTTTTTTTTTSSSSSSSSSO.........',
+    '.........OTTTTTTTTTTTSSSSSSSSSO.........',
+    '.........OTTTTTTTTTTTSSSSSSSSSO.........',
+    '.........OTTTTTTTTTTTSSSSSSSSSO.........',
+    '........OTTTTTTTTTTTTSSSSSSSSSSO........',
+    '........OTTTTTTTTTTTTSSSSSSSSSSO........',
+    '........OTTTTTTTTTTTTSSSSSSSSSSO........',
+    '........OTTTTTTTTTTTTSSSSSSSSSSO........',
+    '......OOOOOOOOOOOOOOOOOOOOOOOOOOOO......',
+    '.......OTTTTTTTTTTTTTSSSSSSSSSSSO.......',
+    '.......OTTTTTTTTTTTTTSSSSSSSSSSSO.......',
+    '.......OTTTTTTTTTTTTTSSSSSSSSSSSO.......',
+    '......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......',
+    '......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......',
+    '......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......',
+    '......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......',
+    '....OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO....',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '.................OBBBBO.................',
+    '................OOOOOOOO................',
+    '........................................',
+  ];
+
+  // FOREST_TREE_SNAG 24x48 (forest v3, §3.3): bare dead trunk (B body, S shade)
+  // with four outlined branch stubs, no canopy.
+  const FOREST_TREE_SNAG = [
+    '........................',
+    '..........OOOO..........',
+    '..........OBSO..........',
+    '..........OBSO..........',
+    '..........OBSO..........',
+    '..........OBSO..........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '....OOOOOOBBSSO.........',
+    '....OBBBBOBBSSO.........',
+    '....OOOOOOBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSOOOOO.....',
+    '.........OBBSSOBBBO.....',
+    '.........OBBSSOOOOO.....',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '...OOOOOOOBBSSO.........',
+    '...OBBBBBOBBSSO.........',
+    '...OOOOOOOBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSOOOOOO....',
+    '.........OBBSSOBBBBO....',
+    '.........OBBSSOOOOOO....',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '.........OBBSSO.........',
+    '........OOOOOOOO........',
+    '........................',
   ];
 
   // Desert ambience (docs/art/theme-art.md §2.10): 16 sprites, matrices pasted
@@ -2751,7 +2882,7 @@ window.GameCore = (function () {
       canvasLabelKey: 'canvasLabelBoar', // i18n key for the canvas aria-label
       countLabelKey: 'countLabelBoar', // i18n key for the lane-count label
       label: { en: 'Forest', de: 'Wald' }, // declarative-only (DOM i18n labels the buttons)
-      palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: ['#241634', '#33204a'], treeline: true }, // v2 dusk ridges + treeline jag §3.8; treeline tone = distant[0]
+      palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: ['#241634', '#33204a'], treeline: true, mountains: { back: '#3b2a56', backRim: '#4d3a6d', body: '#140b26', rim: '#2e1f52' } }, // v2 dusk ridges + treeline jag §3.8; v3 mountains §3.8f
       ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018', speckle: '#5a8a48', speckleShare: 0.5, speckleWidth: 2, carpetSpacing: 7, clusterShare: 0.14, streaks: FOREST_STREAKS }, // v2 §3.8
       decor: {
         maxSpan: 1500,
@@ -2761,19 +2892,26 @@ window.GameCore = (function () {
         // world spacing and cap. Floor runs one stream per lane; midground picks
         // a lane; background anchors on HORIZON_Y.
         streams: {
-          background: { spacing: 32, cap: 14 },
+          background: { spacing: 20, cap: 24 }, // v3 §3.8h (was 32 / 14)
           midground: { spacing: 48, cap: 10 },
           floor: { spacing: 12, cap: 180 }, // v2 §3.8 (was 20 / 120)
         },
         // Family-level `kind` names (docs/art/theme-art.md §3.3 uses per-sprite names):
-        // trees → FOREST_TREE_CONIFER/DECIDUOUS/BROAD/BUSH, midground → TALL/BROAD,
+        // trees → FOREST_TREE_CONIFER/DECIDUOUS/BROAD/BUSH + the v3 variants
+        // (autumn/birch on the deciduous matrix, dark spruce on the conifer matrix)
+        // and the 2 v3 sprites (SPRUCE_TALL/SNAG), midground → TALL/BROAD,
         // grass_tufts → GRASS_TUFT_A/B, mushrooms → MUSHROOM_RED/BROWN, moss → MOSS,
         // stones → STONE/STONE_ALT, pine_needles → PINE_NEEDLES, leaf_litter → LEAF_LITTER.
         kinds: [
-          { kind: 'trees', layer: 'background', weight: 0.30, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_CONIFER, yOffset: -56 },
-          { kind: 'trees', layer: 'background', weight: 0.26, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_DECIDUOUS, yOffset: -56 },
-          { kind: 'trees', layer: 'background', weight: 0.22, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
-          { kind: 'trees', layer: 'background', weight: 0.22, sprite: FOREST_BUSH, pal: FOREST_BUSH_PAL, yOffset: -20 },
+          { kind: 'trees', layer: 'background', weight: 0.16, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_CONIFER, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.14, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_DECIDUOUS, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.13, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
+          { kind: 'trees', layer: 'background', weight: 0.10, sprite: FOREST_BUSH, pal: FOREST_BUSH_PAL, yOffset: -20 },
+          { kind: 'trees', layer: 'background', weight: 0.12, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_AUTUMN, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.10, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_BIRCH, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.10, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_SPRUCE_DARK, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.09, sprite: FOREST_TREE_SPRUCE_TALL, pal: FOREST_TREE_PAL_SPRUCE_TALL, yOffset: -64 },
+          { kind: 'trees', layer: 'background', weight: 0.06, sprite: FOREST_TREE_SNAG, pal: FOREST_TREE_PAL_SNAG, yOffset: -48 },
           { kind: 'midground', layer: 'midground', weight: 0.65, sprite: FOREST_TREE_TALL, pal: FOREST_TREE_TALL_PAL, yOffset: -72 },
           { kind: 'midground', layer: 'midground', weight: 0.35, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
           // floor (one stream per lane; `flat:true` v2 marks roam the lane field, §3.8)
@@ -2929,28 +3067,88 @@ window.GameCore = (function () {
     drawDuneBand(HORIZON_Y - 6, (win.min * 0.6) % 90, distant[1]);
   }
 
-  // Treeline jag (§3.8): a conifer triangle-tooth silhouette standing on HORIZON_Y,
-  // drawn after the ridges in the darkest ridge tone. Theme-gated on
+  // Procedural mountains (forest v3, §3.8f): the farthest layer, drawn before
+  // the ridges. Two seeded peak layers; per canvas column the height is the max
+  // over nearby triangular peaks (pitch 115 ± 12 px jitter -> adjacent peak
+  // spacing 91-139 px, width 80-160 px) — all in ON-SCREEN px, so the range
+  // holds its spacing at every zoom. Theme-gated on `palette.mountains`
+  // (all four tones required; desert ships no token -> 0 rects, pixels
+  // identical). World-anchored with a slow parallax: the pattern is indexed by
+  // `x + screenShift` with `screenShift = win.min * 0.15 / (span/CANVAS_W)`, so
+  // panning scrolls it at 0.15x the ground speed. Run-coalesced 1 px columns
+  // plus a 1 px lighter rim on each run's upper edge. No PRNG, no allocation,
+  // never culled (drawn with the sky, before the lane passes).
+  const MOUNTAIN_PARALLAX = 0.15;
+  const MOUNTAIN_LAYERS = [
+    // back: farther = lighter tone, shorter peaks (tops in sky bands 2-3)
+    { salt: 0x6d, pitch: 115, jitter: 12, wMin: 80, wMax: 160, hMin: 30, hMax: 58, body: 'back', rim: 'backRim' },
+    // front: nearer = darker tone, taller peaks (tops in sky bands 1-2)
+    { salt: 0xb3, pitch: 115, jitter: 12, wMin: 80, wMax: 160, hMin: 42, hMax: 70, body: 'body', rim: 'rim' },
+  ];
+
+  // Screen-space peak profile: the slot below `px` plus its right neighbour can
+  // reach back over it (a slot at pitch 115 with half-width <= 80 and jitter 12
+  // never spans more than one pitch), so two samples suffice.
+  function mountainHeight(px, layer) {
+    const i = Math.floor(px / layer.pitch);
+    let h = 0;
+    for (let j = i; j <= i + 1; j++) {
+      const center = j * layer.pitch + (hash2(layer.salt, j) % (2 * layer.jitter + 1)) - layer.jitter;
+      const half = (layer.wMin + (hash2(layer.salt ^ 0x5bd1e995, j) % (layer.wMax - layer.wMin + 1))) / 2;
+      const d = Math.abs(px - center);
+      if (d >= half) continue;
+      const peak = layer.hMin + (hash2(layer.salt ^ 0x27d4eb2f, j) % (layer.hMax - layer.hMin + 1));
+      const y = Math.round(peak * (1 - d / half));
+      if (y > h) h = y;
+    }
+    return h;
+  }
+
+  function drawMountains(win) {
+    const m = theme.palette.mountains;
+    if (!m || !m.back || !m.backRim || !m.body || !m.rim) return;
+    const span = Math.max(1e-6, win.max - win.min);
+    const worldPerPx = span / CANVAS_W;
+    const screenShift = (win.min * MOUNTAIN_PARALLAX) / worldPerPx;
+    for (const layer of MOUNTAIN_LAYERS) {
+      let runX = 0, runH = -1;
+      for (let x = 0; x <= CANVAS_W; x++) {
+        let h = -1;
+        if (x < CANVAS_W) h = mountainHeight((x + 0.5) + screenShift, layer);
+        if (h !== runH) {
+          if (runH > 0) {
+            ctx.fillStyle = m[layer.rim];
+            ctx.fillRect(runX, HORIZON_Y - runH, x - runX, 1); // 1 px upper rim
+            if (runH > 1) {
+              ctx.fillStyle = m[layer.body];
+              ctx.fillRect(runX, HORIZON_Y - runH + 1, x - runX, runH - 1);
+            }
+          }
+          runX = x; runH = h;
+        }
+      }
+    }
+  }
+
+  // Treeline jag (§3.8b/g): two conifer triangle-tooth tiers standing on
+  // HORIZON_Y, drawn after the ridges in the darkest ridge tone. Back tier:
+  // lighter distant tone (distant[1]), teeth 8-12 px, offset half a tooth. Front
+  // tier: darkest ridge tone (distant[0]), teeth 10-16 px. Theme-gated on
   // `palette.treeline`, so desert draws none and its pixels stay identical.
   // World-anchored 20 px tooth period (derived from the window like the carpet
-  // pitch) with a hash2 tooth height of 8-14 px; run-coalesced 1 px columns like
-  // the ripple bands. No PRNG (hash2 is a pure function, draw-order-independent),
-  // never culled (drawn before the lanes, so it survives the maxSpan cull).
-  function drawTreeline(win) {
-    if (!theme.palette.treeline) return;
-    const distant = theme.palette.distant;
-    if (!distant || distant.length < 2) return; // same 2-band minimum as drawDunes
-    const span = Math.max(1e-6, win.max - win.min);
-    const toothWorld = Math.max(1e-6, span / CANVAS_W * 20); // 20 screen px period
-    ctx.fillStyle = distant[0];
+  // pitch); run-coalesced 1 px columns like the ripple bands; no PRNG, never
+  // culled (drawn before the lanes, so it survives the maxSpan cull).
+  function drawTreelineTier(win, span, toothWorld, tone, salt, base, spread, phase) {
+    ctx.fillStyle = tone;
     let runX = 0, runH = -1;
     for (let x = 0; x <= CANVAS_W; x++) {
       let h = runH;
       if (x < CANVAS_W) {
         const world = win.min + ((x + 0.5) / CANVAS_W) * span;
-        const tooth = Math.floor(world / toothWorld);
-        const frac = world / toothWorld - tooth; // 0..1, stable per world tooth
-        const peak = 8 + (hash2(0x54, tooth) % 7); // 8..14 px
+        const shifted = world / toothWorld + phase; // phase 0.5 = half a tooth offset
+        const tooth = Math.floor(shifted);
+        const frac = shifted - tooth; // 0..1, stable per world tooth
+        const peak = base + (hash2(salt, tooth) % spread); // base..base+spread-1 px
         h = Math.round(peak * (1 - Math.abs(2 * frac - 1)));
       }
       if (h !== runH) {
@@ -2959,6 +3157,16 @@ window.GameCore = (function () {
       }
     }
     if (runH > 0) ctx.fillRect(runX, HORIZON_Y - runH, CANVAS_W - runX, runH);
+  }
+
+  function drawTreeline(win) {
+    if (!theme.palette.treeline) return;
+    const distant = theme.palette.distant;
+    if (!distant || distant.length < 2) return; // same 2-band minimum as drawDunes
+    const span = Math.max(1e-6, win.max - win.min);
+    const toothWorld = Math.max(1e-6, span / CANVAS_W * 20); // 20 screen px period
+    drawTreelineTier(win, span, toothWorld, distant[1], 0x9c, 8, 5, 0.5); // back tier
+    drawTreelineTier(win, span, toothWorld, distant[0], 0x54, 10, 7, 0); // front tier
   }
 
   // Draw one decor pass from the theme's per-layer streams (docs/art/theme-art.md
@@ -3425,13 +3633,14 @@ window.GameCore = (function () {
   }
 
   // Render order (docs/art/theme-art.md §2.11.2 / §3.4.3): sky → celestial →
-  // dunes → treeline jag → background decor → milestones → lanes → ground
-  // carpet → floor props → midground → animals → team labels → finish →
+  // mountains → dunes → treeline jag → background decor → milestones → lanes →
+  // ground carpet → floor props → midground → animals → team labels → finish →
   // confetti → banner. Animals last over the midground so they read in front of
   // in-track scenery.
   function drawScene(s, win, now) {
     drawSky();
     drawCelestial();
+    drawMountains(win);
     drawDunes(win);
     drawTreeline(win);
     drawDecor(win, 'background');
