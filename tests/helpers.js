@@ -50,7 +50,7 @@ async function paint(page) {
 
 // paint() + honest settle + an exact-lerp pin. isSettled() tolerates 0.5 px,
 // but the cubic ease only assigns visualLeft = target exactly once p >= 1; a
-// sub-pixel tail can still flip the rounded 92 px sprite crop mid-assertion
+// sub-pixel tail can still flip the rounded 76 px sprite crop mid-assertion
 // (which is what made the walk-frame snapshots disagree). Resolve only after a
 // frame has painted the mutated state AND two consecutive frames report
 // identical sprite bounds while isSettled() holds, so sampled pixels cannot

@@ -70,7 +70,7 @@ test.describe('Theme registry (desert)', () => {
   test('GameDebug reports active animal + sprite size (desert)', async ({ page }) => {
     await page.evaluate(() => GameCore.setTheme('desert'));
     const t = await page.evaluate(() => GameDebug.getTheme());
-    expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 92, h: 70 });
+    expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 76, h: 70 });
   });
 
   test('desert ambience density: per-layer stream caps hold and the sand carpet covers the lanes', async ({ page }) => {
