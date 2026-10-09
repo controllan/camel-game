@@ -60,7 +60,7 @@ function extractFunction(html, name) {
 }
 
 test.describe('Renderer camera and bounds', () => {
-  // Almost every assertion here samples desert art (camel 76x70, dune/sun/sky
+  // Almost every assertion here samples desert art (camel 84x70, dune/sun/sky
   // tones, robe palette). The app now defaults to forest, so pin desert explicitly.
   test.beforeEach(async ({ page }) => {
     await gotoGame(page);
@@ -102,14 +102,14 @@ test.describe('Renderer camera and bounds', () => {
     for (const b of bounds) {
       expect(b.left).toBeGreaterThanOrEqual(0);
       expect(b.right).toBeLessThanOrEqual(1280);
-      expect(b.right - b.left).toBeCloseTo(76, 9);
+      expect(b.right - b.left).toBeCloseTo(84, 9);
     }
-    // v7 camera-fit margins: the 76 px camel clamps to 4 (trailer) .. 1280 - 76
-    // - 4 = 1200 (leader), so the whole sprite stays on canvas with a 4 px
-    // lane margin on each side (the v6 92 px sprite clamped at 1184). The lerp
-    // settles to within isSettled()'s 0.5 px of the 4 / 1200 clamp targets.
+    // v8 camera-fit margins: the 84 px camel clamps to 4 (trailer) .. 1280 - 84
+    // - 4 = 1192 (leader), so the whole sprite stays on canvas with a 4 px
+    // lane margin on each side. The lerp settles to within isSettled()'s 0.5 px
+    // of the 4 / 1192 clamp targets.
     expect(bounds[0].left).toBeCloseTo(4, 0);
-    expect(bounds[1].left).toBeCloseTo(1200, 0);
+    expect(bounds[1].left).toBeCloseTo(1192, 0);
   });
 
   test('infinite mode 5000+ stays in bounds', async ({ page }) => {
@@ -155,7 +155,7 @@ test.describe('Renderer camera and bounds', () => {
         for (const b of after) {
           expect(b.left).toBeGreaterThanOrEqual(0);
           expect(b.right).toBeLessThanOrEqual(1280);
-          expect(b.right - b.left).toBeCloseTo(76, 9);
+          expect(b.right - b.left).toBeCloseTo(84, 9);
           expect(b.top).toBeGreaterThanOrEqual(0);
           expect(b.bottom).toBeLessThanOrEqual(720);
         }
@@ -180,19 +180,24 @@ test.describe('Renderer camera and bounds', () => {
       .toBeGreaterThan(0); // decor bodies
   });
 
-  test('camels rasterise fixed body/shade tones plus the per-lane robe, with no blanket ink', async ({ page }) => {
+  test('camels rasterise fixed body/shade tones, blanket ink and the per-lane robe', async ({ page }) => {
     await settleAndPaint(page);
     const tally = await pixelTally(page);
-    // Body and shade are fixed warm-sand tones shared by every camel (only the
-    // rider robe is palette-swapped). The v7 draft-A idle frame paints 400 body,
-    // 965 shade, 556 deep and 24 harness px per camel, so 4 idle camels paint
-    // ~1600 body px.
-    expect(tally['#de914d'] || 0).toBeGreaterThanOrEqual(4 * 200); // body across 4 camels
-    expect(tally['#c37c3a'] || 0).toBeGreaterThan(0);   // fixed shade
-    expect(tally['#b27035'] || 0).toBeGreaterThan(0);   // v7 deep shade
-    expect(tally['#53565e'] || 0).toBeGreaterThan(0);   // harness (neck strap + girth)
-    // No saddle blanket anywhere: v7 dropped the pad and with it the light-blue
-    // `#bfe3ea` ink - a re-introduced box fails this canvas-wide count.
+    // v8 palette: body/shade/deep/deepest + the slate leg/hoof band are fixed
+    // tones shared by every camel (only the rider robe is palette-swapped).
+    // Frame 0 paints 728 body, 205 shade, 271 deep, 180 deepest and 3 slate
+    // band px per camel, so 4 idle camels paint ~2900 body px.
+    expect(tally['#d8a662'] || 0).toBeGreaterThanOrEqual(4 * 200); // body across 4 camels
+    expect(tally['#b0786b'] || 0).toBeGreaterThan(0);   // fixed shade
+    expect(tally['#6f473e'] || 0).toBeGreaterThan(0);   // v8 shadeDeep
+    expect(tally['#55312e'] || 0).toBeGreaterThan(0);   // v8 shadeDeepest
+    expect(tally['#53565e'] || 0).toBeGreaterThan(0);   // slate leg/hoof band (3 px)
+    // v8 decorated saddle blanket: pad/padDark greens, cream/red stripe bands
+    // and the white fringe must reach the canvas in the desert theme.
+    for (const color of ['#4a7f65', '#37634e', '#efd39e', '#e18683', '#e7e8ea']) {
+      expect(tally[color] || 0).toBeGreaterThan(0);
+    }
+    // The retired v7 art must not come back: no light-blue pad ink, no digit ink.
     expect(tally['#bfe3ea'] || 0).toBe(0);
     expect(tally['#123a44'] || 0).toBe(0);             // retired digit ink
     expect(tally[LANE_ROBE[0]] || 0).toBeGreaterThan(0); // lane 0 rider robe
@@ -266,7 +271,7 @@ test.describe('Renderer camera and bounds', () => {
     });
     // Paint the mutated scene, settle the camera glide, and pin the exact
     // eased-in sprite position before capturing the idle reference pose: a
-    // sub-pixel lerp tail would otherwise shift the 76 px snapshot crop between
+    // sub-pixel lerp tail would otherwise shift the 84 px snapshot crop between
     // samples and inflate distinctWalkFrames with non-pose variants.
     await settleAndPaint(page);
     const res = await page.evaluate(() => new Promise((resolve) => {
@@ -276,7 +281,7 @@ test.describe('Renderer camera and bounds', () => {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const x = Math.max(0, Math.round(b.left) - 1);
         const y = Math.max(0, Math.round(b.top));
-        return canvas.getContext('2d').getImageData(x, y, 76, 70).data.join(',');
+        return canvas.getContext('2d').getImageData(x, y, 84, 70).data.join(',');
       };
       const standing = snap();
       const camel = GameCore.getState().camels[0];
@@ -335,7 +340,7 @@ test.describe('Renderer camera and bounds', () => {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const x = Math.max(0, Math.round(b.left) - 1);
         const y = Math.max(0, Math.round(b.top));
-        return canvas.getContext('2d').getImageData(x, y, 76, 70).data.join(',');
+        return canvas.getContext('2d').getImageData(x, y, 84, 70).data.join(',');
       };
       const first = snap();
       let n = 0;
@@ -463,28 +468,29 @@ test.describe('Renderer camera and bounds', () => {
     expect(bounded).toBeLessThanOrEqual(204);
   });
 
-  test('76x70 camel sprite rasterises body, shade, harness and rider (no blanket)', async ({ page }) => {
+  test('84x70 camel sprite rasterises body, blanket and rider (v8 palette)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
     await settleAndPaint(page);
     const b = await page.evaluate(() => GameDebug.getCamelSpriteBounds()[0]);
-    expect(b.right - b.left).toBeCloseTo(76, 9); // SPRITE_W buffer
+    expect(b.right - b.left).toBeCloseTo(84, 9); // SPRITE_W buffer
     expect(b.bottom - b.top).toBeCloseTo(70, 9); // SPRITE_H buffer
     const seen = await page.evaluate(({ left, top }) => {
       const d = document.getElementById('game').getContext('2d')
-        .getImageData(Math.round(left), Math.round(top), 76, 70).data;
-      const want = { body: 0xde914d, outline: 0x1c1208, shade: 0xc37c3a, deep: 0xb27035,
-        harness: 0x53565e, turban: 0xf0ece0, skin: 0xd8a878, robe: 0xe84a3a, blanket: 0xbfe3ea };
-      const got = { body: 0, outline: 0, shade: 0, deep: 0, harness: 0, turban: 0, skin: 0, robe: 0, blanket: 0 };
-      // Every camel tone (the lane-0 v7 palette) so the real drawn bbox and the
-      // rider block can be measured inside the 76x70 buffer.
-      const camel = new Set([0x1c1208, 0xde914d, 0xc37c3a, 0xb27035, 0x53565e, 0xe84a3a,
-        0xf0ece0, 0xd8a878]);
+        .getImageData(Math.round(left), Math.round(top), 84, 70).data;
+      const want = { body: 0xd8a662, outline: 0x1c1208, shade: 0xb0786b, deep: 0x6f473e,
+        deepest: 0x55312e, harness: 0x53565e, turban: 0xf0ece0, skin: 0xd8a878,
+        robe: 0xe84a3a, pad: 0x4a7f65, padDark: 0x37634e, stripeCream: 0xefd39e,
+        stripeRed: 0xe18683, fringe: 0xe7e8ea, retired: 0xbfe3ea };
+      const got = Object.fromEntries(Object.keys(want).map((k) => [k, 0]));
+      // Every camel tone (the lane-0 v8 palette) plus the rider so the real drawn
+      // bbox and the rider block can be measured inside the 84x70 buffer.
+      const camel = new Set(Object.values(want));
       const rider = new Set([0xe84a3a, 0xf0ece0, 0xd8a878]); // robe + turban + skin
-      let minC = 76, maxC = -1, minR = 70, maxR = -1;
-      let rPx = 0, rMinC = 76, rMaxC = -1, rMinR = 70, rMaxR = -1;
+      let minC = 84, maxC = -1, minR = 70, maxR = -1;
+      let rPx = 0, rMinC = 84, rMaxC = -1, rMinR = 70, rMaxR = -1;
       for (let ry = 0; ry < 70; ry += 1) {
-        for (let rx = 0; rx < 76; rx += 1) {
-          const i = (ry * 76 + rx) * 4;
+        for (let rx = 0; rx < 84; rx += 1) {
+          const i = (ry * 84 + rx) * 4;
           const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
           for (const k in want) if (h === want[k]) got[k] += 1;
           if (camel.has(h)) {
@@ -506,42 +512,51 @@ test.describe('Renderer camera and bounds', () => {
         rider: { px: rPx, minC: rMinC, maxC: rMaxC, minR: rMinR, maxR: rMaxR } };
     }, { left: b.left, top: b.top });
     // Tone-count bands only, not exact pins: a benign 1 px art tweak may shift a
-    // count, so the doc's v7 counts (400 body / 965 shade / 556 deep px) are
-    // bracketed; a missing or double-drawn sprite (0 / ~2x) still fails. The
-    // bbox and rider pins below stay exact on purpose: they mirror the frame
-    // matrices and catch frame swappage, a lost rider or a leaked bob offset.
-    expect(seen.got.body).toBeGreaterThan(340);
-    expect(seen.got.body).toBeLessThan(460);
-    expect(seen.got.shade).toBeGreaterThan(900);
-    expect(seen.got.shade).toBeLessThan(1040);
-    expect(seen.got.deep).toBeGreaterThan(500);
-    expect(seen.got.deep).toBeLessThan(620);
-    expect(seen.got.harness).toBeGreaterThan(15); // 1 px neck strap + girth, 24 px
-    expect(seen.got.harness).toBeLessThan(35);
-    expect(seen.got.outline).toBeGreaterThan(450);
-    // No blanket ink in the sprite buffer at all (v7 removed the pad): the light
-    // blue count is the box detector, so it must be exactly 0, not just absent
-    // from the tone list.
-    expect(seen.got.blanket).toBe(0);
-    // Real drawn bbox of the idle v7 camel inside the 76x70 frame. Draft A's
-    // painted bbox is exactly 72x68 (cols 3-74, rows 2-69).
-    expect(seen.bbox.w).toBe(72);
+    // count, so the v8 frame-0 counts (728 body / 205 shade / 271 deep / 180
+    // deepest / 3 slate band / 860+ outline px) are bracketed; a missing or
+    // double-drawn sprite (0 / ~2x) still fails. The bbox and rider pins below
+    // stay exact on purpose: they mirror the frame matrices and catch frame
+    // swappage, a lost rider or a leaked bob offset.
+    expect(seen.got.body).toBeGreaterThan(640);
+    expect(seen.got.body).toBeLessThan(820);
+    expect(seen.got.shade).toBeGreaterThan(150);
+    expect(seen.got.shade).toBeLessThan(260);
+    expect(seen.got.deep).toBeGreaterThan(220);
+    expect(seen.got.deep).toBeLessThan(330);
+    expect(seen.got.deepest).toBeGreaterThan(140);
+    expect(seen.got.deepest).toBeLessThan(230);
+    expect(seen.got.harness).toBeGreaterThan(0); // 3 px slate leg/hoof band in v8
+    expect(seen.got.harness).toBeLessThan(10);
+    expect(seen.got.outline).toBeGreaterThan(700);
+    // Decorated v8 saddle blanket: every ink family is rasterised; the retired
+    // v7 light-blue pad tone must stay at exactly 0.
+    expect(seen.got.pad).toBeGreaterThan(60);
+    expect(seen.got.padDark).toBeGreaterThan(40);
+    expect(seen.got.stripeCream).toBeGreaterThan(15);
+    expect(seen.got.stripeRed).toBeGreaterThan(0);
+    expect(seen.got.fringe).toBeGreaterThan(0);
+    expect(seen.got.retired).toBe(0);
+    // Real drawn bbox of the idle v8 camel inside the 84x70 frame: 80x68 at
+    // matrix (2,2) - cols 2-81, rows 2-69.
+    expect(seen.bbox.w).toBe(80);
     expect(seen.bbox.h).toBe(68);
-    expect(seen.bbox.minC).toBe(3);
-    expect(seen.bbox.maxC).toBe(74);
+    expect(seen.bbox.minC).toBe(2);
+    expect(seen.bbox.maxC).toBe(81);
     expect(seen.bbox.minR).toBe(2);
     expect(seen.bbox.maxR).toBe(69);
-    // Rider still drawn (no box removal side effect): robe + turban + skin occupy
-    // the documented 11x15 block cols 34-44 / rows 19-33, its lowest row on the
-    // camel's back band - the rider sits, it does not float and it is not lost.
+    // Rider still drawn (no art-rewrite side effect): robe + turban + skin
+    // occupy the documented 11x15 block cols 29-39 / rows 5-19, its lowest row
+    // on the camel's back band - the rider sits, it does not float.
     expect(seen.got.robe).toBeGreaterThan(0);
     expect(seen.got.turban).toBeGreaterThan(0);
     expect(seen.got.skin).toBeGreaterThan(0);
-    expect(seen.rider).toEqual({ px: 96, minC: 34, maxC: 44, minR: 19, maxR: 33 });
+    expect(seen.rider.px).toBeGreaterThanOrEqual(90); // robe 58 + turban 15 + skin 23
+    expect({ minC: seen.rider.minC, maxC: seen.rider.maxC, minR: seen.rider.minR, maxR: seen.rider.maxR })
+      .toEqual({ minC: 29, maxC: 39, minR: 5, maxR: 19 });
     // Retired digit ink must not come back either.
     const digitInk = await page.evaluate(({ left, top }) => {
       const d = document.getElementById('game').getContext('2d')
-        .getImageData(Math.round(left), Math.round(top), 76, 70).data;
+        .getImageData(Math.round(left), Math.round(top), 84, 70).data;
       let n = 0;
       for (let i = 0; i < d.length; i += 4) {
         if (((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]) === 0x123a44) n += 1;
@@ -549,33 +564,31 @@ test.describe('Renderer camera and bounds', () => {
       return n;
     }, { left: b.left, top: b.top });
     expect(digitInk).toBe(0);
-    // Standing feet (sprite row 69): four 7 px hooves, each OOOSOOO, so 6 outline
-    // px + 1 shade px per hoof (24 outline + 4 shade px total); nothing of the
-    // leg/body below them.
+    // Standing feet (sprite row 69): two hoof clusters painted as solid outline
+    // runs (17 + 18 px in frame 0); nothing of the leg/body may paint on it.
     const idle = await page.evaluate(({ left, top }) => {
       const d = document.getElementById('game').getContext('2d')
-        .getImageData(Math.round(left), Math.round(top), 76, 70).data;
+        .getImageData(Math.round(left), Math.round(top), 84, 70).data;
       const got = { outline: 0, shade: 0, body: 0 };
-      for (let rx = 0; rx < 76; rx += 1) {
-        const i = (69 * 76 + rx) * 4;
+      for (let rx = 0; rx < 84; rx += 1) {
+        const i = (69 * 84 + rx) * 4;
         const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         if (h === 0x1c1208) got.outline += 1;
-        else if (h === 0xc37c3a) got.shade += 1;
-        else if (h === 0xde914d || h === 0xb27035) got.body += 1;
+        else if (h === 0xb0786b) got.shade += 1;
+        else if (h === 0xd8a662 || h === 0x6f473e || h === 0x55312e) got.body += 1;
       }
       return got;
     }, { left: b.left, top: b.top });
-    // Bands around the four OOOSOOO hooves (24 outline + 4 shade px): a benign
-    // hoof retouch passes, a collapsed hoof row (0 / two hooves) fails. body is
-    // behaviour: nothing may paint a leg below the hoof line.
-    expect(idle.outline).toBeGreaterThanOrEqual(20);
-    expect(idle.outline).toBeLessThanOrEqual(28);
-    expect(idle.shade).toBeGreaterThanOrEqual(2);
-    expect(idle.shade).toBeLessThanOrEqual(6);
+    // Bands around the two v8 hoof clusters (17 + 18 outline px): a benign hoof
+    // retouch passes, a collapsed hoof row (0 / one cluster) fails. body is
+    // behaviour: nothing may paint a leg on the hoof line.
+    expect(idle.outline).toBeGreaterThanOrEqual(30);
+    expect(idle.outline).toBeLessThanOrEqual(40);
+    expect(idle.shade).toBe(0);
     expect(idle.body).toBe(0);
   });
 
-  test('no blanket patch in any lane; the rider robe carries the lane colour (2 and 8 camels)', async ({ page }) => {
+  test('camel v8 blanket ink lands in every lane; the rider robe carries the lane colour (2 and 8 camels)', async ({ page }) => {
     for (const count of [2, 8]) {
       await page.evaluate((n) => { GameCore.setCamelCount(n); GameCore.setGoal(null); GameCore.resetRace(); }, count);
       // isSettled() is trivially true while visualLeft is still null on a fresh
@@ -585,12 +598,16 @@ test.describe('Renderer camera and bounds', () => {
       const res = await page.evaluate(({ palette }) => {
         const g = document.getElementById('game').getContext('2d');
         const rgb = palette.map((h) => [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16)));
+        // v8 decorated blanket ink: pad green, pad dark green, cream + red
+        // stripes and the white fringe (all unique to CAMEL_PAL).
+        const BLANKET = new Set([0x4a7f65, 0x37634e, 0xefd39e, 0xe18683, 0xe7e8ea]);
         return GameDebug.getCamelSpriteBounds().map((b, lane) => {
-          const d = g.getImageData(Math.round(b.left), Math.round(b.top), 76, 70).data;
-          let blanket = 0, digitInk = 0, robe = 0, turban = 0, skin = 0, others = 0;
+          const d = g.getImageData(Math.round(b.left), Math.round(b.top), 84, 70).data;
+          let blanket = 0, retired = 0, digitInk = 0, robe = 0, turban = 0, skin = 0, others = 0;
           for (let i = 0; i < d.length; i += 4) {
             const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-            if (h === 0xbfe3ea) blanket += 1;       // retired saddle-blanket ink
+            if (BLANKET.has(h)) blanket += 1;       // v8 pad / stripe / fringe ink
+            else if (h === 0xbfe3ea) retired += 1;  // retired v7 light-blue pad ink
             else if (h === 0x123a44) digitInk += 1; // retired digit ink
             else if (h === 0xf0ece0) turban += 1;   // rider turban
             else if (h === 0xd8a878) skin += 1;     // rider face / hand
@@ -600,45 +617,44 @@ test.describe('Renderer camera and bounds', () => {
               }
             }
           }
-          return { blanket, digitInk, robe, turban, skin, others };
+          return { blanket, retired, digitInk, robe, turban, skin, others };
         });
       }, { palette: LANE_ROBE });
-      // v7: the pad is gone, so the sprite buffer holds no #bfe3ea ink at all -
-      // exactly zero, not just "less than before", so a re-added box fails.
       expect(res.length).toBe(count);
       for (const lane of res) {
-        expect(lane.blanket).toBe(0);
+        expect(lane.blanket).toBeGreaterThanOrEqual(200); // decorated blanket per camel
+        expect(lane.retired).toBe(0);                     // v7 light-blue pad stays gone
         expect(lane.digitInk).toBe(0);
-        expect(lane.robe).toBeGreaterThan(0);   // rider robe drawn in the lane colour
-        expect(lane.others).toBe(0);            // no other lane's colour leaks in
-        expect(lane.turban).toBeGreaterThan(0); // rider still drawn after the box removal
+        expect(lane.robe).toBeGreaterThanOrEqual(40);     // lane identity: >= 40 px robe
+        expect(lane.others).toBe(0);                      // no other lane's colour leaks in
+        expect(lane.turban).toBeGreaterThan(0);           // rider still drawn
         expect(lane.skin).toBeGreaterThan(0);
       }
     }
   });
 
-  test('walk bob: pass frames (2 and 4) sit exactly 1 px higher, hooves stay planted', async ({ page }) => {
+  test('walk bob: the rider sits exactly 1 px higher on pass frames (2 and 4), hooves stay planted', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.resetRace(); });
     await settleAndPaint(page);
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // ANIM_FRAME_MS
       const canvas = document.getElementById('game');
-      const tones = new Set([0x1c1208, 0xde914d, 0xc37c3a, 0xb27035, 0x53565e]);
-      // Painted bbox rows of the lane-0 sprite in its 76x70 buffer. Draft A's bob
-      // is baked in: on pass frames 2/4 the whole camel (head, body, rider) sits
-      // 1 px higher (top row 1 instead of 2) while the hoof row stays 69 - the
-      // v7 replacement for the old blanket-top bob probe. Only the tones unique
-      // to CAMEL_PAL are sampled (outline + body/shade/deep + harness), so no
-      // background decor can fake the silhouette; the rider is interior to the
-      // camel bbox, and the bottom row is hooves only, either way.
-      function measure() {
+      // All v8 camel ink (palette-unique, so no background decor can fake the
+      // silhouette) for the hoof row, and the rider (robe + turban + skin) for
+      // the bob. The head/body shifts up 1 row on the pass frames, but the
+      // measured top row stays 2 because the ear's two top `OOO` rows are
+      // identical; the rider bbox makes the bob unambiguous.
+      const camelTones = new Set([0x1c1208, 0xd8a662, 0xb0786b, 0x6f473e, 0x55312e,
+        0x53565e, 0x4a7f65, 0x37634e, 0xefd39e, 0xe18683, 0xe7e8ea]);
+      const riderTones = new Set([0xe84a3a, 0xf0ece0, 0xd8a878]);
+      function measure(tones) {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const d = canvas.getContext('2d')
-          .getImageData(Math.round(b.left), Math.round(b.top), 76, 70).data;
+          .getImageData(Math.round(b.left), Math.round(b.top), 84, 70).data;
         let minR = 70, maxR = -1;
         for (let ry = 0; ry < 70; ry += 1) {
-          for (let rx = 0; rx < 76; rx += 1) {
-            const i = (ry * 76 + rx) * 4;
+          for (let rx = 0; rx < 84; rx += 1) {
+            const i = (ry * 84 + rx) * 4;
             if (tones.has((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])) {
               if (ry < minR) minR = ry;
               if (ry > maxR) maxR = ry;
@@ -655,7 +671,7 @@ test.describe('Renderer camera and bounds', () => {
           const fi = (Math.floor(now / FRAME_MS) % 4) + 1;
           if (!byFrame.has(fi)) byFrame.set(fi, new Map());
           const m = byFrame.get(fi);
-          const k = measure();
+          const k = measure(camelTones) + '/' + measure(riderTones);
           m.set(k, (m.get(k) || 0) + 1);
           requestAnimationFrame(tick);
           return;
@@ -671,33 +687,37 @@ test.describe('Renderer camera and bounds', () => {
       requestAnimationFrame(tick);
     }));
     expect(Object.keys(res).sort()).toEqual(['1', '2', '3', '4']);
-    const t1 = Number(res['1'].split('|')[0]);
-    // Contact frames (1, 3) share the idle top row; the pass frames (2, 4) sit
-    // exactly 1 px higher with the baked-in bob. The absolute row is bounded (an
-    // art nudge inside the buffer must not trip the suite), the +-1 relation is
-    // the behaviour.
-    expect(t1).toBeGreaterThan(0);
-    expect(t1).toBeLessThan(6);
-    expect(res['2'].split('|')[0]).toBe(String(t1 - 1));
-    expect(res['3'].split('|')[0]).toBe(String(t1));
-    expect(res['4'].split('|')[0]).toBe(String(t1 - 1));
+    const rider = {};
+    const feet = {};
+    for (const fi of ['1', '2', '3', '4']) {
+      const [camelBox, riderBox] = res[fi].split('/');
+      feet[fi] = camelBox.split('|')[1]; // maxR of the camel silhouette
+      rider[fi] = riderBox;
+    }
+    // Contact frames (1, 3) seat the rider on rows 5-19; the pass frames (2, 4)
+    // ride the baked 1 px bob to rows 4-18. The absolute rows are pinned to the
+    // v8 matrices; the relation is the behaviour.
+    expect(rider['1']).toBe('5|19');
+    expect(rider['3']).toBe('5|19');
+    expect(rider['2']).toBe('4|18'); // one row higher (bob)
+    expect(rider['4']).toBe('4|18');
     // Hooves stay planted on the buffer's bottom row (69) in every frame: the bob
-    // lifts the body, never the feet.
-    for (const fi of ['1', '2', '3', '4']) expect(res[fi].split('|')[1], `frame ${fi} feet`).toBe('69');
+    // lifts the body + rider, never the feet.
+    for (const fi of ['1', '2', '3', '4']) expect(feet[fi], `frame ${fi} feet`).toBe('69');
   });
 
   test('rider robe takes each lane palette colour (8 camels)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.resetRace(); });
     await settleAndPaint(page);
-    // Count every lane-palette robe pixel inside the sprite's 76x70 buffer: the
+    // Count every lane-palette robe pixel inside the sprite's 84x70 buffer: the
     // per-lane robe is the only thing that differs, so each lane must paint its
-    // own colour and none of the other lanes' colours.
+    // own colour (>= 40 px, matrix count 58) and none of the others'.
     const res = await page.evaluate(({ palette }) => {
       const bounds = GameDebug.getCamelSpriteBounds();
       const g = document.getElementById('game').getContext('2d');
       const rgb = palette.map((h) => [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16)));
       return bounds.map((b, lane) => {
-        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 76, 70).data;
+        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 84, 70).data;
         const counts = palette.map(() => 0);
         for (let i = 0; i < d.length; i += 4) {
           for (let p = 0; p < rgb.length; p += 1) {
@@ -711,7 +731,7 @@ test.describe('Renderer camera and bounds', () => {
     }, { palette: LANE_ROBE });
     expect(res.length).toBe(8);
     for (const r of res) {
-      expect(r.own).toBeGreaterThan(0); // this lane's robe colour is drawn
+      expect(r.own).toBeGreaterThanOrEqual(40); // this lane's robe colour is drawn
       expect(r.others).toBe(0); // ...and no other lane's robe colour leaks in
     }
   });
@@ -744,7 +764,7 @@ test.describe('Renderer camera and bounds', () => {
       bounds.forEach((b, i) => {
         expect(b.top).toBeGreaterThanOrEqual(Math.round(120 + i * laneH));
         expect(b.bottom).toBeLessThanOrEqual(Math.round(120 + (i + 1) * laneH));
-        expect(b.right - b.left).toBeCloseTo(76, 9);
+        expect(b.right - b.left).toBeCloseTo(84, 9);
         expect(b.bottom - b.top).toBeCloseTo(70, 9);
       });
     }
@@ -890,10 +910,10 @@ test.describe('Renderer camera and bounds', () => {
     }
   });
 
-  test('camel v7 sprite: five 76x70 frames, no L cell, feet on row 69, bob baked in', () => {
-    // Byte-level contract for the draft-A matrices copied from
-    // docs/art/camel-drafts-v4.md: 5 frames of 70 rows x 76 cols (stand + 4 walk),
-    // no saddle blanket (the `L` char does not exist any more).
+  test('camel v8 sprite: five 84x70 frames, decorated blanket, feet on row 69, rider rides the bob', () => {
+    // Byte-level contract for the shipped v8 matrices (docs/art/camel-drafts-v5.md):
+    // 5 frames of 70 rows x 84 cols (stand + 4 walk), the reference-traced
+    // decorated saddle blanket (P/Q pad, C/X stripes, F fringe) and no `L` cell.
     const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     const idx = html.indexOf('const CAMEL = [');
     expect(idx).toBeGreaterThan(-1);
@@ -909,41 +929,39 @@ test.describe('Renderer camera and bounds', () => {
     const rows = [...html.slice(start, i).matchAll(/'([^']*)'/g)].map((m) => m[1]);
     expect(rows.length).toBe(5 * 70);
     for (const row of rows) {
-      expect(row.length).toBe(76);
-      expect(row).not.toMatch(/L/);          // blanket char retired in v7
-      expect(row).toMatch(/^[.OBSDGRWK]*$/); // v7 draft-A legend, nothing else
+      expect(row.length).toBe(84);
+      expect(row).not.toMatch(/L/);                // blanket char stays retired
+      expect(row).toMatch(/^[.OBSDGRWKZQPCXF]*$/); // v8 legend, nothing else
     }
-    // All 5 frames are pairwise distinct matrices, and the exact bottom-row hoof
-    // layout pins each contact/pass pose: swapped contacts (A <-> B) fail on the
-    // stride, pass frames on the column shift.
+    // All 5 frames are pairwise distinct matrices; the exact bottom-row hoof
+    // layout pins each contact/pass pose (swapped contacts fail on the stride).
     const frames = [];
     for (let f = 0; f < 5; f += 1) frames.push(rows.slice(f * 70, (f + 1) * 70).join('/'));
     expect(new Set(frames).size).toBe(5);
     const HOOF_ROWS = [
-      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................', // 0 standing
-      '......OOOSOOO.......OOOSOOO...........OOOSOOOOSOOO..........................', // 1 contact A
-      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................', // 2 pass A
-      '..........OOOSOOOOOSOOO...........OOOSOOO......OOOSOOO......................', // 3 contact B
-      '.........OOOSOOO.OOOSOOO...........OOOSOOO....OOOSOOO.......................', // 4 pass B
+      '...........OOOOOOOOOOOOOOOOO.........OOOOOOOOOOOOOOOOOO.............................', // 0 standing
+      '.............OOOOOOOOOOOOOOOOO.....OOOOOOOOOOOOOOOOOO...............................', // 1 contact A
+      '...........OOOOOOOOOOOOOOOOO.........OOOOOOOOOOOOOOOOOO.............................', // 2 pass A
+      '.........OOOOOOOOOOOOOOOOO.............OOOOOOOOOOOOOOOOOO...........................', // 3 contact B
+      '...........OOOOOOOOOOOOOOOO..........OOOOOOO.OOOOOOOOOOO............................', // 4 pass B
     ];
-    // Painted bbox per frame (docs/art/camel-drafts-v4.md validation table):
-    // contacts/stand span cols 3-74 rows 2-69, the pass frames bob 1 px up to
-    // row 1 and shift the stride 1-2 cols, while the hoof row stays 69.
+    // Painted bbox per frame (docs/art/camel-drafts-v5.md validation table):
+    // 80x68 / 80x68 / 79x68 / 80x68 / 81x68, rows 2-69 in every frame; the walk
+    // stride shifts the left edge 1-2 cols while the hooves stay on row 69.
     const BBOX = [
-      { minC: 3, maxC: 74, minR: 2, maxR: 69 },
-      { minC: 3, maxC: 74, minR: 2, maxR: 69 },
-      { minC: 4, maxC: 74, minR: 1, maxR: 69 },
-      { minC: 3, maxC: 74, minR: 2, maxR: 69 },
-      { minC: 2, maxC: 74, minR: 1, maxR: 69 },
+      { minC: 2, maxC: 81, minR: 2, maxR: 69 },
+      { minC: 2, maxC: 81, minR: 2, maxR: 69 },
+      { minC: 3, maxC: 81, minR: 2, maxR: 69 },
+      { minC: 2, maxC: 81, minR: 2, maxR: 69 },
+      { minC: 1, maxC: 81, minR: 2, maxR: 69 },
     ];
     for (let f = 0; f < 5; f += 1) {
       const frame = rows.slice(f * 70, (f + 1) * 70);
       expect(frame[69], `frame ${f} hoof row`).toBe(HOOF_ROWS[f]);
-      expect(frame[69]).toMatch(/^[.OS]+$/);
-      expect((frame[69].match(/OOOSOOO/g) || []).length, `frame ${f} hooves`).toBeGreaterThanOrEqual(3);
-      let minC = 76, maxC = -1, minR = 70, maxR = -1;
+      expect(frame[69]).toMatch(/^[.O]+$/);
+      let minC = 84, maxC = -1, minR = 70, maxR = -1;
       for (let y = 0; y < 70; y += 1) {
-        for (let x = 0; x < 76; x += 1) {
+        for (let x = 0; x < 84; x += 1) {
           if (frame[y][x] !== '.') {
             if (x < minC) minC = x;
             if (x > maxC) maxC = x;
@@ -954,24 +972,41 @@ test.describe('Renderer camera and bounds', () => {
       }
       expect({ minC, maxC, minR, maxR }, `frame ${f} bbox`).toEqual(BBOX[f]);
     }
-    // Rider seat (draft-A acceptance #5): per frame the rider (turban W, face/
-    // hands K, tunic R) bbox and its lowest robe row are pinned - pass frames
-    // bob 1 px up - and under every robe column the cell below the lowest robe
-    // px is camel ink, never a transparent gap. A rider shifted up 3 px in any
-    // single frame, a detached rider or a hole under one fails here.
+    // Decorated saddle blanket contract: the v8 palette keys exist, every frame
+    // actually paints the pad/stripe/fringe inks, and the per-lane robe paints at
+    // least its documented 58 px per frame.
+    const palSrc = extractConst(html, 'CAMEL_PAL');
+    for (const key of ['pad', 'padDark', 'stripeCream', 'stripeRed', 'fringe', 'shadeDeepest']) {
+      expect(palSrc, 'CAMEL_PAL.' + key).toContain(key + ':');
+    }
+    for (let f = 0; f < 5; f += 1) {
+      const frame = rows.slice(f * 70, (f + 1) * 70).join('');
+      // Lower bound, not an exact pin: the robe must paint its full documented
+      // 58 px per frame, but a pocket-filling art tweak elsewhere must not break it.
+      expect((frame.match(/R/g) || []).length, `frame ${f} robe px`).toBeGreaterThanOrEqual(58);
+      for (const ch of ['P', 'Q', 'C', 'X', 'F']) {
+        expect(frame.includes(ch), `frame ${f} blanket char ${ch}`).toBe(true);
+      }
+    }
+    // Rider seat (docs/art/camel-drafts-v5.md): the v8 rider glyph (turban W,
+    // face/hands K, tunic R) bbox and its lowest robe row are pinned - pass
+    // frames bob 1 px up - and every lowest robe pixel touches camel ink below
+    // or diagonally below. The v8 rider's right-hand column overhangs the
+    // saddle, so the probe is 8-connected; a shifted or detached rider still
+    // fails on the pinned bbox/seat and a fully floating boot row.
     const RIDER_BBOX = [
-      { minC: 34, maxC: 44, minR: 19, maxR: 33, seat: 33 }, // 0 standing
-      { minC: 34, maxC: 44, minR: 19, maxR: 33, seat: 33 }, // 1 contact A
-      { minC: 34, maxC: 44, minR: 18, maxR: 32, seat: 32 }, // 2 pass A (bob)
-      { minC: 34, maxC: 44, minR: 19, maxR: 33, seat: 33 }, // 3 contact B
-      { minC: 34, maxC: 44, minR: 18, maxR: 32, seat: 32 }, // 4 pass B (bob)
+      { minC: 29, maxC: 39, minR: 5, maxR: 19, seat: 19 }, // 0 standing
+      { minC: 29, maxC: 39, minR: 5, maxR: 19, seat: 19 }, // 1 contact A
+      { minC: 29, maxC: 39, minR: 4, maxR: 18, seat: 18 }, // 2 pass A (bob)
+      { minC: 29, maxC: 39, minR: 5, maxR: 19, seat: 19 }, // 3 contact B
+      { minC: 29, maxC: 39, minR: 4, maxR: 18, seat: 18 }, // 4 pass B (bob)
     ];
     for (let f = 0; f < 5; f += 1) {
       const frame = rows.slice(f * 70, (f + 1) * 70);
       const lowest = new Map();
-      let minC = 76, maxC = -1, minR = 70, maxR = -1;
+      let minC = 84, maxC = -1, minR = 70, maxR = -1;
       for (let y = 0; y < 70; y += 1) {
-        for (let x = 0; x < 76; x += 1) {
+        for (let x = 0; x < 84; x += 1) {
           if (frame[y][x] === 'R') lowest.set(x, y);
           if ('RWK'.includes(frame[y][x])) {
             if (x < minC) minC = x;
@@ -985,7 +1020,9 @@ test.describe('Renderer camera and bounds', () => {
       expect({ minC, maxC, minR, maxR, seat }, `frame ${f} rider`).toEqual(RIDER_BBOX[f]);
       expect(lowest.size, `frame ${f} robe columns`).toBe(10);
       for (const [x, y] of lowest) {
-        expect(frame[y + 1]?.[x] ?? '.', `frame ${f} col ${x} rider seat`).not.toBe('.');
+        const touches = [frame[y + 1]?.[x], frame[y + 1]?.[x - 1], frame[y + 1]?.[x + 1]]
+          .some((ch) => ch !== undefined && ch !== '.');
+        expect(touches, `frame ${f} col ${x} rider seat`).toBe(true);
       }
     }
   });
@@ -1040,11 +1077,13 @@ test.describe('Renderer camera and bounds', () => {
     }
   });
 
-  test('blanket retired: no L cell in CAMEL/BOAR, no blanket palette key, no L CHAR_KEY', () => {
-    // Three independent ways a blanket box could sneak back in: a matrix `L`
-    // cell, a palette `blanket` entry (with the light-blue tone) or the shared
-    // L -> blanket char key. All three must stay gone - the animals render as
-    // animal + rider only, lane identity = team label + rider robe colour.
+  test('no legacy blanket contract: no L cell in CAMEL/BOAR, no blanket palette key, no L CHAR_KEY', () => {
+    // Three independent ways the retired v7 blanket box could sneak back in: a
+    // matrix `L` cell, a palette key literally named `blanket` (with the
+    // light-blue tone) or the shared L -> blanket char key. The v8 camel blanket
+    // uses its own pad/padDark/stripeCream/stripeRed/fringe keys and P/Q/C/X/F
+    // chars (asserted by the v8 camel matrix test), so all three legacy paths
+    // must stay gone.
     const html = readIndexHtml();
     for (const decl of ['const CAMEL =', 'const BOAR =']) {
       const rows = extractMatrixRows(html, decl);
@@ -1113,7 +1152,7 @@ test.describe('Renderer camera and bounds', () => {
       }
     }
     expect(unresolved).toEqual([]);
-    // Sanity: the scan really covers the full v7 art set (42 matrices, 42 pairs).
+    // Sanity: the scan really covers the full shipped art set (42 matrices, 42 pairs).
     expect(matrixNames.length).toBeGreaterThanOrEqual(42);
     expect(pairs.length).toBeGreaterThanOrEqual(42);
   });
@@ -1285,13 +1324,14 @@ test.describe('Renderer camera and bounds', () => {
     await waitAnimsDone(page);
     await settleAndPaint(page);
     const rows = await page.evaluate(() => {
-      const tones = new Set([0x1c1208, 0xde914d, 0xc37c3a, 0xb27035, 0x53565e, 0xe84a3a,
-        0x3a6ae8, 0x3aa84a, 0xe8c83a, 0x9a4ae8, 0xe88a3a, 0x3ad8d8, 0xe85a9a,
+      const tones = new Set([0x1c1208, 0xd8a662, 0xb0786b, 0x6f473e, 0x55312e, 0x53565e, 0x4a7f65, 0x37634e,
+        0xefd39e, 0xe18683, 0xe7e8ea,
+        0xe84a3a, 0x3a6ae8, 0x3aa84a, 0xe8c83a, 0x9a4ae8, 0xe88a3a, 0x3ad8d8, 0xe85a9a,
         0xf0ece0, 0xd8a878]);
       const g = document.getElementById('game').getContext('2d');
       return GameDebug.getCamelSpriteBounds().map((b) => {
         const lx = Math.max(0, Math.round(b.left));
-        const w = Math.min(1280 - lx, 76);
+        const w = Math.min(1280 - lx, 84);
         const hoofY = Math.round(b.top) + 69;
         const count = (y) => {
           const d = g.getImageData(lx, y, w, 1).data;
@@ -1305,16 +1345,16 @@ test.describe('Renderer camera and bounds', () => {
       });
     });
     // Every lane paints hoof ink exactly on the surface's bottom sprite row. A
-    // lane-8 label pill may overlap later hooves, but the first hoof (cols 15-19)
-    // is always clear, and the last lane is fully unobstructed.
+    // lane-8 label pill may overlap later hooves, but the first hoof cluster is
+    // always clear, and the last lane is fully unobstructed.
     rows.forEach((r, i) => {
       expect(r.hoof, `lane ${i} hoof row`).toBeGreaterThanOrEqual(3);
       expect(r.below, `lane ${i} below the surface`).toBe(0);
     });
-    expect(rows[7].hoof).toBeGreaterThanOrEqual(16); // all four hooves visible
+    expect(rows[7].hoof).toBeGreaterThanOrEqual(16); // both hoof clusters visible
   });
 
-  test('every walk frame keeps the sprite inside 76x70 with feet on the bottom row', async ({ page }) => {
+  test('every walk frame keeps the sprite inside 84x70 with feet on the bottom row', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.resetRace(); });
     // Exact painted position before the walk: the min/max column assertions
     // below compare against fixed sprite columns, so a wandering crop fails.
@@ -1322,15 +1362,16 @@ test.describe('Renderer camera and bounds', () => {
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // ANIM_FRAME_MS
       const canvas = document.getElementById('game');
-      const tones = new Set([0x1c1208, 0xde914d, 0xc37c3a, 0xb27035, 0x53565e]);
+      const tones = new Set([0x1c1208, 0xd8a662, 0xb0786b, 0x6f473e, 0x55312e,
+        0x53565e, 0x4a7f65, 0x37634e, 0xefd39e, 0xe18683, 0xe7e8ea]);
       function measure() {
         const b = GameDebug.getCamelSpriteBounds()[0];
         const d = canvas.getContext('2d')
-          .getImageData(Math.round(b.left), Math.round(b.top), 76, 70).data;
-        let minR = 70, maxR = -1, minC = 76, maxC = -1;
+          .getImageData(Math.round(b.left), Math.round(b.top), 84, 70).data;
+        let minR = 70, maxR = -1, minC = 84, maxC = -1;
         for (let ry = 0; ry < 70; ry += 1) {
-          for (let rx = 0; rx < 76; rx += 1) {
-            const i = (ry * 76 + rx) * 4;
+          for (let rx = 0; rx < 84; rx += 1) {
+            const i = (ry * 84 + rx) * 4;
             const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
             if (tones.has(h)) {
               if (ry < minR) minR = ry;
@@ -1366,20 +1407,20 @@ test.describe('Renderer camera and bounds', () => {
       requestAnimationFrame(tick);
     }));
     expect(Object.keys(res).sort()).toEqual(['1', '2', '3', '4']);
-    // Draft A v7 painted bbox per rendered walk frame (docs validation table):
-    // contacts span cols 3-74 rows 2-69, the pass frames bob to row 1 and swing
-    // the stride 1-2 cols, hooves on row 69 in all four.
+    // v8 painted bbox per rendered walk frame (docs/art/camel-drafts-v5.md
+    // validation table): 80x68 / 79x68 / 80x68 / 81x68, rows 2-69 in every
+    // frame, the walk stride shifts the left edge 1-2 cols, hooves on row 69.
     const BBOX = {
-      1: { maxR: 69, minR: 2, minC: 3, maxC: 74 },
-      2: { maxR: 69, minR: 1, minC: 4, maxC: 74 },
-      3: { maxR: 69, minR: 2, minC: 3, maxC: 74 },
-      4: { maxR: 69, minR: 1, minC: 2, maxC: 74 },
+      1: { maxR: 69, minR: 2, minC: 2, maxC: 81 },
+      2: { maxR: 69, minR: 2, minC: 3, maxC: 81 },
+      3: { maxR: 69, minR: 2, minC: 2, maxC: 81 },
+      4: { maxR: 69, minR: 2, minC: 1, maxC: 81 },
     };
     for (const fi of ['1', '2', '3', '4']) {
       const [maxR, minR, minC, maxC] = res[fi].split('|').map(Number);
       expect({ maxR, minR, minC, maxC }, `frame ${fi} bbox`).toEqual(BBOX[fi]);
       expect(maxR - minR + 1).toBeLessThanOrEqual(70);
-      expect(maxC - minC + 1).toBeLessThanOrEqual(76);
+      expect(maxC - minC + 1).toBeLessThanOrEqual(84);
     }
   });
 });

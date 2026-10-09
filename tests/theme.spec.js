@@ -70,7 +70,33 @@ test.describe('Theme registry (desert)', () => {
   test('GameDebug reports active animal + sprite size (desert)', async ({ page }) => {
     await page.evaluate(() => GameCore.setTheme('desert'));
     const t = await page.evaluate(() => GameDebug.getTheme());
-    expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 76, h: 70 });
+    expect(t).toEqual({ id: 'desert', animalId: 'camel', w: 84, h: 70 });
+  });
+
+  test('8-lane camel budget holds (84x70 sprite inside the 74 px lane)', async ({ page }) => {
+    await page.evaluate(() => {
+      GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.setTheme('desert'); GameCore.resetRace();
+    });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    const res = await page.evaluate(() => {
+      const size = GameDebug.getCanvasSize();
+      const HORIZON = 120, LANE_BOTTOM = size.height - 8;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON) / n;
+      return GameDebug.getCamelSpriteBounds().map((b, i) => ({
+        i, w: b.right - b.left, h: b.bottom - b.top,
+        laneTop: Math.round(HORIZON + i * laneH),
+        laneBottom: Math.round(HORIZON + (i + 1) * laneH),
+        top: b.top, bottom: b.bottom,
+      }));
+    });
+    expect(res.length).toBe(8); // all 8 lanes render
+    for (const b of res) {
+      expect(b.w).toBeCloseTo(84, 9);
+      expect(b.h).toBeCloseTo(70, 9);
+      expect(b.top).toBeGreaterThanOrEqual(b.laneTop);
+      expect(b.bottom).toBeLessThanOrEqual(b.laneBottom);
+    }
   });
 
   test('desert ambience density: per-layer stream caps hold and the sand carpet covers the lanes', async ({ page }) => {
@@ -262,18 +288,21 @@ test.describe('Theme registry (desert)', () => {
 test.describe('Theme registry (forest)', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
-  test('forest selects the boar at <=76x70', async ({ page }) => {
+  test('forest selects the boar within the lane budget (84x70)', async ({ page }) => {
     await page.evaluate(() => GameCore.setTheme('forest'));
     const t = await page.evaluate(() => GameDebug.getTheme());
     expect(t.id).toBe('forest');
     expect(t.animalId).toBe('boar');
-    expect(t.w).toBeLessThanOrEqual(76);
+    // Budget-style size check: the exact boar 60x42 contract lives in the
+    // render.spec matrix tests, so future art-only boar tweaks stay green here
+    // as long as the sprite fits the lane budget.
+    expect(t.w).toBeLessThanOrEqual(84);
     expect(t.h).toBeLessThanOrEqual(70);
     const bounds = await page.evaluate(() => GameDebug.getCamelSpriteBounds());
     const n = bounds.length;
     const laneH = (720 - 8 - 120) / n;
     bounds.forEach((b, i) => {
-      expect(b.right - b.left).toBeLessThanOrEqual(76);
+      expect(b.right - b.left).toBeLessThanOrEqual(84);
       expect(b.bottom - b.top).toBeLessThanOrEqual(70);
       expect(b.top).toBeGreaterThanOrEqual(Math.round(120 + i * laneH));
       expect(b.bottom).toBeLessThanOrEqual(Math.round(120 + (i + 1) * laneH));
@@ -755,15 +784,15 @@ test.describe('Theme selector UI + persistence', () => {
   });
 });
 
-// v7 removed the saddle blanket from both animals (docs/art/camel-drafts-v4.md,
-// docs/art/boar-sprite.md): the boar's 60-cell `L` pad (cols 18-23, rows 18-27,
-// +1 row on the bob frames) was repainted with body tones and the camel ships
-// without a pad at all. These tests pin the removal - the animals render as
-// animal + rider only, lane identity = team-name label + rider robe colour.
-test.describe('No saddle blanket (boar + camel)', () => {
+// v8 restored the decorated saddle blanket on the camel (docs/art/camel-drafts-v5.md);
+// the boar stays blanket-free (docs/art/boar-sprite.md): its 60-cell `L` pad
+// (cols 18-23, rows 18-27, +1 row on the bob frames) was repainted with body
+// tones. These tests pin the boar removal and the camel blanket art: lane
+// identity = team-name label + rider robe colour (camel blanket is shared art).
+test.describe('Saddle blankets: camel v8 decorated, boar blanket-free', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
-  test('no #bfe3ea pad ink anywhere on the canvas in either theme', async ({ page }) => {
+  test('retired v7 light-blue pad ink (#bfe3ea) stays gone canvas-wide; v8 blanket ink present (desert)', async ({ page }) => {
     for (const themeId of ['forest', 'desert']) {
       await page.evaluate((t) => {
         GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.setTheme(t); GameCore.resetRace();
@@ -773,21 +802,62 @@ test.describe('No saddle blanket (boar + camel)', () => {
       await paint(page);
       const ink = await page.evaluate(() => {
         const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 1280, 720).data;
-        let blanket = 0, digitInk = 0, painted = 0;
+        // v8 blanket inks (pad/padDark/stripeCream/stripeRed/fringe) are unique
+        // to CAMEL_PAL, so any hit proves the camel blanket was drawn.
+        const BLANKET = new Set([0x4a7f65, 0x37634e, 0xefd39e, 0xe18683, 0xe7e8ea]);
+        let blanket = 0, retired = 0, digitInk = 0, painted = 0;
         for (let i = 0; i < d.length; i += 4) {
           if (d[i + 3] === 0) continue;
           painted += 1;
           const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-          if (h === 0xbfe3ea) blanket += 1;
+          if (BLANKET.has(h)) blanket += 1;
+          else if (h === 0xbfe3ea) retired += 1;
           else if (h === 0x123a44) digitInk += 1;
         }
-        return { blanket, digitInk, painted };
+        return { blanket, retired, digitInk, painted };
       });
       expect(ink.painted).toBeGreaterThan(0); // the frame really rendered
-      // 1 px of the retired light blue anywhere (sprite, lane, label pill) means a
-      // box came back; the retired digit ink must stay gone as well.
-      expect(ink.blanket, themeId + ' blanket ink').toBe(0);
+      // 1 px of the retired light blue anywhere (sprite, lane, label pill) means
+      // the old v7 box came back; the retired digit ink must stay gone as well.
+      expect(ink.retired, themeId + ' retired pad ink').toBe(0);
       expect(ink.digitInk, themeId + ' digit ink').toBe(0);
+      if (themeId === 'desert') {
+        expect(ink.blanket, 'desert camel blanket ink').toBeGreaterThan(0);
+      } else {
+        expect(ink.blanket, 'forest boar blanket ink').toBe(0);
+      }
+    }
+  });
+
+  test('desert camel paints the decorated blanket per sprite; forest boar is blanket-free (8 lanes)', async ({ page }) => {
+    const BLANKET = new Set([0x4a7f65, 0x37634e, 0xefd39e, 0xe18683, 0xe7e8ea]);
+    const cases = [
+      { theme: 'desert', w: 84, h: 70, expected: 'camel' },
+      { theme: 'forest', w: 60, h: 42, expected: 'boar' },
+    ];
+    for (const { theme, w, h, expected } of cases) {
+      await page.evaluate((t) => {
+        GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.setTheme(t); GameCore.resetRace();
+      }, theme);
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+      await paint(page);
+      const res = await page.evaluate(({ w, h }) => {
+        const g = document.getElementById('game').getContext('2d');
+        const BLANKET = new Set([0x4a7f65, 0x37634e, 0xefd39e, 0xe18683, 0xe7e8ea]);
+        return GameDebug.getCamelSpriteBounds().map((b) => {
+          const d = g.getImageData(Math.round(b.left), Math.round(b.top), w, h).data;
+          let blanket = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            if (BLANKET.has((d[i] << 16) | (d[i + 1] << 8) | d[i + 2])) blanket += 1;
+          }
+          return blanket;
+        });
+      }, { w, h });
+      expect(res.length).toBe(8);
+      for (const blanket of res) {
+        if (expected === 'camel') expect(blanket).toBeGreaterThanOrEqual(200); // v8 blanket art
+        else expect(blanket).toBe(0); // boar flank stays blanket-free
+      }
     }
   });
 
@@ -992,7 +1062,7 @@ test.describe('Forest boar v6 art (enlarged tusk + white eye / dark pupil)', () 
 
   // Acceptance #10 says the T/W/Y cells hold in EVERY frame; the standing test
   // above only renders frame 0. Sweep the 4 walk frames (2/4 bob +1 row) using the
-  // same rAF grouping as the blanket bob test.
+  // same rAF grouping as the boar bob test.
   test('face cells hold in all 5 frames (tusk/sclera/pupil shift +1 row on bob frames 2, 4)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);

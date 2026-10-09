@@ -50,7 +50,7 @@ async function paint(page) {
 
 // paint() + honest settle + an exact-lerp pin. isSettled() tolerates 0.5 px,
 // but the cubic ease only assigns visualLeft = target exactly once p >= 1; a
-// sub-pixel tail can still flip the rounded 76 px sprite crop mid-assertion
+// sub-pixel tail can still flip the rounded sprite crop mid-assertion
 // (which is what made the walk-frame snapshots disagree). Resolve only after a
 // frame has painted the mutated state AND two consecutive frames report
 // identical sprite bounds while isSettled() holds, so sampled pixels cannot
@@ -74,7 +74,7 @@ async function settleAndPaint(page) {
 // Resolve once every current camel has finished its walk animation, i.e. the
 // renderer is back on the standing frame. The rAF clock is the same origin the
 // renderer compares animUntil against, so this is the real condition, not a
-// delay: pass frames plant only two hooves on the sprite's hoof row.
+// delay: every frame keeps its hooves planted on the sprite's bottom hoof row.
 async function waitAnimsDone(page) {
   await expect.poll(() => page.evaluate(
     () => GameCore.getState().camels.every((c) => c.animUntil <= performance.now()),
