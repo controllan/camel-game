@@ -1,0 +1,118 @@
+name: 'guard: no reference art'
+
+# Blocks copyrighted pixel-art reference images (gitignored, see .gitignore)
+# from ever being committed to this public repo. Also blocks any tracked
+# image over 1 MiB: the game ships zero image files, so even one is a leak.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege by default; the job grants only what it needs.
+permissions: {}
+
+# Superseded runs are cancelled; a guard result never needs to queue.
+concurrency:
+  group: guard-refs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Tracked files contain no reference art
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Self-test matcher (anti-vacuity)
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/guard-matcher.sh" <<'GUARD_EOF'
+          set -euo pipefail
+          shopt -s nocasematch
+          MIB=$((1024 * 1024))
+
+          # is_forbidden_name <path>: true when a tracked path matches a
+          # copyrighted-reference pattern (case-insensitive).
+          is_forbidden_name() {
+            local f="$1"
+            [[ "$f" == *pixelart* || "$f" == *pixalart* || "$f" == *wildschwein* || "$f" == docs/reference/* ]]
+          }
+
+          # is_oversized_image <path>: true for image files larger than 1 MiB.
+          # -z keeps odd paths safe; wc -c gives the exact byte size.
+          is_oversized_image() {
+            local f="$1" size
+            [[ "$f" == *.png || "$f" == *.jpg || "$f" == *.jpeg || "$f" == *.webp || "$f" == *.gif || "$f" == *.bmp ]] || return 1
+            [[ -f "$f" ]] || return 1
+            size=$(wc -c < "$f" | tr -d '[:space:]')
+            [[ "$size" =~ ^[0-9]+$ ]] || return 1
+            (( size > MIB ))
+          }
+          GUARD_EOF
+          source "$RUNNER_TEMP/guard-matcher.sh"
+
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          touch "$tmp/wildschwein-reference.png" "$tmp/camel-pixalart-draft.png" "$tmp/clean-file.txt"
+          dd if=/dev/zero of="$tmp/oversized.png" bs=1024 count=1088 2>/dev/null
+
+          fail=0
+          for f in wildschwein-reference.png camel-pixalart-draft.png; do
+            if is_forbidden_name "$tmp/$f"; then
+              echo "self-test ok: '$f' flagged by is_forbidden_name"
+            else
+              echo "::error::self-test failed: '$f' was not flagged by is_forbidden_name"
+              fail=1
+            fi
+          done
+          if is_forbidden_name "$tmp/clean-file.txt"; then
+            echo "::error::self-test failed: benign name flagged by is_forbidden_name"
+            fail=1
+          fi
+          if is_oversized_image "$tmp/oversized.png"; then
+            echo "self-test ok: 1.0625 MiB png flagged by is_oversized_image"
+          else
+            echo "::error::self-test failed: 1.0625 MiB png was not flagged by is_oversized_image"
+            fail=1
+          fi
+          if is_oversized_image "$tmp/clean-file.txt"; then
+            echo "::error::self-test failed: benign name flagged by is_oversized_image"
+            fail=1
+          fi
+          if (( fail != 0 )); then
+            exit 1
+          fi
+          echo "self-test ok: matcher flags offenders and ignores benign files."
+
+      - name: Guard tracked files
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/guard-matcher.sh"
+
+          tracked="$RUNNER_TEMP/tracked-files"
+          git ls-files -z > "$tracked"
+
+          offenders=()
+          while IFS= read -r -d '' f; do
+            if is_forbidden_name "$f"; then
+              offenders+=("$f — matches copyrighted-reference pattern")
+            elif is_oversized_image "$f"; then
+              offenders+=("$f — image larger than 1 MiB")
+            fi
+          done < "$tracked"
+
+          if (( ${#offenders[@]} > 0 )); then
+            for o in "${offenders[@]}"; do
+              echo "::error::Forbidden tracked file: $o"
+            done
+            echo "::error::${#offenders[@]} forbidden tracked file(s). Reference art is never committed to this public repo; the game ships zero image files."
+            exit 1
+          fi
+          echo "guard ok: tracked files clean (no reference art, no images over 1 MiB)."
