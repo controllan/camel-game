@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { gotoGame, readIndexHtml, extractMatrixRows, INDEX_URL } = require('./helpers');
+const { gotoGame, readIndexHtml, extractMatrixRows, INDEX_URL, paint } = require('./helpers');
 
 test.describe('Default theme + registry', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
@@ -755,61 +755,154 @@ test.describe('Theme selector UI + persistence', () => {
   });
 });
 
-// The boar blanket flat area + bob are pinned by docs/art/boar-sprite.md. The
-// camel blanket tests in render.spec sample the whole 92x70 sprite buffer with
-// the bob baked into the frame matrices, so without these the forest anchor
-// (18,18) and the separate +1 px blanket drop are untested.
-test.describe('Forest boar blanket', () => {
+// v7 removed the saddle blanket from both animals (docs/art/camel-drafts-v4.md,
+// docs/art/boar-sprite.md): the boar's 60-cell `L` pad (cols 18-23, rows 18-27,
+// +1 row on the bob frames) was repainted with body tones and the camel ships
+// without a pad at all. These tests pin the removal - the animals render as
+// animal + rider only, lane identity = team-name label + rider robe colour.
+test.describe('No saddle blanket (boar + camel)', () => {
   test.beforeEach(async ({ page }) => { await gotoGame(page); });
 
-  test('blanket flat area stays solid at the boar anchor (18,18) for every lane', async ({ page }) => {
-    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
-    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    // isSettled() is trivially true on a fresh page; paint the current scene first.
-    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-    const res = await page.evaluate(() => {
-      const g = document.getElementById('game').getContext('2d');
-      return GameDebug.getCamelSpriteBounds().map((b) => {
-        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 60, 42).data;
-        let blanket = 0, digitInk = 0;
+  test('no #bfe3ea pad ink anywhere on the canvas in either theme', async ({ page }) => {
+    for (const themeId of ['forest', 'desert']) {
+      await page.evaluate((t) => {
+        GameCore.setCamelCount(8); GameCore.setGoal(null); GameCore.setTheme(t); GameCore.resetRace();
+      }, themeId);
+      await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+      // isSettled() is trivially true on a fresh page; paint the current scene first.
+      await paint(page);
+      const ink = await page.evaluate(() => {
+        const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 1280, 720).data;
+        let blanket = 0, digitInk = 0, painted = 0;
         for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] === 0) continue;
+          painted += 1;
           const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
           if (h === 0xbfe3ea) blanket += 1;
           else if (h === 0x123a44) digitInk += 1;
         }
-        // The idle boar's whole blanket is the flat 6x10 area at the anchor.
-        const p = g.getImageData(Math.round(b.left) + 18, Math.round(b.top) + 18, 6, 10).data;
-        let patch = 0;
-        for (let i = 0; i < p.length; i += 4) {
-          if (((p[i] << 16) | (p[i + 1] << 8) | p[i + 2]) === 0xbfe3ea) patch += 1;
+        return { blanket, digitInk, painted };
+      });
+      expect(ink.painted).toBeGreaterThan(0); // the frame really rendered
+      // 1 px of the retired light blue anywhere (sprite, lane, label pill) means a
+      // box came back; the retired digit ink must stay gone as well.
+      expect(ink.blanket, themeId + ' blanket ink').toBe(0);
+      expect(ink.digitInk, themeId + ' digit ink').toBe(0);
+    }
+  });
+
+  test('boar flank is repainted with body tones (natural tone spread, no flat box)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await paint(page);
+    // The whole 6x10 pad rect at the documented anchor (18,18) must hold the
+    // flank's natural body-tone pattern - 42 B + 9 H + 6 S + 3 D in the idle
+    // frame (docs/art/boar-sprite.md) - instead of pad ink, so neither a hidden
+    // box nor a flat single-tone (or single-row-banded) repaint can pass: the
+    // exact per-tone histogram is the seam/banding detector.
+    const res = await page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const BODY = new Set([0x4c4332, 0x3c372a, 0x26221a, 0x5f5745]);
+      return GameDebug.getCamelSpriteBounds().map((b) => {
+        const d = g.getImageData(Math.round(b.left) + 18, Math.round(b.top) + 18, 6, 10).data;
+        let pad = 0, body = 0;
+        const tones = { B: 0, S: 0, D: 0, H: 0 };
+        const name = { 0x4c4332: 'B', 0x3c372a: 'S', 0x26221a: 'D', 0x5f5745: 'H' };
+        for (let i = 0; i < d.length; i += 4) {
+          const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+          if (h === 0xbfe3ea) pad += 1;
+          else if (BODY.has(h)) { body += 1; tones[name[h]] += 1; }
         }
-        return { blanket, digitInk, patch };
+        return { pad, body, tones };
       });
     });
     expect(res.length).toBe(4);
     for (const lane of res) {
-      expect(lane.blanket).toBe(60);  // all 60 blanket px sit in the flat area
-      expect(lane.patch).toBe(60);    // ...which is solid at the documented anchor
-      expect(lane.digitInk).toBe(0);  // no digit ink remains on the blanket
+      expect(lane.pad).toBe(0);   // no pad ink left at the anchor
+      expect(lane.body).toBe(60); // all 60 former pad cells are body tone now
+      // 4 tones, not one: a flat repaint (single tone) fails this pin.
+      expect(lane.tones).toEqual({ B: 42, S: 6, D: 3, H: 9 });
     }
   });
 
-  test('blanket drops +1 px with the body on bob frames 2 and 4', async ({ page }) => {
+  test('hunter rider stays seated on the boar flank (fixed cells + seat row, 4 lanes)', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
+    await paint(page);
+    // Idle frame 0 rider (docs/art/boar-sprite.md): cap C cells, face/hand K
+    // cells, robe R 8x7 block cols 22-29 rows 7-13 in the lane colour, seated
+    // directly on the flank - row 14 under every robe column is boar outline ink
+    // (0x16120b), never the forest background, so a shifted or detached rider
+    // fails on the pinned robe bbox and the seat-row probe.
+    const res = await page.evaluate(() => {
+      const g = document.getElementById('game').getContext('2d');
+      const CAP = [[25, 1], [24, 2], [25, 2], [26, 2], [24, 3], [25, 3], [26, 3]];
+      const SKIN = [[23, 4], [24, 4], [25, 4], [26, 4], [27, 4], [23, 5], [24, 5], [25, 5], [27, 5],
+        [23, 6], [24, 6], [25, 6], [26, 6], [27, 6], [31, 10]];
+      const PALETTE = GameCore.PALETTE;
+      const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16));
+      return GameDebug.getCamelSpriteBounds().map((b, lane) => {
+        const d = g.getImageData(Math.round(b.left), Math.round(b.top), 60, 42).data;
+        const at = (x, y) => { const i = (y * 60 + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+        const want = rgb(PALETTE[lane]);
+        let robe = 0, skin = 0, minR = 42, maxR = -1, minC = 60, maxC = -1;
+        for (let y = 0; y < 42; y += 1) {
+          for (let x = 0; x < 60; x += 1) {
+            const i = (y * 60 + x) * 4;
+            const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+            if (h === 0xd8a878) skin += 1;
+            if (d[i] === want[0] && d[i + 1] === want[1] && d[i + 2] === want[2]) {
+              robe += 1;
+              if (y < minR) minR = y;
+              if (y > maxR) maxR = y;
+              if (x < minC) minC = x;
+              if (x > maxC) maxC = x;
+            }
+          }
+        }
+        return {
+          robe, skin, bbox: { minR, maxR, minC, maxC },
+          capOk: CAP.every(([x, y]) => at(x, y) === 0x2f6b3a),
+          skinOk: SKIN.every(([x, y]) => at(x, y) === 0xd8a878),
+          seat: [22, 23, 24, 25, 26, 27, 28, 29].map((x) => at(x, 14)),
+        };
+      });
+    });
+    expect(res.length).toBe(4);
+    for (const r of res) {
+      expect(r.robe).toBe(55);   // 8x7 robe block minus the 1 px corner notch
+      expect(r.skin).toBe(15);   // face rows 4-6 + open hand (col 31)
+      expect(r.bbox).toEqual({ minR: 7, maxR: 13, minC: 22, maxC: 29 });
+      expect(r.capOk).toBe(true);
+      expect(r.skinOk).toBe(true);
+      expect(r.seat).toEqual([0x16120b, 0x16120b, 0x16120b, 0x16120b, 0x16120b, 0x16120b, 0x16120b, 0x16120b]);
+    }
+  });
+
+  test('boar bob: cap sits 1 px lower on frames 2 and 4, hooves stay on row 41', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(2); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await expect.poll(() => page.evaluate(() => GameDebug.isSettled())).toBe(true);
-    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await paint(page);
     const res = await page.evaluate(() => new Promise((resolve) => {
       const FRAME_MS = 320; // ANIM_FRAME_MS
       const canvas = document.getElementById('game');
-      // Non-blanket pixels in the 6x10 rect at anchor row 18 (+1 row for the bob).
-      function mismatch(rowOffset) {
+      // #16120b is the boar palette's outline/hoof tone and is unique to BOAR_PAL
+      // (forest decor outlines are #1a1208), so it measures the silhouette's top
+      // and bottom rows without any background ink leaking into the sample.
+      function rows() {
         const b = GameDebug.getCamelSpriteBounds()[0];
-        const d = canvas.getContext('2d').getImageData(Math.round(b.left) + 18, Math.round(b.top) + 18 + rowOffset, 6, 10).data;
-        let bad = 0;
-        for (let i = 0; i < d.length; i += 4) {
-          if (!(d[i] === 0xbf && d[i + 1] === 0xe3 && d[i + 2] === 0xea)) bad += 1;
+        const d = canvas.getContext('2d').getImageData(Math.round(b.left), Math.round(b.top), 60, 42).data;
+        let minR = 42, maxR = -1;
+        for (let ry = 0; ry < 42; ry += 1) {
+          for (let rx = 0; rx < 60; rx += 1) {
+            const i = (ry * 60 + rx) * 4;
+            if (d[i] === 0x16 && d[i + 1] === 0x12 && d[i + 2] === 0x0b) {
+              if (ry < minR) minR = ry;
+              if (ry > maxR) maxR = ry;
+            }
+          }
         }
-        return bad;
+        return minR + '|' + maxR;
       }
       const camel = GameCore.getState().camels[0];
       GameCore.setScore(camel.id, camel.score); // trigger the walk without moving
@@ -817,9 +910,9 @@ test.describe('Forest boar blanket', () => {
       function tick(now) {
         if (GameCore.getState().camels[0].animUntil > now) {
           const fi = (Math.floor(now / FRAME_MS) % 4) + 1;
-          const k = mismatch(0) + '/' + mismatch(1);
           if (!byFrame.has(fi)) byFrame.set(fi, new Map());
           const m = byFrame.get(fi);
+          const k = rows();
           m.set(k, (m.get(k) || 0) + 1);
           requestAnimationFrame(tick);
           return;
@@ -834,18 +927,9 @@ test.describe('Forest boar blanket', () => {
       }
       requestAnimationFrame(tick);
     }));
-    expect(Object.keys(res).sort()).toEqual(['1', '2', '3', '4']);
-    const off = (fi) => res[fi].split('/').map(Number);
-    // Contact frames (1, 3): blanket sits at anchor row 18; the +1 offset is not all blanket.
-    expect(off(1)[0]).toBe(0);
-    expect(off(1)[1]).toBeGreaterThan(0);
-    expect(off(3)[0]).toBe(0);
-    expect(off(3)[1]).toBeGreaterThan(0);
-    // Bob frames (2, 4): the blanket drops 1 px to row 19; only the +1 offset is all blanket.
-    expect(off(2)[1]).toBe(0);
-    expect(off(2)[0]).toBeGreaterThan(0);
-    expect(off(4)[1]).toBe(0);
-    expect(off(4)[0]).toBeGreaterThan(0);
+    // Contact frames (1, 3) start on the cap's top row 0; the bob frames (2, 4)
+    // sit exactly 1 px lower, and the hooves never leave row 41.
+    expect(res).toEqual({ 1: '0|41', 2: '1|41', 3: '0|41', 4: '1|41' });
   });
 });
 

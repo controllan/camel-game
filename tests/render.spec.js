@@ -990,6 +990,134 @@ test.describe('Renderer camera and bounds', () => {
     }
   });
 
+  test('boar sprite: five 60x42 frames, rider seated on the back, hooves on row 41', () => {
+    // Boar companion to the camel matrix contract (docs/art/boar-sprite.md): the
+    // blanket-free 5 frames are 42 rows x 60 cols, `L` is retired from BOAR_PAL,
+    // and the hunter (cap C, skin K, robe R) seats on the flank with no
+    // transparent gap under any robe column - pinned per frame so a rider shift
+    // or a re-introduced blanket box fails. Pass frames 2/4 bob the rider +1 row.
+    const html = readIndexHtml();
+    const rows = extractMatrixRows(html, 'const BOAR =');
+    expect(rows.length).toBe(5 * 42);
+    for (const row of rows) {
+      expect(row.length).toBe(60);
+      expect(row).not.toMatch(/L/);
+      expect(row).toMatch(/^[.BCDEGHKORSTWY]*$/);
+    }
+    const RIDER = [
+      { minC: 22, maxC: 31, minR: 1, maxR: 13, seat: 13 }, // 0 standing
+      { minC: 22, maxC: 31, minR: 1, maxR: 13, seat: 13 }, // 1 contact A
+      { minC: 22, maxC: 31, minR: 2, maxR: 14, seat: 14 }, // 2 pass A (bob)
+      { minC: 22, maxC: 31, minR: 1, maxR: 13, seat: 13 }, // 3 contact B
+      { minC: 22, maxC: 31, minR: 2, maxR: 14, seat: 14 }, // 4 pass B (bob)
+    ];
+    for (let f = 0; f < 5; f += 1) {
+      const frame = rows.slice(f * 42, (f + 1) * 42);
+      const lowest = new Map();
+      let minC = 60, maxC = -1, minR = 42, maxR = -1;
+      let cap = 0, skin = 0, robe = 0;
+      for (let y = 0; y < 42; y += 1) {
+        for (let x = 0; x < 60; x += 1) {
+          const ch = frame[y][x];
+          if (ch === 'R') { robe += 1; lowest.set(x, y); }
+          if (ch === 'C') cap += 1;
+          if (ch === 'K') skin += 1;
+          if ('CKR'.includes(ch)) {
+            if (x < minC) minC = x;
+            if (x > maxC) maxC = x;
+            if (y < minR) minR = y;
+            if (y > maxR) maxR = y;
+          }
+        }
+      }
+      const seat = Math.max(...lowest.values());
+      expect({ minC, maxC, minR, maxR, seat, cap, skin, robe }, `frame ${f} rider`)
+        .toEqual({ ...RIDER[f], cap: 7, skin: 15, robe: 55 });
+      expect(lowest.size, `frame ${f} robe columns`).toBe(8);
+      for (const [x, y] of lowest) {
+        expect(frame[y + 1] && frame[y + 1][x], `frame ${f} col ${x} rider seat`).not.toBe('.');
+      }
+    }
+  });
+
+  test('blanket retired: no L cell in CAMEL/BOAR, no blanket palette key, no L CHAR_KEY', () => {
+    // Three independent ways a blanket box could sneak back in: a matrix `L`
+    // cell, a palette `blanket` entry (with the light-blue tone) or the shared
+    // L -> blanket char key. All three must stay gone - the animals render as
+    // animal + rider only, lane identity = team label + rider robe colour.
+    const html = readIndexHtml();
+    for (const decl of ['const CAMEL =', 'const BOAR =']) {
+      const rows = extractMatrixRows(html, decl);
+      expect(rows.length, decl).toBeGreaterThan(0);
+      expect(rows.join(''), decl + ' L cells').not.toMatch(/L/);
+    }
+    for (const pal of ['CAMEL_PAL', 'BOAR_PAL']) {
+      const src = extractConst(html, pal);
+      expect(src, pal + ' blanket key').not.toMatch(/blanket/);
+      expect(src, pal + ' blanket tone').not.toMatch(/bfe3ea/);
+    }
+    // `L` legitimately keys LEAF_LITTER_PAL and MESA_PAL through their own
+    // palette objects (decor legend test below), so only the shared CHAR_KEY
+    // entry is dead and must be gone.
+    expect(extractConst(html, 'CHAR_KEY')).not.toMatch(/\bL\s*:/);
+  });
+
+  test('every drawn sprite cell resolves through palette → CHAR_KEY → COL (no invisible art)', () => {
+    // Deleting L from CHAR_KEY makes it dead, but LEAF_LITTER_PAL.L and
+    // MESA_PAL.L keep working through their own palettes. drawSprite silently
+    // SKIPS a char that resolves nowhere, so a stale legend char would render
+    // as transparent art with no error. This scans EVERY sprite matrix the
+    // renderer draws (all THEMES kinds + both animal sprites, plus the
+    // milestone/finish flags) with the live CHAR_KEY/COL tables in the exact
+    // drawSprite resolution order, so one unresolved cell fails here.
+    const html = readIndexHtml();
+    const CHAR_KEY = new Function(extractConst(html, 'CHAR_KEY') + ' return CHAR_KEY;')();
+    const COL = new Function(extractConst(html, 'COL') + ' return COL;')();
+    // Sprite matrices are the all-caps const arrays of equal-length [.A-Za-z]
+    // rows (excludes PALETTE / DUNE_STREAKS numbers and CONFETTI_COLORS hexes).
+    const matrixNames = [...new Set([...html.matchAll(/const ([A-Z][A-Z0-9_]*) = \[/g)].map((m) => m[1]))]
+      .filter((name) => {
+        const rows = extractMatrixRows(html, 'const ' + name + ' =');
+        return rows.length >= 2
+          && rows.every((r) => /^[.A-Za-z]+$/.test(r))
+          && new Set(rows.map((r) => r.length)).size === 1;
+      });
+    // (sprite, palette) pairs the renderer feeds to drawSprite: regex the theme
+    // registry (decor kinds + animal sprites) so new wiring is covered, plus the
+    // two flags drawn by drawMilestones/drawFinish.
+    const pairs = [...new Set([...html.matchAll(/sprite: (\w+), pal: (\w+)/g)].map((m) => m[1] + '|' + m[2]))]
+      .map((p) => p.split('|'));
+    pairs.push(['MILESTONE', 'MILESTONE_PAL'], ['FINISH_FLAG', 'FINISH_PAL']);
+    // Coverage: every matrix-shaped const must have a (sprite, palette) pair, so
+    // a sprite cannot be drawn without entering this scan.
+    const drawn = new Set(pairs.map((p) => p[0]));
+    for (const name of matrixNames) {
+      expect(drawn.has(name), `matrix ${name} has no (sprite, palette) pair in this scan`).toBe(true);
+    }
+    const unresolved = [];
+    for (const [sprite, palName] of pairs) {
+      let palette = new Function(extractConst(html, palName) + ' return ' + palName + ';')();
+      if (typeof palette === 'function') palette = palette('#e84a3a'); // per-lane robe factory
+      const warned = new Set();
+      for (const row of extractMatrixRows(html, 'const ' + sprite + ' =')) {
+        for (const ch of row) {
+          if (ch === '.' || warned.has(ch)) continue;
+          warned.add(ch);
+          const key = CHAR_KEY[ch];
+          const color = (palette[ch] !== undefined) ? palette[ch]
+            : (key && palette[key] !== undefined) ? palette[key]
+            : (key && COL[key] !== undefined) ? COL[key]
+            : undefined;
+          if (color === undefined) unresolved.push(`${sprite} char '${ch}'`);
+        }
+      }
+    }
+    expect(unresolved).toEqual([]);
+    // Sanity: the scan really covers the full v7 art set (42 matrices, 42 pairs).
+    expect(matrixNames.length).toBeGreaterThanOrEqual(42);
+    expect(pairs.length).toBeGreaterThanOrEqual(42);
+  });
+
   test('every decor sprite legend char resolves through its own palette', () => {
     // drawSprite skips a char with no palette/CHAR_KEY mapping, so an undefined
     // legend char yields invisible art instead of an error. Assert each documented
@@ -1392,4 +1520,53 @@ test.describe('drawSprite run-coalescing identity', () => {
     expect(res.hashA).toBe(res.hashB);
   });
 
+  test('retired CHAR_KEY.L: decor L cells still paint their own palette tone', async ({ page }) => {
+    // Highest-risk regression of the CHAR_KEY cleanup: sprites that legitimately
+    // use `L` in their OWN legend (LEAF_LITTER_PAL.L #8a5a3a, MESA_PAL.L
+    // #5f4360) must still render exactly those tones - a cell whose only colour
+    // came from the deleted L -> blanket fallback would silently go transparent.
+    // Draw both matrices offscreen with the shipped drawSprite: every 'L' cell
+    // must paint its palette tone, and no non-'.' cell may stay transparent.
+    await gotoGame(page);
+    const leafSrc = extractConst(html, 'LEAF_LITTER');
+    const leafPalSrc = extractConst(html, 'LEAF_LITTER_PAL');
+    const mesaSrc = extractConst(html, 'MESA');
+    const mesaPalSrc = extractConst(html, 'MESA_PAL');
+    const res = await page.evaluate(({ program, leafSrc, leafPalSrc, mesaSrc, mesaPalSrc }) => {
+      const LEAF_LITTER = new Function(leafSrc + ' return LEAF_LITTER;')();
+      const LEAF_LITTER_PAL = new Function(leafPalSrc + ' return LEAF_LITTER_PAL;')();
+      const MESA = new Function(mesaSrc + ' return MESA;')();
+      const MESA_PAL = new Function(mesaPalSrc + ' return MESA_PAL;')();
+      const canvas = document.createElement('canvas');
+      canvas.width = 160;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const built = new Function('ctx', program)(ctx);
+      built.drawSprite(LEAF_LITTER, 3, 3, LEAF_LITTER_PAL); // L = #8a5a3a
+      built.drawSprite(MESA, 40, 3, MESA_PAL);             // L = #5f4360
+      const d = ctx.getImageData(0, 0, 160, 64).data;
+      const probe = (rows, x0, y0, lTone) => {
+        let lCells = 0, lPainted = 0, nonDot = 0, unresolved = 0;
+        for (let y = 0; y < rows.length; y += 1) {
+          for (let x = 0; x < rows[y].length; x += 1) {
+            const ch = rows[y][x];
+            if (ch === '.') continue;
+            nonDot += 1;
+            const i = ((y0 + y) * 160 + (x0 + x)) * 4;
+            if (d[i + 3] === 0) unresolved += 1;
+            if (ch === 'L') {
+              lCells += 1;
+              if (((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]) === lTone) lPainted += 1;
+            }
+          }
+        }
+        return { lCells, lPainted, nonDot, unresolved };
+      };
+      return { leaf: probe(LEAF_LITTER, 3, 3, 0x8a5a3a), mesa: probe(MESA, 40, 3, 0x5f4360) };
+    }, { program, leafSrc, leafPalSrc, mesaSrc, mesaPalSrc });
+    // LEAF_LITTER carries 10 L cells, MESA 30; each must rasterise its own tone
+    // and the matrices must have zero transparent cells.
+    expect(res.leaf).toEqual({ lCells: 10, lPainted: 10, nonDot: 30, unresolved: 0 });
+    expect(res.mesa).toEqual({ lCells: 30, lPainted: 30, nonDot: 490, unresolved: 0 });
+  });
 });
