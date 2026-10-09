@@ -836,6 +836,14 @@ test.describe('Renderer camera and bounds', () => {
     // Forest v3 background sprites (docs/art/theme-art.md §3.3).
     expect(dim('const FOREST_TREE_SPRUCE_TALL =')).toEqual({ w: 40, h: 64 });
     expect(dim('const FOREST_TREE_SNAG =')).toEqual({ w: 24, h: 48 });
+    // Forest v4 sprites (§3.8i): 2 bushes, a wide midground tree + 4 floor plants.
+    expect(dim('const BUSH_CLUSTER =')).toEqual({ w: 36, h: 24 });
+    expect(dim('const BERRY_BUSH =')).toEqual({ w: 28, h: 20 });
+    expect(dim('const FOREST_TREE_WIDE =')).toEqual({ w: 56, h: 64 });
+    expect(dim('const GRASS_CLUMP_TALL =')).toEqual({ w: 16, h: 12 });
+    expect(dim('const GRASS_FLOWER =')).toEqual({ w: 14, h: 10 });
+    expect(dim('const FERN_CURLED =')).toEqual({ w: 20, h: 14 });
+    expect(dim('const GRASS_PATCH =')).toEqual({ w: 32, h: 8 });
     // Desert ambience (docs/art/theme-art.md §2.10): 16 sprites at exact 2x dims.
     expect(dim('const SAND_RIPPLE =')).toEqual({ w: 20, h: 6 });
     expect(dim('const PEBBLE_A =')).toEqual({ w: 12, h: 7 });
@@ -884,6 +892,13 @@ test.describe('Renderer camera and bounds', () => {
       { decl: 'const TWIG =', legend: /^[.OB]*$/, blobs: 1 },
       { decl: 'const FOREST_TREE_SPRUCE_TALL =', legend: /^[.BOST]*$/, blobs: 1 },
       { decl: 'const FOREST_TREE_SNAG =', legend: /^[.BOS]*$/, blobs: 1 },
+      { decl: 'const BUSH_CLUSTER =', legend: /^[.OST]*$/, blobs: 1 },
+      { decl: 'const BERRY_BUSH =', legend: /^[.COST]*$/, blobs: 1 },
+      { decl: 'const FOREST_TREE_WIDE =', legend: /^[.BORST]*$/, blobs: 1 },
+      { decl: 'const GRASS_CLUMP_TALL =', legend: /^[.GHO]*$/, blobs: 1 },
+      { decl: 'const GRASS_FLOWER =', legend: /^[.GHOW]*$/, blobs: 1 },
+      { decl: 'const FERN_CURLED =', legend: /^[.GHO]*$/, blobs: 1 },
+      { decl: 'const GRASS_PATCH =', legend: /^[.GHO]*$/, blobs: 1 },
     ];
     const components = (rows) => {
       const h = rows.length, w = rows[0].length;
@@ -1293,6 +1308,14 @@ test.describe('Renderer camera and bounds', () => {
       ['const FOREST_TREE_DECIDUOUS =', 'const FOREST_TREE_PAL_AUTUMN ='],
       ['const FOREST_TREE_DECIDUOUS =', 'const FOREST_TREE_PAL_BIRCH ='],
       ['const FOREST_TREE_CONIFER =', 'const FOREST_TREE_PAL_SPRUCE_DARK ='],
+      // Forest v4 sprites (§3.8i).
+      ['const BUSH_CLUSTER =', 'const BUSH_CLUSTER_PAL ='],
+      ['const BERRY_BUSH =', 'const BERRY_BUSH_PAL ='],
+      ['const FOREST_TREE_WIDE =', 'const FOREST_TREE_WIDE_PAL ='],
+      ['const GRASS_CLUMP_TALL =', 'const GRASS_CLUMP_PAL ='],
+      ['const GRASS_FLOWER =', 'const GRASS_FLOWER_PAL ='],
+      ['const FERN_CURLED =', 'const FERN_CURLED_PAL ='],
+      ['const GRASS_PATCH =', 'const GRASS_PATCH_PAL ='],
     ];
     for (const [spr, pal] of SPRITES) {
       const keys = paletteKeys(pal);

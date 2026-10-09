@@ -716,10 +716,10 @@ test.describe('Theme registry (forest)', () => {
     expect(res.speckR).toBeGreaterThan(0);
     expect(res.darkL).toBeGreaterThan(0);
     expect(res.darkR).toBeGreaterThan(0);
-    expect(res.decorDrawn).toBeLessThanOrEqual(214); // background 24 + midground 10 + floor 180 (§3.8h)
+    expect(res.decorDrawn).toBeLessThanOrEqual(264); // background 30 + midground 14 + floor 220 (§3.8i)
   });
 
-  test('forest v3 ambience density: ~5 background props, ~35 floor props, flat marks, caps hold', async ({ page }) => {
+  test('forest v4 ambience density: ~7 background props, ~35 floor props, flat marks, caps hold', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await paint(page);
     const scene = await page.evaluate(() => {
@@ -727,30 +727,31 @@ test.describe('Theme registry (forest)', () => {
       return { layers: s.decorLayers, flat: s.decorFlat, drawn: s.decorDrawn };
     });
     // Measured shipped renderer (SEED 1337) at the default camera (W=100,
-    // 4 lanes): 5 background / 2 midground / 35 floor with 5 flat v2 marks.
+    // 4 lanes): 7 background / 3 midground / 35 floor with flat v4 marks.
     // Bounded ranges so a benign stream tweak passes but a starved or clogged
-    // layer fails; the layer caps are the documented §3.8h bounds
-    // (background 24, midground 10, floor 180).
-    expect(scene.layers.background).toBeGreaterThanOrEqual(4);
-    expect(scene.layers.background).toBeLessThanOrEqual(6);
-    expect(scene.layers.midground).toBeGreaterThan(0);
-    expect(scene.layers.midground).toBeLessThanOrEqual(10);
+    // layer fails; the layer caps are the documented §3.8i bounds
+    // (background 30, midground 14, floor 220).
+    expect(scene.layers.background).toBeGreaterThanOrEqual(6);
+    expect(scene.layers.background).toBeLessThanOrEqual(8);
+    expect(scene.layers.midground).toBeGreaterThanOrEqual(2);
+    expect(scene.layers.midground).toBeLessThanOrEqual(4);
     expect(scene.layers.floor).toBeGreaterThanOrEqual(25);
     expect(scene.layers.floor).toBeLessThanOrEqual(45);
-    expect(scene.flat).toBeGreaterThan(0); // flat v2 marks were seeded
+    expect(scene.flat).toBeGreaterThan(0); // flat v2/v4 marks were seeded
     expect(scene.flat).toBeLessThan(scene.layers.floor);
-    expect(scene.drawn).toBeLessThanOrEqual(214); // 24 + 10 + 180 max
+    expect(scene.drawn).toBeLessThanOrEqual(264); // 30 + 14 + 220 max
 
-    // v3 background stream (spacing 20 / cap 24): measured 4-6 per pan. The old
-    // v2 spacing 32 yields 3 and fails this per-pan band.
-    for (const score of [400, 800, 1200, 1400, 1600]) {
+    // v4 background stream (spacing 14 / cap 30): measured 7-8 per pan. The old
+    // v3 spacing 20 yields 4-6 and the v2 spacing 32 yields 3; both fail this
+    // per-pan band.
+    for (const score of [200, 400, 600, 800, 1000, 1200, 1400, 1600]) {
       await page.evaluate((sc) => {
         for (const c of GameCore.getState().camels) GameCore.setScore(c.id, sc);
       }, score);
       await paint(page);
       const bg = await page.evaluate(() => GameDebug.getScene().decorLayers.background);
-      expect(bg, 'background @' + score).toBeGreaterThanOrEqual(4);
-      expect(bg, 'background @' + score).toBeLessThanOrEqual(6);
+      expect(bg, 'background @' + score).toBeGreaterThanOrEqual(6);
+      expect(bg, 'background @' + score).toBeLessThanOrEqual(8);
     }
   });
 
@@ -771,14 +772,14 @@ test.describe('Theme registry (forest)', () => {
     }
   });
 
-  test('forest v2 flat marks stay inside the lane field (canvas pattern probe)', async ({ page }) => {
+  test('forest v2/v4 flat marks stay inside the lane field (canvas pattern probe)', async ({ page }) => {
     // The desert flat probe scans DRIFT_MOUND's unique tone; the forest marks
     // reuse existing prop/carpet tones, so this probe pattern-matches the shipped
     // sprite matrices against the canvas instead (1:1 pixel copies). Every matched
     // top-left must obey the flat seeding rule (§2.14/§3.8):
     // laneTop + 8 <= anchorY <= laneBottom - 6 - spriteH.
     const html = readIndexHtml();
-    const sprites = ['LEAF_DRIFT', 'GRASS_WAVE', 'TWIG'].map((name) => ({
+    const sprites = ['LEAF_DRIFT', 'GRASS_WAVE', 'TWIG', 'GRASS_PATCH'].map((name) => ({
       name,
       rows: extractMatrixRows(html, 'const ' + name + ' ='),
       pal: paletteMap(html, name + '_PAL'),
@@ -1064,12 +1065,13 @@ test.describe('Theme registry (forest)', () => {
     expect(hits.darkSpruceShade).toBeGreaterThan(0);
   });
 
-  test('forest v2 ripple bands paint ground.shade inside every lane (§3.8)', async ({ page }) => {
+  test('forest v4 ripple bands paint ground.shade inside every lane (§3.8i)', async ({ page }) => {
     await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
     await paint(page);
     const BANDS = [
       { thick: 2, amp: 6, periodPx: 320, phase: 0.00, frac: 0.30 },
       { thick: 1, amp: 4, periodPx: 240, phase: 0.55, frac: 0.65 },
+      { thick: 1, amp: 5, periodPx: 400, phase: 0.90, frac: 0.85 }, // v4 third band
     ];
     const res = await page.evaluate(({ BANDS }) => {
       const W = 1280, HORIZON = 120, LANE_BOTTOM = 712;
@@ -1117,6 +1119,107 @@ test.describe('Theme registry (forest)', () => {
         expect(b.hit / b.cols, `lane ${lane.i} band ${bi + 1} shade hit rate`).toBeGreaterThan(0.9);
       });
     }
+  });
+
+  test('forest v4 ground depth: 3-zone ramp and 2 px crest shadow in every lane', async ({ page }) => {
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    await paint(page);
+    const res = await page.evaluate(() => {
+      const W = 1280, HORIZON = 120, LANE_BOTTOM = 712;
+      const n = GameCore.getState().camels.length;
+      const laneH = (LANE_BOTTOM - HORIZON) / n;
+      const win = GameDebug.getCameraWindow();
+      const span = win.max - win.min;
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, W, 720).data;
+      const at = (x, y) => { const i = (y * W + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+      const RAMP = [0x447338, 0x3d6832, 0x345a2b];
+      const SHADOW = 0x2b4a24;
+      const lanes = [];
+      for (let i = 0; i < n; i += 1) {
+        const top = Math.round(HORIZON + i * laneH);
+        const bottom = Math.round(HORIZON + (i + 1) * laneH);
+        const zones = [0, 0, 0];
+        let shadowHit = 0, cols = 0;
+        for (let x = 0; x < W; x += 1) {
+          const world = win.min + ((x + 0.5) / W) * span;
+          let crest = Math.max(HORIZON, top - Math.round(GameCore.terrainHeightAt(world)));
+          if (crest > bottom - 2) crest = bottom - 2;
+          cols += 1;
+          // The v4 shadow is a 2 px band directly under the 1 px rim (crest),
+          // above the 2 px shade stripe at crest+3.
+          if (at(x, crest + 1) === SHADOW && at(x, crest + 2) === SHADOW) shadowHit += 1;
+          for (let y = top; y <= bottom; y += 1) {
+            const zi = RAMP.indexOf(at(x, y));
+            if (zi >= 0) zones[zi] += 1;
+          }
+        }
+        lanes.push({ i, zones, shadowRate: shadowHit / cols });
+      }
+      return lanes;
+    });
+    expect(res.length).toBe(4);
+    for (const lane of res) {
+      // 3 hard-edged ramp zones at 40/60/80 % of every lane (§3.8i).
+      lane.zones.forEach((count, zi) => {
+        expect(count, `lane ${lane.i} ramp zone ${zi + 1}`).toBeGreaterThan(1000);
+      });
+      expect(lane.shadowRate, `lane ${lane.i} crest shadow rate`).toBeGreaterThanOrEqual(0.98);
+    }
+
+    // Desert ships neither token: its crest pixels must stay exact (no shadow
+    // tone), and the forest ramp tones must not leak into the desert lanes.
+    await page.evaluate(() => GameCore.setTheme('desert'));
+    await paint(page);
+    const desert = await page.evaluate(() => {
+      const d = document.getElementById('game').getContext('2d').getImageData(0, 0, 1280, 720).data;
+      let shadow = 0, ramp = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const h = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        if (h === 0x2b4a24) shadow += 1;
+        else if (h === 0x447338 || h === 0x3d6832 || h === 0x345a2b) ramp += 1;
+      }
+      return { shadow, ramp };
+    });
+    expect(desert.shadow).toBe(0);
+    expect(desert.ramp).toBe(0);
+  });
+
+  test('forest v4 berry bush and grass flower tones render across sampled pans', async ({ page }) => {
+    // BERRY_BUSH `C` #c0392b is shared with the MUSHROOM_RED cap, but mushrooms
+    // are floor props, so the sky band (0..120) isolates the v4 berries.
+    // GRASS_FLOWER `W` #f0ece0 is shared with the boar eye/tusk whites, so the
+    // lane-band count excludes the boar sprite bounds to isolate the petals.
+    await page.evaluate(() => { GameCore.setCamelCount(4); GameCore.setGoal(null); GameCore.setTheme('forest'); GameCore.resetRace(); });
+    const hits = { berry: 0, flower: 0 };
+    for (const score of [0, 400, 600, 1000, 1200, 1600]) {
+      await page.evaluate((sc) => {
+        for (const c of GameCore.getState().camels) GameCore.setScore(c.id, sc);
+      }, score);
+      await paint(page);
+      const r = await page.evaluate(() => {
+        const W = 1280, HORIZON = 120;
+        const d = document.getElementById('game').getContext('2d').getImageData(0, 0, W, 720).data;
+        const at = (x, y) => { const i = (y * W + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+        let berry = 0;
+        for (let y = 0; y < HORIZON; y += 1) {
+          for (let x = 0; x < W; x += 1) if (at(x, y) === 0xc0392b) berry += 1;
+        }
+        const bounds = GameDebug.getCamelSpriteBounds();
+        const inBoar = (x, y) => bounds.some((b) => x >= Math.floor(b.left) - 2 && x <= Math.ceil(b.right) + 2
+          && y >= Math.floor(b.top) - 2 && y <= Math.ceil(b.bottom) + 2);
+        let flower = 0;
+        for (let y = HORIZON; y < 720; y += 1) {
+          for (let x = 0; x < W; x += 1) {
+            if (at(x, y) === 0xf0ece0 && !inBoar(x, y)) flower += 1;
+          }
+        }
+        return { berry, flower };
+      });
+      hits.berry += r.berry;
+      hits.flower += r.flower;
+    }
+    expect(hits.berry).toBeGreaterThan(0);  // BERRY_BUSH berries rasterise
+    expect(hits.flower).toBeGreaterThan(0); // GRASS_FLOWER petals rasterise
   });
 
   test('midground trees stand in the lanes and are occluded by the boars', async ({ page }) => {

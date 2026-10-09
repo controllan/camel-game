@@ -936,6 +936,7 @@ window.GameCore = (function () {
   const FOREST_STREAKS = [
     { thick: 2, amp: 6, periodPx: 320, phase: 0.00, frac: 0.30 },
     { thick: 1, amp: 4, periodPx: 240, phase: 0.55, frac: 0.65 },
+    { thick: 1, amp: 5, periodPx: 400, phase: 0.90, frac: 0.85 }, // v4 §3.8i
   ];
 
   // Camel v8 84x70 (docs/art/camel-drafts-v5.md), 5 frames: 0 standing (idle),
@@ -1749,6 +1750,16 @@ window.GameCore = (function () {
   // Forest v3 new sprites (§3.3): tall narrow spruce + bare snag.
   const FOREST_TREE_PAL_SPRUCE_TALL = { outline: '#1a1208', T: '#2a6234', S: '#1b4024', B: '#4a3320' };
   const FOREST_TREE_PAL_SNAG = { outline: '#1a1208', B: '#6b5a42', S: '#3f3222' };
+  // Forest v4 palettes (§3.8i): bush cluster + berry bush (background/midground),
+  // wide midground tree, and the four new floor sprites (grass/fern family,
+  // surface-tone `O` on the flat patch).
+  const BUSH_CLUSTER_PAL = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234' };
+  const BERRY_BUSH_PAL = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234', C: '#c0392b' };
+  const FOREST_TREE_WIDE_PAL = { outline: '#1a1208', T: '#3a8a4a', S: '#2a6234', B: '#4a3320', R: '#2a1c10' };
+  const GRASS_CLUMP_PAL = { outline: '#1a1208', G: '#2f6b3a', H: '#7ac25a' };
+  const GRASS_FLOWER_PAL = { outline: '#1a1208', G: '#2f6b3a', H: '#7ac25a', W: '#f0ece0' };
+  const FERN_CURLED_PAL = { outline: '#1a1208', G: '#2f6b3a', H: '#7ac25a' };
+  const GRASS_PATCH_PAL = { O: '#3a6030', G: '#2f6b3a', H: '#7ac25a' };
   // Desert ambience palettes (docs/art/theme-art.md §2.9). Per-sprite palettes win
   // over CHAR_KEY, so shared letters (T/S/B/R/W/L/D) keep their forest meaning
   // there and their desert meaning here; HOOF_PRINTS/MESA override `O` on purpose.
@@ -2346,6 +2357,186 @@ window.GameCore = (function () {
     '........................',
   ];
 
+  // BUSH_CLUSTER 36x24.
+  const BUSH_CLUSTER = [
+    '....................................',
+    '....................................',
+    '..................O.................',
+    '..............OOOOTOOOO.............',
+    '.............OTTTTTTSSSO............',
+    '............OSTTTTTTSSSSO...........',
+    '..........OOTSTTTTTTSSSSSOO.........',
+    '.......OOOTTTSTTTTTTTSSSSSSOOO......',
+    '......OTTTTTTSTTTTTTTSSSSSSSSSO.....',
+    '.....OTTTTTTTSTTTTTTTSSSSSSSSSSO....',
+    '.....OTTTTTTTSTTTTTTTSSSSSSSSSSO....',
+    '....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...',
+    '....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...',
+    '....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...',
+    '....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...',
+    '....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...',
+    '....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...',
+    '....OTTTTTTTTSTTTTTTTSSSSSSSSSSSO...',
+    '.....OTTTTTTTSTTTTTTTSSSSSSSSSSO....',
+    '.....OTTTTTTTSTOOOTOOOSSSSSSSSSO....',
+    '......OTTTTSSSO...O...OSTTTSSSO.....',
+    '.......OOOTOOO.........OOOTOOO......',
+    '..........O...............O.........',
+    '....................................',
+  ];
+
+  // BERRY_BUSH 28x20.
+  const BERRY_BUSH = [
+    '............................',
+    '............................',
+    '...........O......O.........',
+    '........OOOTOOOOOOSOOOO.....',
+    '......OOTTTTTTTTTTSSSSSO....',
+    '......OTTTTTTTTTTTSSSSSSO...',
+    '.....OTTTTTTTTTCTTTSSSSSSO..',
+    '.....OTTTTTTTTTTTCTSSSSSSO..',
+    '....OTTTTTCTTTTTTTTSSSSSSSO.',
+    '....OTTTTTTTTTTTTTTSSCSSSSO.',
+    '....OTTTTTTTTTTTTTTSSSSSSSO.',
+    '....OTTTTTTTTTTTTTTSSSSSSSO.',
+    '....OTTTTTTTTCTTTTTSSSCSSSO.',
+    '.....OTTTTTTTTTTTTTSSSSSSO..',
+    '.....OTTTTTTTTTTTTTSSSSSSO..',
+    '......OTTTTTTTTTTTSSSSSSO...',
+    '......OOTTTTTTTTTTSSSSSO....',
+    '........OOOTOOOOOOSOOOO.....',
+    '...........O......O.........',
+    '............................',
+  ];
+
+  // FOREST_TREE_WIDE 56x64.
+  const FOREST_TREE_WIDE = [
+    '........................................................',
+    '........................................................',
+    '........................OOOOOOOO........................',
+    '....................OOOOTTTTTSSSOOOO....................',
+    '..................OOTTTTTTTTTTSSSSSSOO..................',
+    '................OOTTTTTTTTTTTTSSSSSSSSOO................',
+    '..............OOTTTTTTTTTTTTTTSSSSSSSSSSOO..............',
+    '.............OTTTTTTTTTTTTTTTTSSSSSSSSSSSSO.............',
+    '...........OOTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSOO...........',
+    '..........OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO..........',
+    '.........OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO.........',
+    '........OTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO........',
+    '.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......',
+    '.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......',
+    '......OTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO......',
+    '.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....',
+    '.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....',
+    '....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....',
+    '....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....',
+    '....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....',
+    '...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...',
+    '...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...',
+    '...OTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSO...',
+    '...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...',
+    '...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...',
+    '...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...',
+    '...OTTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSSO...',
+    '....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....',
+    '....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....',
+    '....OTTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSSO....',
+    '.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....',
+    '.....OTTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSSO.....',
+    '......OTTTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO......',
+    '.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......',
+    '.......OTTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSSO.......',
+    '........OTTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSSO........',
+    '.........OTTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSSO.........',
+    '..........OTTTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSSSO..........',
+    '...........OOTTTTTTTTTTTTTTTTTTSSSSSSSSSSSSOO...........',
+    '.............OTTTTTTTTTTTTTTTTSSSSSSSSSSSSO.............',
+    '..............OOTTTTTTTTTTTTTTSSSSSSSSSSOO..............',
+    '................OOTTTTTTTTTTTTSSSSSSSSOO................',
+    '..................OOTTTTTTTTTTSSSSSSOO..................',
+    '....................OOOOTTTTTSSSOOOO....................',
+    '........................OTTTTSSO........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '.........................OBBBBO.........................',
+    '........................ORRRRRRO........................',
+    '.......................ORRRRRRRRO.......................',
+    '......................OOOOOOOOOOOO......................',
+    '........................................................',
+    '........................................................',
+  ];
+
+  // GRASS_CLUMP_TALL 16x12.
+  const GRASS_CLUMP_TALL = [
+    '................',
+    '.......OO.......',
+    '......OHO.......',
+    '....OOGHHOO.....',
+    '....OHGGGHO.....',
+    '....OGGHGGGO....',
+    '...OGGGGGGGO....',
+    '...OGGGGGGGO....',
+    '...OGGGGGGGGO...',
+    '...OGGGGGGGGO...',
+    '...OOOOOOOOOO...',
+    '................',
+  ];
+
+  // GRASS_FLOWER 14x10.
+  const GRASS_FLOWER = [
+    '..............',
+    '......OOO.....',
+    '.....OOWO.....',
+    '.....OOOO.....',
+    '....OGGGHOOO..',
+    '...OHGGGGGHO..',
+    '...OGGGGGGGO..',
+    '...OGGGGGGGO..',
+    '...OOOOOOOOOO.',
+    '..............',
+  ];
+
+  // FERN_CURLED 20x14.
+  const FERN_CURLED = [
+    '....................',
+    '....................',
+    '.........OOOOO......',
+    '........OHHOOGOO....',
+    '.......OHOO..OGGO...',
+    '......OHO.....OGGO..',
+    '......OO.......OGO..',
+    '.....OHO........OGO.',
+    '.....OHO.........OO.',
+    '.....OHO.........OO.',
+    '......OHOOO......OO.',
+    '......OHHHHOO....OO.',
+    '.......OOOOOO.......',
+    '....................',
+  ];
+
+  // GRASS_PATCH 32x8.
+  const GRASS_PATCH = [
+    '................................',
+    '................................',
+    '.........OOO........OOO.........',
+    '....OOOOOHHHOO..OOOOHHHOOO......',
+    '.OOOHHHHHHHHHHOOHHHHHHHHHHOOOOO.',
+    '.OGGGGGGGGGGGGGGGGGGGGGGGGGGGGO.',
+    '.OOOOOOOOOOOOOOOOOOOOOOOOOOOOOO.',
+    '................................',
+  ];
+
   // Desert ambience (docs/art/theme-art.md §2.10): 16 sprites, matrices pasted
   // verbatim from the doc. The per-sprite palettes above win over CHAR_KEY.
   // SAND_RIPPLE 20x6.
@@ -2883,7 +3074,7 @@ window.GameCore = (function () {
       countLabelKey: 'countLabelBoar', // i18n key for the lane-count label
       label: { en: 'Forest', de: 'Wald' }, // declarative-only (DOM i18n labels the buttons)
       palette: { sky: ['#241a3a', '#3a2450', '#5a3050', '#7a3f4a'], sun: '#f0e8c0', sunRim: '#d8c890', accent: '#e8c83a', distant: ['#241634', '#33204a'], treeline: true, mountains: { back: '#3b2a56', backRim: '#4d3a6d', body: '#140b26', rim: '#2e1f52' } }, // v2 dusk ridges + treeline jag §3.8; v3 mountains §3.8f
-      ground: { top: '#4a7a3a', shade: '#3a6030', edge: '#26401f', rim: '#1c3018', speckle: '#5a8a48', speckleShare: 0.5, speckleWidth: 2, carpetSpacing: 7, clusterShare: 0.14, streaks: FOREST_STREAKS }, // v2 §3.8
+      ground: { top: '#4a7a3a', ramp: ['#447338', '#3d6832', '#345a2b'], crestShadow: '#2b4a24', shade: '#3a6030', edge: '#26401f', rim: '#1c3018', speckle: '#5a8a48', speckleShare: 0.5, speckleWidth: 2, carpetSpacing: 7, clusterShare: 0.14, streaks: FOREST_STREAKS }, // v4 §3.8i: 3-zone green ramp + crest shadow + 3 bands (v2/v3 tokens kept)
       decor: {
         maxSpan: 1500,
         salts: DECOR_STREAM, // §3.4 — 0x11 / 0x22 / 0x33
@@ -2892,41 +3083,55 @@ window.GameCore = (function () {
         // world spacing and cap. Floor runs one stream per lane; midground picks
         // a lane; background anchors on HORIZON_Y.
         streams: {
-          background: { spacing: 20, cap: 24 }, // v3 §3.8h (was 32 / 14)
-          midground: { spacing: 48, cap: 10 },
-          floor: { spacing: 12, cap: 180 }, // v2 §3.8 (was 20 / 120)
+          background: { spacing: 14, cap: 30 }, // v4 §3.8i (was 20 / 24)
+          midground: { spacing: 36, cap: 14 }, // v4 §3.8i (was 48 / 10)
+          floor: { spacing: 12, cap: 220 }, // v4 §3.8i (was cap 180)
         },
         // Family-level `kind` names (docs/art/theme-art.md §3.3 uses per-sprite names):
         // trees → FOREST_TREE_CONIFER/DECIDUOUS/BROAD/BUSH + the v3 variants
         // (autumn/birch on the deciduous matrix, dark spruce on the conifer matrix)
-        // and the 2 v3 sprites (SPRUCE_TALL/SNAG), midground → TALL/BROAD,
-        // grass_tufts → GRASS_TUFT_A/B, mushrooms → MUSHROOM_RED/BROWN, moss → MOSS,
+        // + the v3 sprites (SPRUCE_TALL/SNAG) + v4 bushes (BUSH_CLUSTER/BERRY_BUSH),
+        // midground → TALL/BROAD/WIDE + BUSH_CLUSTER,
+        // grass_tufts → GRASS_TUFT_A/B + v4 GRASS_CLUMP_TALL/GRASS_FLOWER,
+        // fern → FERN + v4 FERN_CURLED, grass_patch → GRASS_PATCH (flat),
+        // mushrooms → MUSHROOM_RED/BROWN, moss → MOSS,
         // stones → STONE/STONE_ALT, pine_needles → PINE_NEEDLES, leaf_litter → LEAF_LITTER.
         kinds: [
-          { kind: 'trees', layer: 'background', weight: 0.16, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_CONIFER, yOffset: -56 },
-          { kind: 'trees', layer: 'background', weight: 0.14, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_DECIDUOUS, yOffset: -56 },
-          { kind: 'trees', layer: 'background', weight: 0.13, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
-          { kind: 'trees', layer: 'background', weight: 0.10, sprite: FOREST_BUSH, pal: FOREST_BUSH_PAL, yOffset: -20 },
-          { kind: 'trees', layer: 'background', weight: 0.12, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_AUTUMN, yOffset: -56 },
-          { kind: 'trees', layer: 'background', weight: 0.10, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_BIRCH, yOffset: -56 },
-          { kind: 'trees', layer: 'background', weight: 0.10, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_SPRUCE_DARK, yOffset: -56 },
-          { kind: 'trees', layer: 'background', weight: 0.09, sprite: FOREST_TREE_SPRUCE_TALL, pal: FOREST_TREE_PAL_SPRUCE_TALL, yOffset: -64 },
-          { kind: 'trees', layer: 'background', weight: 0.06, sprite: FOREST_TREE_SNAG, pal: FOREST_TREE_PAL_SNAG, yOffset: -48 },
-          { kind: 'midground', layer: 'midground', weight: 0.65, sprite: FOREST_TREE_TALL, pal: FOREST_TREE_TALL_PAL, yOffset: -72 },
-          { kind: 'midground', layer: 'midground', weight: 0.35, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
-          // floor (one stream per lane; `flat:true` v2 marks roam the lane field, §3.8)
-          { kind: 'leaf_drift', layer: 'floor', weight: 0.10, sprite: LEAF_DRIFT, pal: LEAF_DRIFT_PAL, flat: true },
-          { kind: 'grass_wave', layer: 'floor', weight: 0.10, sprite: GRASS_WAVE, pal: GRASS_WAVE_PAL, flat: true },
-          { kind: 'twig', layer: 'floor', weight: 0.04, sprite: TWIG, pal: TWIG_PAL, flat: true },
-          { kind: 'grass_tufts', layer: 'floor', weight: 0.16, sprite: GRASS_TUFT_A, pal: GRASS_TUFT_PAL, yOffset: -8 },
-          { kind: 'grass_tufts', layer: 'floor', weight: 0.14, sprite: GRASS_TUFT_B, pal: GRASS_TUFT_PAL, yOffset: -8 },
-          { kind: 'fern', layer: 'floor', weight: 0.10, sprite: FERN, pal: FERN_PAL, yOffset: -12 },
-          { kind: 'moss', layer: 'floor', weight: 0.10, sprite: MOSS, pal: MOSS_PAL, yOffset: -8 },
-          { kind: 'pine_needles', layer: 'floor', weight: 0.08, sprite: PINE_NEEDLES, pal: NEEDLES_PAL, yOffset: -8 },
-          { kind: 'leaf_litter', layer: 'floor', weight: 0.06, sprite: LEAF_LITTER, pal: LEAF_LITTER_PAL, yOffset: -6 },
+          // background: 11 kinds, weights sum exactly 1 (v4 §3.4.1)
+          { kind: 'trees', layer: 'background', weight: 0.14, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_CONIFER, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.12, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_DECIDUOUS, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.11, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
+          { kind: 'trees', layer: 'background', weight: 0.08, sprite: FOREST_BUSH, pal: FOREST_BUSH_PAL, yOffset: -20 },
+          { kind: 'trees', layer: 'background', weight: 0.10, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_AUTUMN, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.09, sprite: FOREST_TREE_DECIDUOUS, pal: FOREST_TREE_PAL_BIRCH, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.09, sprite: FOREST_TREE_CONIFER, pal: FOREST_TREE_PAL_SPRUCE_DARK, yOffset: -56 },
+          { kind: 'trees', layer: 'background', weight: 0.08, sprite: FOREST_TREE_SPRUCE_TALL, pal: FOREST_TREE_PAL_SPRUCE_TALL, yOffset: -64 },
+          { kind: 'trees', layer: 'background', weight: 0.05, sprite: FOREST_TREE_SNAG, pal: FOREST_TREE_PAL_SNAG, yOffset: -48 },
+          { kind: 'trees', layer: 'background', weight: 0.08, sprite: BUSH_CLUSTER, pal: BUSH_CLUSTER_PAL, yOffset: -20 },
+          { kind: 'trees', layer: 'background', weight: 0.06, sprite: BERRY_BUSH, pal: BERRY_BUSH_PAL, yOffset: -20 },
+          // midground: 4 kinds, weights sum exactly 1 (v4 §3.4.1)
+          { kind: 'midground', layer: 'midground', weight: 0.40, sprite: FOREST_TREE_TALL, pal: FOREST_TREE_TALL_PAL, yOffset: -72 },
+          { kind: 'midground', layer: 'midground', weight: 0.24, sprite: FOREST_TREE_BROAD, pal: FOREST_TREE_BROAD_PAL, yOffset: -60 },
+          { kind: 'midground', layer: 'midground', weight: 0.22, sprite: FOREST_TREE_WIDE, pal: FOREST_TREE_WIDE_PAL, yOffset: -64 },
+          { kind: 'midground', layer: 'midground', weight: 0.14, sprite: BUSH_CLUSTER, pal: BUSH_CLUSTER_PAL, yOffset: -20 },
+          // floor (one stream per lane; `flat:true` marks roam the lane field, §3.8);
+          // 17 kinds, weights sum exactly 1 (v4 §3.4.1)
+          { kind: 'leaf_drift', layer: 'floor', weight: 0.07, sprite: LEAF_DRIFT, pal: LEAF_DRIFT_PAL, flat: true },
+          { kind: 'grass_wave', layer: 'floor', weight: 0.07, sprite: GRASS_WAVE, pal: GRASS_WAVE_PAL, flat: true },
+          { kind: 'twig', layer: 'floor', weight: 0.03, sprite: TWIG, pal: TWIG_PAL, flat: true },
+          { kind: 'grass_patch', layer: 'floor', weight: 0.06, sprite: GRASS_PATCH, pal: GRASS_PATCH_PAL, flat: true },
+          { kind: 'grass_tufts', layer: 'floor', weight: 0.12, sprite: GRASS_TUFT_A, pal: GRASS_TUFT_PAL, yOffset: -8 },
+          { kind: 'grass_tufts', layer: 'floor', weight: 0.13, sprite: GRASS_TUFT_B, pal: GRASS_TUFT_PAL, yOffset: -8 },
+          { kind: 'grass_clump', layer: 'floor', weight: 0.08, sprite: GRASS_CLUMP_TALL, pal: GRASS_CLUMP_PAL, yOffset: -12 },
+          { kind: 'fern', layer: 'floor', weight: 0.08, sprite: FERN, pal: FERN_PAL, yOffset: -12 },
+          { kind: 'fern_curled', layer: 'floor', weight: 0.05, sprite: FERN_CURLED, pal: FERN_CURLED_PAL, yOffset: -14 },
+          { kind: 'grass_flower', layer: 'floor', weight: 0.05, sprite: GRASS_FLOWER, pal: GRASS_FLOWER_PAL, yOffset: -10 },
+          { kind: 'moss', layer: 'floor', weight: 0.08, sprite: MOSS, pal: MOSS_PAL, yOffset: -8 },
+          { kind: 'pine_needles', layer: 'floor', weight: 0.04, sprite: PINE_NEEDLES, pal: NEEDLES_PAL, yOffset: -8 },
+          { kind: 'leaf_litter', layer: 'floor', weight: 0.04, sprite: LEAF_LITTER, pal: LEAF_LITTER_PAL, yOffset: -6 },
           { kind: 'mushrooms', layer: 'floor', weight: 0.06, sprite: MUSHROOM_RED, pal: MUSHROOM_RED_PAL, yOffset: -12 },
-          { kind: 'mushrooms', layer: 'floor', weight: 0.02, sprite: MUSHROOM_BROWN, pal: MUSHROOM_BROWN_PAL, yOffset: -12 },
-          { kind: 'stones', layer: 'floor', weight: 0.03, sprite: STONE, pal: STONE_PAL, yOffset: -10 },
+          { kind: 'mushrooms', layer: 'floor', weight: 0.01, sprite: MUSHROOM_BROWN, pal: MUSHROOM_BROWN_PAL, yOffset: -12 },
+          { kind: 'stones', layer: 'floor', weight: 0.02, sprite: STONE, pal: STONE_PAL, yOffset: -10 },
           { kind: 'stones', layer: 'floor', weight: 0.01, sprite: STONE_ALT, pal: STONE_PAL, yOffset: -8 },
         ],
       },
@@ -3472,6 +3677,13 @@ window.GameCore = (function () {
         if (crest > bottom - 2) crest = bottom - 2;
         ctx.fillStyle = ground.rim;
         ctx.fillRect(x, crest, 1, 1);
+        // v4 crest shadow (§3.8i): a 2 px band directly under the rim, between
+        // the rim and the 2 px shade stripe at crest+3. Theme-gated
+        // (`ground.crestShadow`), so desert keeps its exact pixels.
+        if (ground.crestShadow) {
+          ctx.fillStyle = ground.crestShadow;
+          ctx.fillRect(x, crest + 1, 1, 2);
+        }
         ctx.fillStyle = ground.shade;
         ctx.fillRect(x, crest + 3, 1, 2);
       }
