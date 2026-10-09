@@ -1,57 +1,56 @@
-# Camel sprite v6 — 92×70 naturalistic dromedary rider + plain saddle blanket
+# Camel sprite v7 — 76×70 reference-matched stocky dromedary rider (no saddle blanket)
 
 Procedural pixel art for the Camel Race / Kamel Rennen racer. Facing **right**, one
 lane per camel. No image files: the matrices below drive the `drawSprite` pixel loop
 (legend — see [Legend](#legend-char--palette)). At the `1280×720` buffer the camel is
 drawn at **1:1** (no runtime scaling); the display scale is applied to the whole canvas.
 
-This is **draft A** from `docs/art/camel-drafts-v3.md`, promoted to the full lane
-budget **v6 (`92×70`)**. The v5 two-hump Bactrian is retired; the silhouette is a
-naturalistic single-hump dromedary with a four-tone brown body. See
-[Selection](#selection--history).
+This is **draft A** from [`docs/art/camel-drafts-v4.md`](camel-drafts-v4.md), promoted
+to **v7 (`76×70`)** and shipped in `index.html`: a reference-matched stocky single-hump
+dromedary with **no saddle blanket** — animal + rider only. The v6 `92×70` dromedary
+(with its plain blue blanket) is retired. See [Selection](#selection--history).
 
 | Item | Value |
 |---|---|
-| Size | **92 × 70** buffer px (uniform matrix all frames); painted bbox **84 × 68** standing/contact, **84 × 69** on the bob frames `2, 4` |
+| Size | **76 × 70** buffer px (uniform matrix all frames); painted bbox **72 × 68** at (col, row) **(3, 2)** on the standing/contact frames `0, 1, 3`; bob frames `2, 4` **71 × 69 @ (4, 1)** and **73 × 69 @ (2, 1)** |
 | Frames | 1 standing + 4-frame walk: `[stand, contact A, pass A, contact B, pass B]` (index 0 idle, 1–4 walk) |
-| Feet | on the **bottom row** (row 69) in every frame |
-| Bob | baked into the matrices: body/neck/head/blanket/rider **+1 px up** on the pass frames `2, 4`; planted hooves stay on row 69 |
+| Feet | hooves on the **bottom row** (row 69) in every frame |
+| Bob | baked into the matrices: body/neck/head/rider **+1 px up** on pass frames `2, 4`; planted hooves stay on row 69, so `drawSprite` needs no bob offset |
+| Blanket | **none** — no `L` cell, no `blanket` key; lane identity = team-name label + rider robe `R` (per-lane) |
 | Height budget | 70 px sprite + **2 px** feet offset in a **74.0 px** lane (`1280×720`, 8 lanes) → **2 px slack**; at the ±2 px dune crest (`h = +2`) the sprite top sits exactly on the lane top |
 | Team label | 12 px monospace `#e8e0d0` on a dark pill **4 px above the sprite top**; clamped to the canvas |
-| Previews | throwaway-rendered outside the repo (see [drafts v3](camel-drafts-v3.md)): `/tmp/art-previews/camel-v6-drafts-contact.png` (4 drafts bare + dressed, 6×, grid), `/tmp/art-previews/camel-v6-walk.png` (draft A stand + 4 walk frames, 4×) |
-| Status | **v6 (draft A)**, supersedes v5 `66×62`; **dressed form is what the game renders** |
+| Previews | throwaway-rendered outside the repo (see [drafts v4](camel-drafts-v4.md)): `/tmp/art-previews/camel-v7-drafts-contact.png` (A/B/C bare + dressed, 6×, grid), `/tmp/art-previews/camel-v7-walk.png` (draft A stand + 4 walk frames, 6× + 1× sand strip) |
+| Status | **v7 (draft A)**, shipped in `index.html` (`const CAMEL`, registry `w: 76, h: 70`); supersedes v6 `92×70` |
 
 Body is **brown** per the pixel-art reference. The **rider's robe** takes the lane
-colour (palette-swap). The **saddle blanket** is a **plain** light-blue patch with no
-digit; the lane/team is identified by the **team-name label above the animal**.
+colour (palette-swap). The lane/team is identified by the **team-name label above the
+animal** plus the robe colour — there is no blanket and no per-lane digit.
 
 ## Goal
 
-Match the reference art palette with the **naturalistic single-hump dromedary**
-silhouette of draft A: four-tone brown body (`B`/`S`/`D`), dark outline `O`, grey
-harness `G`, long S-curved neck, small wedge head with a drooping muzzle, thin tufted
-tail, a fairground rider and a plain saddle blanket; the canvas team-name label above
-each animal makes each lane read as a distinct racer at a glance.
-v6 uses the full lane budget (70 px tall), keeps the draft's painted detail (long thin
-legs, two-toe hooves, readable eye) and bakes the pass-frame bob into the matrices
-instead of shifting at runtime.
+Match the reference art with the **stocky single-hump dromedary** silhouette of draft A:
+four-tone brown body (`B`/`S`/`D`), dark outline `O`, grey harness `G`, short thick
+neck, blocky head with a drooping muzzle, thin tufted tail, and a fairground rider
+seated **directly on the back** (no saddle box). The canvas team-name label above each
+animal makes each lane read as a distinct racer at a glance. The 1 px pass-frame bob is
+baked into the matrices instead of shifting at runtime.
 
 ## Reference art
 
-User-provided pixel-art and fairground-photo references informed the palette/silhouette
-(removed from the repo for copyright reasons; art stays procedural and the removed
-images are **not** linked or loaded). The camel silhouette/palette was generated by a
-throwaway script (`/tmp/art-gen/camel_v6_gen.py`, outside the repo) and specified in
-[`camel-drafts-v3.md`](camel-drafts-v3.md); this file is the promoted, shipped form.
+Traced from the user-provided reference image `camel-pixalart.png` (repo root,
+508×564; camel bbox 397×397 px, feet on the last row — a stocky ~1:1 dromedary with one
+hump). The file is **gitignored and never committed, never linked or embedded in docs,
+never loaded at runtime** — only the matrices below ship. Crop/measure/trace ran in a
+throwaway script outside the repo; [`camel-drafts-v4.md`](camel-drafts-v4.md) is the
+full round, this file is the promoted, shipped form.
 
 ## Dressed variant
 
 `const CAMEL` (below) is the **dressed** form the game renders: draft A body/legs with
 the rider (`W` turban, `K` face/hands, lane-colour `R` robe, dark `O` boots, `G` reins
-and girth) and the `L` blanket overlaid; the per-lane digit is **retired** — the team
-name is the canvas label above the animal (see [Saddle blanket](#saddle-blanket)).
-`DRAFT_A_BARE` is the rider-less/blanket-less standing reference (silhouette/anatomy
-source).
+and girth) and **no blanket** — the `L` pad and the `blanket` palette key are gone; the
+per-lane digit stays retired (team name = canvas label above the animal).
+`CAMEL_A_BARE` is the rider-less standing reference (silhouette/anatomy source).
 
 ## Palette
 
@@ -59,26 +58,25 @@ Fixed tones (draft A). Contrast ratios are WCAG.
 
 | Token | Hex | Use |
 |---|---|---|
-| `outline` | `#1c1208` | silhouette outline, hooves, eye |
-| `body` | `#d9a05b` | camel body (lit) |
-| `shade` | `#b4763a` | bulk mid-tone, legs, belly, tail |
-| `shadeDeep` | `#82521f` | deep shade under belly/legs + blanket weave (legend `D`) — **one new token vs v5** |
+| `outline` | `#1c1208` | silhouette outline, hooves, eye, nostril |
+| `body` | `#de914d` | camel body light (lit top surfaces) |
+| `shade` | `#c37c3a` | body mid (barrel, legs) |
+| `shadeDeep` | `#b27035` | body deep (belly, lee edges, seams, tail; legend `D`) |
 | `harness` | `#53565e` | grey neck strap / girth / reins (legend `G`) |
 | `eyeWhite` | `#f0ece0` | rider turban (legend `W`) |
-| `skin` | `#d8a878` | rider face + hands |
-| `blanket` | `#bfe3ea` | saddle blanket (light blue, plain) |
-| `robe` | **lane colour** | rider robe — 8-colour game palette (below) |
+| `skin` | `#d8a878` | rider face + hands (legend `K`) |
+| `robe` | **lane colour** | rider robe (legend `R`) — 8-colour game palette (below) |
 
-**`D` → `shadeDeep` is the one new legend char / palette key vs v5.** The four body
-tones `body #d9a05b` / `shade #b4763a` / `shadeDeep #82521f` / `outline #1c1208` model
-lit crest, mid bulk, deep shade and ink; `harness #53565e` carries straps/girth/reins.
-Every legend char routes through the sprite palette (see
+The three body tones model lit crest / mid bulk / deep shade; `outline` is the near-black
+ink. Every legend char routes through the sprite palette (see
 [Implementer notes](#implementer-notes)).
 
-Contrast checks (WCAG, computed): outline↔body **8.01:1**, blanket↔body **1.69:1**,
-blanket↔outline **13.51:1**, robe (lane 0)↔body **1.67:1**. Non-text contrast needs
-≥ 3:1: the outline passes; the blanket is carried by the outline + the blue/orange hue
-split (the most colour-vision-deficiency-safe pair) rather than luminance.
+Contrast checks (WCAG, computed): `outline`↔`body` **7.25:1**, `outline`↔`shade`
+**5.50:1**, `outline`↔`shadeDeep` **4.62:1**. Non-text contrast needs ≥ 3:1 — the
+outline passes on all three body tones; the body-tone steps themselves are deliberately
+low-contrast (`body`↔`shade` 1.32:1, `body`↔`shadeDeep` 1.57:1, `shade`↔`shadeDeep`
+1.19:1) to match the reference shading, and the silhouette is read from the outline
+(7.72:1 vs dune sand `#c9a25a`).
 
 Lane colours (robe only, in lane order):
 
@@ -89,505 +87,505 @@ Lane colours (robe only, in lane order):
 ## Legend (char → palette)
 
 Every char resolves through the sprite's palette object. Only **`R` is per-lane**; all
-others are fixed. Legend is **`. O B S D G R W K L`** (validator whitelist).
+others are fixed. Legend is **`. O B S D G R W K`** (validator whitelist). **`L` is not a
+camel char** and `CHAR_KEY` has no `L` key (both removed); forest decor sprites that use
+`L` (leaf litter, mesa) carry their own `L` palette key.
 
 | char | meaning | colour | per-lane? |
 |---|---|---|---|
 | `.` | transparent | — | — |
-| `O` | outline / hoof / eye | `#1c1208` | no |
-| `B` | camel body (lit) | `#d9a05b` | no |
-| `S` | camel shade (bulk) | `#b4763a` | no |
-| `D` | deep shade (`shadeDeep`) | `#82521f` | no |
+| `O` | outline / hoof / eye / nostril | `#1c1208` | no |
+| `B` | camel body light | `#de914d` | no |
+| `S` | camel body mid | `#c37c3a` | no |
+| `D` | body deep (`shadeDeep`) | `#b27035` | no |
 | `G` | harness grey (straps, girth, reins) | `#53565e` | no |
 | `R` | rider robe | lane colour | **yes** |
 | `W` | white (turban) | `#f0ece0` | no |
 | `K` | skin (face, hands) | `#d8a878` | no |
-| `L` | saddle blanket | `#bfe3ea` | no |
 
-## Matrices (v6 — authoritative)
+## Matrices (v7 — authoritative)
 
-5 dressed frames, each **70 rows × 92 chars**. Frame 0 = standing; 1–4 = walk
+5 dressed frames, each **70 rows × 76 chars**. Frame 0 = standing; 1–4 = walk
 (`contact A → pass A → contact B → pass B`), i.e. `[stand, contactA, passA, contactB, passB]`.
 Bob (body +1 px up) is baked into frames 2/4. The block below is byte-identical to
-`index.html` and to `CAMEL_A` in [drafts v3](camel-drafts-v3.md).
+`const CAMEL` in `index.html` (and cell-for-cell identical to `CAMEL_A_STAND[0] + CAMEL_A_WALK`
+in [drafts v4](camel-drafts-v4.md)).
 
-### `const CAMEL` — 5 frames (92 wide × 70 tall)
+### `const CAMEL` — 5 frames (76 wide × 70 tall)
 
-```
+```js
   const CAMEL = [
-    [ // frame 0 — standing (idle)
-      '............................................................................................',
-      '............................................................................................',
-      '....................................................................O.......................',
-      '...................................................................OBO......................',
-      '..................................................................OBSBO.....................',
-      '.................................................................OBSSSO.....................',
-      '.................................................................OSSSSBO....................',
-      '................................................................OBSSSSSBOOOO................',
-      '................................................................OSSSBBBBBBBBOOO.............',
-      '..............................OOO...............................OSSBBBBDDDBBBBBOO...........',
-      '............................OOWWWO..............................OSBBSSSSOOSSBBBBBO..........',
-      '...........................OWWWWWWO............................OOBBSSSSSOOSSSSSBBBO.........',
-      '...........................OWWWWWWO...........................OBBBSSSSSSSSSSSSSSSBBO........',
-      '............................OKKKKO...........................OBBBSSSSSSSSSSSSSSSSSBBO.......',
-      '............................OKKKO..........................OOOBBSSSSSSSSSSSSSSSSSSSBBO......',
-      '............................OKKKKO.....................OOOOGGGGGSSSSSSSSSSSSSSSSSSSSBBOO....',
-      '............................OKKKKOO...............OOOOOGGGGOBBGGDDDDDDSSSSSSSSSSSSSSSBBBO...',
-      '...........................ORRRRRRROOO.......OOOOOGGGGGOOOOOBBGGDOOOOODDDDDSSSSSSSSSSSBBBO..',
-      '...........................ORRRRRRRRRRO..OOOOGGGGGOOOOO...OBBGGDO.....OOOOODDDSSSSSSSSOSBBO.',
-      '...........................ORRRRRRRRRRKOOGGGGOOOOO.......OBBSGGDO..........OOODDSSSSSSOSSBO.',
-      '...........................ORRRRRRROOOKGGOOOO............OBBSGGDO.............OODDDDDDDDDDO.',
-      '..........................OBRRRRRRRO..OOO...............OBBSSSDO................OOOOOOOOOO..',
-      '.........................OBGRRRRRRRBO...................OBBSSSDO............................',
-      '........................OBGLLRRLLLLGBO.................OBBSSSSDO............................',
-      '........................OGLLLRRLLLLLGBO................OBBSSSDO.............................',
-      '.......................OBLLLLDDDLLLGLGBO..............OBBSSSSDO.............................',
-      '.......................OGLLLLDDDDLLGGLGBO.............OBBSSSSDO.............................',
-      '......................OBLLLLLLLLLLLGGLLGBO...........OBBSSSSSDO.............................',
-      '.....................OBBLLLLLLLLLLLGGLLLGBOO.........OBBSSSSDO..............................',
-      '....................OBBSLLLLLLLLLLLGGLLLLGBBOOOOOOOOOBBSSSSSDO..............................',
-      '..................OOBBSSLLLLLLLLLLLGGLLLLLGGBBBBBBBBBBBSSSSSDO..............................',
-      '................OOBBBSSSLLLLLLLLLLLGGLLLLLLLGGGGBBBBBBBBBBBBOO..............................',
-      '..............OOBBBBSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSBBBBBBBO.............................',
-      '.............OBBBBSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSBBBO............................',
-      '.............OBBSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDBO............................',
-      '.............OSSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDO.............................',
-      '.............ODSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSDDO.............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSDDO..............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSDDDO..............................',
-      '............OSDDDSSSSSSSLLLLLLLLLLLGGLLLLLLSSSSSSSSSSSSSDDDDO...............................',
-      '...........OSDDODDSSSSSSSSSSSSSSSSSGGSSSSSSSSSSSSSSSSDDDDDDO................................',
-      '...........OSDOODDDDSSSSSSSSSSSSSSSGGSSSSSSDDDDDDDDDDDDDDDO.................................',
-      '...........OSDOOSDDDDDDDDDDDDDDDDDDGGDDDDDDDDDDDDDDDDDDDOO..................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDDDDDDDDDDDBSSSDO.................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDOSDDDDOOOOBSSSDO.................................',
-      '..........OOSDOOSDDDDOOOOBSSSDOOOOOOOOOOOOOOSDDDDO..OBSSSDO.................................',
-      '.........OSSDO.OSDDDO...OBSSSDO............OSDDDDO..OBSSSDO.................................',
-      '........ODDDDO.OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.......ODDDDDO.OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '........ODDDO..OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.........ODO...OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '..........O....OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSDSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSDSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDO....OBSSDO..................................',
-      '...............OSDDO...OBSSSDO.............OSDDO....OBSSDO..................................',
-      '...............OSDDO....OBSSDO.............OSDDO....OBSSDO..................................',
-      '...............OSDDO....OBSDO..............OSDDO....OBSDO...................................',
-      '...............OSDDO....OBSDO..............OSDDO....OBSDO...................................',
-      '...............OOOOO....OOOOO..............OOOOO....OOOOO...................................',
-      '...............OOSOO....OOSOO..............OOSOO....OOSOO...................................',
-      '...............OOSOO....OOSOO..............OOSOO....OOSOO...................................',
+    [ // frame 0 - standing (idle)
+      '............................................................................',
+      '............................................................................',
+      '.................................................OOOOOOOOOOOOOOOO...........',
+      '.................................................ODDDDBBBBBBBBBBO...........',
+      '.................................................ODDDDBBBBBBBBBBOO..........',
+      '.................................................ODDDBBBBBBBBBBBBOOOOOOOOO..',
+      '.................................................ODDDBBBBBBBBBBBBBDDDDDDBO..',
+      '.................................................OOOOBBBBBBBBBBBBBDDDDDDBOO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSSOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSOOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSO...',
+      '....................................OOOOO...........OSSSSSSSSSSDDDDDOOOOO...',
+      '..................................OOOOOOOO..........OSSSSSSSSSSDDDDDO.......',
+      '...................OOOOOOOOOOOOOOOOOOWWWOOO.........OBBBBBBBBBBBBBOOO.......',
+      '...................OBBBBBBBBBBBBBOOWWWWWWOO........OOBBBBBBBBBBBBBO.........',
+      '.................OOOBBBBBBBBBBBBBOOWWWWWWOO........OBBBBBBBBBBBBBOO.........',
+      '.................OBBBBBBBBBBBBBBBBOKKKKKKOO.......OOBBBBBBBBBBBGBO..........',
+      '...............OOOBBBBBBBBBBBBBBBBOKKKKKKOO.......OBBBBBBBBBBBBGBO..........',
+      '...............OSSSSSSSSSSSSSSSSSSSOKKKKKOOO.....OOBBBBBBBBBBBBGBO..........',
+      '.............OOOSSSSSSSSSSSSSSSSSSSOKKKKKOOOOO...ODDBBBBBBBBBBGBOO..........',
+      '.............OSSSSSSSSSSSSSSSSSSSORRRRRRROOOOOOOOODDBBBBBBBBBBGBO...........',
+      '...........OODDDDDSSSSSSSSSSSSSSSORRRRRRRRRRKOSOODDBBBBBBBBBBGBOO...........',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRRROOOSOODDSSSSSSSSSSGSO............',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRODDDSSSSDDSSSSSSSSSSGSO............',
+      '..........OOOBBBSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSDDSSSSSSSSSSGSO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSSSSSSSSSSSOOOOO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSGSSSSSSSSSSSSSSO................',
+      '........OOOBBBSSSSSSSSSSSSSSSSSSSORRRROOOOSSGSSSSSSSSSSSSSSOOO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSOOOOOOOOSSSGSSSSSSSSSSSSSSSBO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBO..............',
+      '.......OOSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBOO.............',
+      '.......OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......OODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDOOO.............',
+      '.....OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDO...............',
+      '.....ODDDSSDDDOOOOOBSSSDOOOOOOOOOOOOOSSDDDOOODBSSSDDDDDDDDDDO...............',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO.ODBSSSDDDDDDDDDDO...............',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO.OOBSSSDOOOOOOOOOO...............',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....OODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....ODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....ODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...OODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...ODDDOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...ODDDOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...ODDDOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...OOOOOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OOOOOOO...OOOOOOO...........OOOOOOO..OOOOOOO........................',
+      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................',
+      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................'
     ],
-    [ // frame 1 — contact A (all hooves planted, max spread)
-      '............................................................................................',
-      '............................................................................................',
-      '....................................................................O.......................',
-      '...................................................................OBO......................',
-      '..................................................................OBSBO.....................',
-      '.................................................................OBSSSO.....................',
-      '.................................................................OSSSSBO....................',
-      '................................................................OBSSSSSBOOOO................',
-      '................................................................OSSSBBBBBBBBOOO.............',
-      '..............................OOO...............................OSSBBBBDDDBBBBBOO...........',
-      '............................OOWWWO..............................OSBBSSSSOOSSBBBBBO..........',
-      '...........................OWWWWWWO............................OOBBSSSSSOOSSSSSBBBO.........',
-      '...........................OWWWWWWO...........................OBBBSSSSSSSSSSSSSSSBBO........',
-      '............................OKKKKO...........................OBBBSSSSSSSSSSSSSSSSSBBO.......',
-      '............................OKKKO..........................OOOBBSSSSSSSSSSSSSSSSSSSBBO......',
-      '............................OKKKKO.....................OOOOGGGGGSSSSSSSSSSSSSSSSSSSSBBOO....',
-      '............................OKKKKOO...............OOOOOGGGGOBBGGDDDDDDSSSSSSSSSSSSSSSBBBO...',
-      '...........................ORRRRRRROOO.......OOOOOGGGGGOOOOOBBGGDOOOOODDDDDSSSSSSSSSSSBBBO..',
-      '...........................ORRRRRRRRRRO..OOOOGGGGGOOOOO...OBBGGDO.....OOOOODDDSSSSSSSSOSBBO.',
-      '...........................ORRRRRRRRRRKOOGGGGOOOOO.......OBBSGGDO..........OOODDSSSSSSOSSBO.',
-      '...........................ORRRRRRROOOKGGOOOO............OBBSGGDO.............OODDDDDDDDDDO.',
-      '..........................OBRRRRRRRO..OOO...............OBBSSSDO................OOOOOOOOOO..',
-      '.........................OBGRRRRRRRBO...................OBBSSSDO............................',
-      '........................OBGLLRRLLLLGBO.................OBBSSSSDO............................',
-      '........................OGLLLRRLLLLLGBO................OBBSSSDO.............................',
-      '.......................OBLLLLDDDLLLGLGBO..............OBBSSSSDO.............................',
-      '.......................OGLLLLDDDDLLGGLGBO.............OBBSSSSDO.............................',
-      '......................OBLLLLLLLLLLLGGLLGBO...........OBBSSSSSDO.............................',
-      '.....................OBBLLLLLLLLLLLGGLLLGBOO.........OBBSSSSDO..............................',
-      '....................OBBSLLLLLLLLLLLGGLLLLGBBOOOOOOOOOBBSSSSSDO..............................',
-      '..................OOBBSSLLLLLLLLLLLGGLLLLLGGBBBBBBBBBBBSSSSSDO..............................',
-      '................OOBBBSSSLLLLLLLLLLLGGLLLLLLLGGGGBBBBBBBBBBBBOO..............................',
-      '..............OOBBBBSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSBBBBBBBO.............................',
-      '.............OBBBBSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSBBBO............................',
-      '.............OBBSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDBO............................',
-      '.............OSSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDO.............................',
-      '.............ODSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSDDO.............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSDDO..............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSDDDO..............................',
-      '............OSDDDSSSSSSSLLLLLLLLLLLGGLLLLLLSSSSSSSSSSSSSDDDDO...............................',
-      '...........OSDDODDSSSSSSSSSSSSSSSSSGGSSSSSSSSSSSSSSSSDDDDDDO................................',
-      '...........OSDOODDDDSSSSSSSSSSSSSSSGGSSSSSSDDDDDDDDDDDDDDDO.................................',
-      '...........OSDOOSDDDDDDDDDDDDDDDDDDGGDDDDDDDDDDDDDDDDDDDOO..................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDDDDDDDDDDDBSSSDO.................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDOOSDDDOOOOBSSSDO.................................',
-      '..........OOSDOOSDDDOOOOOBSSSSDOOOOOOOOOOOO.OSDDDO.OBSSSSDO.................................',
-      '.........OSSDOOSDDDDO....OBSSSDO............OSDDDO.OBSSSDO..................................',
-      '........ODDDDOOSDDDO.....OBSSSDO............OSDDDDOOBSSSDO..................................',
-      '.......ODDDDDOOSDDDO.....OBSSSDO.............OSDDDOOBSSSDO..................................',
-      '........ODDDO.OSDDDO.....OBSSSSDO............OSDDDOBSSSSDO..................................',
-      '.........ODO.OSDDDDO......OBSSSDO............OSDDDDBSSSDO...................................',
-      '..........O..OSDDDO.......OBSSSDO............OSDDDDBSSSDO...................................',
-      '.............OSDDDO.......OBSSSDO.............OSDDDBSSSDO...................................',
-      '.............OSDDDO.......OBSSSSDO............OSDDBSSSSDO...................................',
-      '............OSDDDDO........OBSSSDO............OSDDBSSSDO....................................',
-      '............OSDDDO.........OBSSSDO............OSDDBSSSDO....................................',
-      '............OSDDDO.........OBSSSSDO............OSBSSDSDO....................................',
-      '...........OSDDDDO.........OBSSSSDO............OSBSSSDO.....................................',
-      '...........OSDDDDO..........OBSDSDO............OSBSSSDO.....................................',
-      '...........OSDDDO...........OBSSSDO.............OBSSSDO.....................................',
-      '...........OSDDDO...........OBSSSDO.............OBSSDO......................................',
-      '...........OSDDDO............OBSSSDO............OBSSDO......................................',
-      '...........OSDDO.............OBSSSDO...........OBSSSDO......................................',
-      '..........OSDDDO..............OBSSDO...........OBSSDDO......................................',
-      '..........OSDDDO..............OBSSDO...........OBSSDDDO.....................................',
-      '..........OSDDO...............OBSSDO...........OBSSDDDO.....................................',
-      '..........OSDDO................OBSDO...........OBSDSDDO.....................................',
-      '..........OOOOO................OOOOO...........OOOOOOOO.....................................',
-      '..........OOSOO................OOSOO...........OOSOOSOO.....................................',
-      '..........OOSOO................OOSOO...........OOSOOSOO.....................................',
+    [ // frame 1 - contact A (near-front forward, far-front back)
+      '............................................................................',
+      '............................................................................',
+      '.................................................OOOOOOOOOOOOOOOO...........',
+      '.................................................ODDDDBBBBBBBBBBO...........',
+      '.................................................ODDDDBBBBBBBBBBOO..........',
+      '.................................................ODDDBBBBBBBBBBBBOOOOOOOOO..',
+      '.................................................ODDDBBBBBBBBBBBBBDDDDDDBO..',
+      '.................................................OOOOBBBBBBBBBBBBBDDDDDDBOO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSSOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSOOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSO...',
+      '....................................OOOOO...........OSSSSSSSSSSDDDDDOOOOO...',
+      '..................................OOOOOOOO..........OSSSSSSSSSSDDDDDO.......',
+      '...................OOOOOOOOOOOOOOOOOOWWWOOO.........OBBBBBBBBBBBBBOOO.......',
+      '...................OBBBBBBBBBBBBBOOWWWWWWOO........OOBBBBBBBBBBBBBO.........',
+      '.................OOOBBBBBBBBBBBBBOOWWWWWWOO........OBBBBBBBBBBBBBOO.........',
+      '.................OBBBBBBBBBBBBBBBBOKKKKKKOO.......OOBBBBBBBBBBBGBO..........',
+      '...............OOOBBBBBBBBBBBBBBBBOKKKKKKOO.......OBBBBBBBBBBBBGBO..........',
+      '...............OSSSSSSSSSSSSSSSSSSSOKKKKKOOO.....OOBBBBBBBBBBBBGBO..........',
+      '.............OOOSSSSSSSSSSSSSSSSSSSOKKKKKOOOOO...ODDBBBBBBBBBBGBOO..........',
+      '.............OSSSSSSSSSSSSSSSSSSSORRRRRRROOOOOOOOODDBBBBBBBBBBGBO...........',
+      '...........OODDDDDSSSSSSSSSSSSSSSORRRRRRRRRRKOSOODDBBBBBBBBBBGBOO...........',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRRROOOSOODDSSSSSSSSSSGSO............',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRODDDSSSSDDSSSSSSSSSSGSO............',
+      '..........OOOBBBSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSDDSSSSSSSSSSGSO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSSSSSSSSSSSOOOOO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSGSSSSSSSSSSSSSSO................',
+      '........OOOBBBSSSSSSSSSSSSSSSSSSSORRRROOOOSSGSSSSSSSSSSSSSSOOO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSOOOOOOOOSSSGSSSSSSSSSSSSSSSBO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBO..............',
+      '.......OOSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBOO.............',
+      '.......OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......OODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDOOO.............',
+      '.....OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDO...............',
+      '.....ODDDDDDOOOOOOOOOBSSSDOOOOOOOOOOOOOSSDDDBSSSDDDDDDDDDDDDO...............',
+      '.....ODDDDDDO.......OBSSSDO...........OSSDDDBSSSDDDDDDDDDDDDO...............',
+      '.....ODDDDDDO.......OBSSSDO...........OSSDDDBSSSDOOOOOOOOOOOO...............',
+      '.....ODDDDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '.....ODDDDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '.....ODDDDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '....OODDDDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '....ODDDSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '....ODDDSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '...OODDDSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '...ODDDSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '...ODDDSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '...ODDDSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '...OOOOSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '......OSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '......OSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '......OSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '......OSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '......OSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '......OSSDDDO.......OBSSSDO...........OSSDDDBSSSDO..........................',
+      '......OOOOOOO.......OOOOOOO...........OOOOOOOOOOOO..........................',
+      '......OOOSOOO.......OOOSOOO...........OOOSOOOOSOOO..........................',
+      '......OOOSOOO.......OOOSOOO...........OOOSOOOOSOOO..........................'
     ],
-    [ // frame 2 — pass A (body +1 px up, hooves planted)
-      '............................................................................................',
-      '....................................................................O.......................',
-      '...................................................................OBO......................',
-      '..................................................................OBSBO.....................',
-      '.................................................................OBSSSO.....................',
-      '.................................................................OSSSSBO....................',
-      '................................................................OBSSSSSBOOOO................',
-      '................................................................OSSSBBBBBBBBOOO.............',
-      '..............................OOO...............................OSSBBBBDDDBBBBBOO...........',
-      '............................OOWWWO..............................OSBBSSSSOOSSBBBBBO..........',
-      '...........................OWWWWWWO............................OOBBSSSSSOOSSSSSBBBO.........',
-      '...........................OWWWWWWO...........................OBBBSSSSSSSSSSSSSSSBBO........',
-      '............................OKKKKO...........................OBBBSSSSSSSSSSSSSSSSSBBO.......',
-      '............................OKKKO............................OBBSSSSSSSSSSSSSSSSSSSBBO......',
-      '............................OKKKKO.........................OOBGGSSSSSSSSSSSSSSSSSSSSBBOO....',
-      '............................OKKKKOO..................OOOOOOGGGGGDDDDDDSSSSSSSSSSSSSSSBBBO...',
-      '...........................ORRRRRRROOO.........OOOOOOGGGGGGOBBGGDOOOOODDDDDSSSSSSSSSSSBBBO..',
-      '...........................ORRRRRRRRRRO..OOOOOOGGGGGGOOOOOOBBGGDO.....OOOOODDDSSSSSSSSOSBBO.',
-      '...........................ORRRRRRRRRRKOOGGGGGGOOOOOO....OBBSGGDO..........OOODDSSSSSSOSSBO.',
-      '...........................ORRRRRRROOOKGGOOOOOO..........OBBSGGDO.............OODDDDDDDDDDO.',
-      '..........................OBRRRRRRRO..OOO...............OBBSSSDO................OOOOOOOOOO..',
-      '.........................OBGRRRRRRRBO...................OBBSSSDO............................',
-      '........................OBGLLRRLLLLGBO.................OBBSSSSDO............................',
-      '........................OGLLLRRLLLLLGBO................OBBSSSDO.............................',
-      '.......................OBLLLLDDDLLLGLGBO..............OBBSSSSDO.............................',
-      '.......................OGLLLLDDDDLLGGLGBO.............OBBSSSSDO.............................',
-      '......................OBLLLLLLLLLLLGGLLGBO...........OBBSSSSSDO.............................',
-      '.....................OBBLLLLLLLLLLLGGLLLGBOO.........OBBSSSSDO..............................',
-      '....................OBBSLLLLLLLLLLLGGLLLLGBBOOOOOOOOOBBSSSSSDO..............................',
-      '..................OOBBSSLLLLLLLLLLLGGLLLLLGGBBBBBBBBBBBSSSSSDO..............................',
-      '................OOBBBSSSLLLLLLLLLLLGGLLLLLLLGGGGBBBBBBBBBBBBOO..............................',
-      '..............OOBBBBSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSBBBBBBBO.............................',
-      '.............OBBBBSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSBBBO............................',
-      '.............OBBSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDBO............................',
-      '.............OSSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDO.............................',
-      '.............ODSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSDDO.............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSDDO..............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSDDDO..............................',
-      '............OSDDDSSSSSSSLLLLLLLLLLLGGLLLLLLSSSSSSSSSSSSSDDDDO...............................',
-      '............OSDODDSSSSSSSSSSSSSSSSSGGSSSSSSSSSSSSSSSSDDDDDDO................................',
-      '...........OSDOODDDDSSSSSSSSSSSSSSSGGSSSSSSDDDDDDDDDDDDDDDO.................................',
-      '...........OSDOOSDDDDDDDDDDDDDDDDDDGGDDDDDDDDDDDDDDDDDDDOO..................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDDDDDDDDDDDBSSSDO.................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDOSDDDDOOOOBSSSDO.................................',
-      '..........OSDDOOSDDDDOOOOBSSSDOOOOOOOOOOOOOOSDDDDO..OBSSSDO.................................',
-      '..........OSDO.OSDDDO...OBSSSDO............OSDDDDO..OBSSSDO.................................',
-      '..........OSDO.OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.........OSOO..OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '........ODDDO..OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.......ODDDDDO.OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '........ODDDO..OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.........ODO...OSDDDO...OBSSSDO............OSDDDO..OBSSSSDO.................................',
-      '..........O....OSDDDO...OBSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSDSSDO.................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO...OBSDSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO...OBSSDO..................................',
-      '...............OSDDO....OBSSSDO............OSDDO....OBSSDO..................................',
-      '...............OSDDO....OBSSSDO............OSDDO....OBSSDO..................................',
-      '...............OSDDO.....OBSDO.............OSDDO....OBSDO...................................',
-      '...............OSDDO.....OBSDO.............OSDDO....OBSDO...................................',
-      '...............OOOOO.....OBSDO.............OSDDO....OOOOO...................................',
-      '...............OOSOO.....OOOOO.............OOOOO....OOSOO...................................',
-      '...............OOSOO.....OOSOO.............OOSOO....OOSOO...................................',
-      '.................O.......OOSOO.............OOSOO......O.....................................',
+    [ // frame 2 - pass A (1 px bob, legs under body)
+      '............................................................................',
+      '.................................................OOOOOOOOOOOOOOOO...........',
+      '.................................................ODDDDBBBBBBBBBBO...........',
+      '.................................................ODDDDBBBBBBBBBBOO..........',
+      '.................................................ODDDBBBBBBBBBBBBOOOOOOOOO..',
+      '.................................................ODDDBBBBBBBBBBBBBDDDDDDBO..',
+      '.................................................OOOOBBBBBBBBBBBBBDDDDDDBOO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSSOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSOOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSO...',
+      '....................................OOOOO...........OSSSSSSSSSSDDDDDOOOOO...',
+      '..................................OOOOOOOO..........OSSSSSSSSSSDDDDDO.......',
+      '...................OOOOOOOOOOOOOOOOOOWWWOOO.........OBBBBBBBBBBBBBOOO.......',
+      '...................OBBBBBBBBBBBBBOOWWWWWWOO........OOBBBBBBBBBBBBBO.........',
+      '.................OOOBBBBBBBBBBBBBOOWWWWWWOO........OBBBBBBBBBBBBBOO.........',
+      '.................OBBBBBBBBBBBBBBBBOKKKKKKOO.......OOBBBBBBBBBBBGBO..........',
+      '...............OOOBBBBBBBBBBBBBBBBOKKKKKKOO.......OBBBBBBBBBBBBGBO..........',
+      '...............OSSSSSSSSSSSSSSSSSSSOKKKKKOOO.....OOBBBBBBBBBBBBGBO..........',
+      '.............OOOSSSSSSSSSSSSSSSSSSSOKKKKKOOOOO...ODDBBBBBBBBBBGBOO..........',
+      '.............OSSSSSSSSSSSSSSSSSSSORRRRRRROOOOOOOOODDBBBBBBBBBBGBO...........',
+      '...........OODDDDDSSSSSSSSSSSSSSSORRRRRRRRRRKOSOODDBBBBBBBBBBGBOO...........',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRRROOOSOODDSSSSSSSSSSGSO............',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRODDDSSSSDDSSSSSSSSSSGSO............',
+      '..........OOOBBBSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSDDSSSSSSSSSSGSO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSSSSSSSSSSSOOOOO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSGSSSSSSSSSSSSSSO................',
+      '........OOOBBBSSSSSSSSSSSSSSSSSSSORRRROOOOSSGSSSSSSSSSSSSSSOOO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSOOOOOOOOSSSGSSSSSSSSSSSSSSSBO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBO..............',
+      '.......OOSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBOO.............',
+      '.......OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......OODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDOOO.............',
+      '......OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDO...............',
+      '......ODDDSDDDOOOOOBSSSDOOOOOOOOOOOOOSSDDDOOODBSSSDDDDDDDDDDO...............',
+      '......ODDDSDDDO...OBSSSDO...........OSSDDDO.ODBSSSDDDDDDDDDDO...............',
+      '......ODDDSDDDO...OBSSSDO...........OSSDDDO.OOBSSSDOOOOOOOOOO...............',
+      '......ODDDSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '......ODDDSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '......ODDDSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '.....OODDDSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....OODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....ODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....ODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....ODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....OOOOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OOOOOOO...OOOOOOO...........OOOOOOO..OOOOOOO........................',
+      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................',
+      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................'
     ],
-    [ // frame 3 — contact B (mirrored spread)
-      '............................................................................................',
-      '............................................................................................',
-      '....................................................................O.......................',
-      '...................................................................OBO......................',
-      '..................................................................OBSBO.....................',
-      '.................................................................OBSSSO.....................',
-      '.................................................................OSSSSBO....................',
-      '................................................................OBSSSSSBOOOO................',
-      '................................................................OSSSBBBBBBBBOOO.............',
-      '..............................OOO...............................OSSBBBBDDDBBBBBOO...........',
-      '............................OOWWWO..............................OSBBSSSSOOSSBBBBBO..........',
-      '...........................OWWWWWWO............................OOBBSSSSSOOSSSSSBBBO.........',
-      '...........................OWWWWWWO...........................OBBBSSSSSSSSSSSSSSSBBO........',
-      '............................OKKKKO...........................OBBBSSSSSSSSSSSSSSSSSBBO.......',
-      '............................OKKKO..........................OOOBBSSSSSSSSSSSSSSSSSSSBBO......',
-      '............................OKKKKO.....................OOOOGGGGGSSSSSSSSSSSSSSSSSSSSBBOO....',
-      '............................OKKKKOO...............OOOOOGGGGOBBGGDDDDDDSSSSSSSSSSSSSSSBBBO...',
-      '...........................ORRRRRRROOO.......OOOOOGGGGGOOOOOBBGGDOOOOODDDDDSSSSSSSSSSSBBBO..',
-      '...........................ORRRRRRRRRRO..OOOOGGGGGOOOOO...OBBGGDO.....OOOOODDDSSSSSSSSOSBBO.',
-      '...........................ORRRRRRRRRRKOOGGGGOOOOO.......OBBSGGDO..........OOODDSSSSSSOSSBO.',
-      '...........................ORRRRRRROOOKGGOOOO............OBBSGGDO.............OODDDDDDDDDDO.',
-      '..........................OBRRRRRRRO..OOO...............OBBSSSDO................OOOOOOOOOO..',
-      '.........................OBGRRRRRRRBO...................OBBSSSDO............................',
-      '........................OBGLLRRLLLLGBO.................OBBSSSSDO............................',
-      '........................OGLLLRRLLLLLGBO................OBBSSSDO.............................',
-      '.......................OBLLLLDDDLLLGLGBO..............OBBSSSSDO.............................',
-      '.......................OGLLLLDDDDLLGGLGBO.............OBBSSSSDO.............................',
-      '......................OBLLLLLLLLLLLGGLLGBO...........OBBSSSSSDO.............................',
-      '.....................OBBLLLLLLLLLLLGGLLLGBOO.........OBBSSSSDO..............................',
-      '....................OBBSLLLLLLLLLLLGGLLLLGBBOOOOOOOOOBBSSSSSDO..............................',
-      '..................OOBBSSLLLLLLLLLLLGGLLLLLGGBBBBBBBBBBBSSSSSDO..............................',
-      '................OOBBBSSSLLLLLLLLLLLGGLLLLLLLGGGGBBBBBBBBBBBBOO..............................',
-      '..............OOBBBBSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSBBBBBBBO.............................',
-      '.............OBBBBSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSBBBO............................',
-      '.............OBBSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDBO............................',
-      '.............OSSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDO.............................',
-      '.............ODSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSDDO.............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSDDO..............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSDDDO..............................',
-      '............OSDDDSSSSSSSLLLLLLLLLLLGGLLLLLLSSSSSSSSSSSSSDDDDO...............................',
-      '...........OSDDODDSSSSSSSSSSSSSSSSSGGSSSSSSSSSSSSSSSSDDDDDDO................................',
-      '...........OSDOODDDDSSSSSSSSSSSSSSSGGSSSSSSDDDDDDDDDDDDDDDO.................................',
-      '...........OSDOOSDDDDDDDDDDDDDDDDDDGGDDDDDDDDDDDDDDDDDDDOO..................................',
-      '...........OSDO.OSDDDDDDDBSSSDDDDDDDDDDDDDDDDDDDDDDDDBSSSDO.................................',
-      '...........OSDO.OSDDDDDDDBSSSDDDDDDDDDDDDDDOSDDDOOOOOBSSSDO.................................',
-      '..........OOSDO.OSDDDOOOBSSSSDOOOOOOOOOOOOOOSDDDO...OBSSSDO.................................',
-      '.........OSSDO..OSDDDDOOBSSSDO.............OSDDDO....OBSSSDO................................',
-      '........ODDDDO...OSDDDOOBSSSDO............OSDDDDO....OBSSSDO................................',
-      '.......ODDDDDO...OSDDDOOBSSSDO............OSDDDDO....OBSSSDO................................',
-      '........ODDDO....OSDDDOBSSSSDO............OSDDDO.....OBSSSDO................................',
-      '.........ODO.....OSDDDDBSSSDO.............OSDDDO.....OBSSSSDO...............................',
-      '..........O.......OSDDDBSSSDO.............OSDDDO......OBSSSDO...............................',
-      '..................OSDDDBSSSDO............OSDDDDO......OBSSSDO...............................',
-      '..................OSDDBSSSSDO............OSDDDDO......OBSSSDO...............................',
-      '..................OSDDBSSSDO.............OSDDDO.......OBSSSSDO..............................',
-      '...................OSDBSSSDO.............OSDDDO.......OBSSSSDO..............................',
-      '...................OSBSSSSDO............OSDDDDO........OBSDSDO..............................',
-      '...................OSBSSSSDO............OSDDDDO........OBSSSDO..............................',
-      '...................OSBSDSDO.............OSDDDO.........OBSSSDO..............................',
-      '....................OBSSSDO.............OSDDDO..........OBSSDO..............................',
-      '....................OBSSSDO.............OSDDDO..........OBSSSDO.............................',
-      '...................OBSSSDO..............OSDDO...........OBSSSDO.............................',
-      '...................OBSSSDO..............OSDDO...........OBSSSDO.............................',
-      '...................OBSSDDDO............OSDDDO............OBSSDO.............................',
-      '...................OBSSDDDO............OSDDDO............OBSSDO.............................',
-      '...................OBSSDDDO............OSDDO.............OBSSDO.............................',
-      '...................OBSDSDDO............OSDDO..............OBSDO.............................',
-      '...................OOOOOOOO............OOOOO..............OOOOO.............................',
-      '...................OOSOOSOO............OOSOO..............OOSOO.............................',
-      '...................OOSOOSOO............OOSOO..............OOSOO.............................',
+    [ // frame 3 - contact B (mirror of contact A)
+      '............................................................................',
+      '............................................................................',
+      '.................................................OOOOOOOOOOOOOOOO...........',
+      '.................................................ODDDDBBBBBBBBBBO...........',
+      '.................................................ODDDDBBBBBBBBBBOO..........',
+      '.................................................ODDDBBBBBBBBBBBBOOOOOOOOO..',
+      '.................................................ODDDBBBBBBBBBBBBBDDDDDDBO..',
+      '.................................................OOOOBBBBBBBBBBBBBDDDDDDBOO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSSOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSOOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSO...',
+      '....................................OOOOO...........OSSSSSSSSSSDDDDDOOOOO...',
+      '..................................OOOOOOOO..........OSSSSSSSSSSDDDDDO.......',
+      '...................OOOOOOOOOOOOOOOOOOWWWOOO.........OBBBBBBBBBBBBBOOO.......',
+      '...................OBBBBBBBBBBBBBOOWWWWWWOO........OOBBBBBBBBBBBBBO.........',
+      '.................OOOBBBBBBBBBBBBBOOWWWWWWOO........OBBBBBBBBBBBBBOO.........',
+      '.................OBBBBBBBBBBBBBBBBOKKKKKKOO.......OOBBBBBBBBBBBGBO..........',
+      '...............OOOBBBBBBBBBBBBBBBBOKKKKKKOO.......OBBBBBBBBBBBBGBO..........',
+      '...............OSSSSSSSSSSSSSSSSSSSOKKKKKOOO.....OOBBBBBBBBBBBBGBO..........',
+      '.............OOOSSSSSSSSSSSSSSSSSSSOKKKKKOOOOO...ODDBBBBBBBBBBGBOO..........',
+      '.............OSSSSSSSSSSSSSSSSSSSORRRRRRROOOOOOOOODDBBBBBBBBBBGBO...........',
+      '...........OODDDDDSSSSSSSSSSSSSSSORRRRRRRRRRKOSOODDBBBBBBBBBBGBOO...........',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRRROOOSOODDSSSSSSSSSSGSO............',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRODDDSSSSDDSSSSSSSSSSGSO............',
+      '..........OOOBBBSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSDDSSSSSSSSSSGSO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSSSSSSSSSSSOOOOO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSGSSSSSSSSSSSSSSO................',
+      '........OOOBBBSSSSSSSSSSSSSSSSSSSORRRROOOOSSGSSSSSSSSSSSSSSOOO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSOOOOOOOOSSSGSSSSSSSSSSSSSSSBO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBO..............',
+      '.......OOSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBOO.............',
+      '.......OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......OODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDOOO.............',
+      '.....OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDO...............',
+      '.....ODDDOOSSDDDOBSSSDOOOOOOOOOOOOOSSDDDOOOOODDDBSSSDDDDDDDDO...............',
+      '.....ODDDOOSSDDDOBSSSDO...........OSSDDDO...ODDDBSSSDDDDDDDDO...............',
+      '.....ODDDOOSSDDDOBSSSDO...........OSSDDDO...OOOOBSSSDOOOOOOOO...............',
+      '.....ODDDOOSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '.....ODDDOOSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '.....ODDDOOSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '....OODDDOOSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '....ODDDOOOSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '....ODDDO.OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '...OODDDO.OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '...ODDDOO.OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '...ODDDO..OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '...ODDDO..OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '...OOOOO..OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '..........OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '..........OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '..........OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '..........OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '..........OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '..........OSSDDDOBSSSDO...........OSSDDDO......OBSSSDO......................',
+      '..........OOOOOOOOOOOOO...........OOOOOOO......OOOOOOO......................',
+      '..........OOOSOOOOOSOOO...........OOOSOOO......OOOSOOO......................',
+      '..........OOOSOOOOOSOOO...........OOOSOOO......OOOSOOO......................'
     ],
-    [ // frame 4 — pass B (body +1 px up, hooves planted)
-      '............................................................................................',
-      '....................................................................O.......................',
-      '...................................................................OBO......................',
-      '..................................................................OBSBO.....................',
-      '.................................................................OBSSSO.....................',
-      '.................................................................OSSSSBO....................',
-      '................................................................OBSSSSSBOOOO................',
-      '................................................................OSSSBBBBBBBBOOO.............',
-      '..............................OOO...............................OSSBBBBDDDBBBBBOO...........',
-      '............................OOWWWO..............................OSBBSSSSOOSSBBBBBO..........',
-      '...........................OWWWWWWO............................OOBBSSSSSOOSSSSSBBBO.........',
-      '...........................OWWWWWWO...........................OBBBSSSSSSSSSSSSSSSBBO........',
-      '............................OKKKKO...........................OBBBSSSSSSSSSSSSSSSSSBBO.......',
-      '............................OKKKO............................OBBSSSSSSSSSSSSSSSSSSSBBO......',
-      '............................OKKKKO.........................OOBGGSSSSSSSSSSSSSSSSSSSSBBOO....',
-      '............................OKKKKOO..................OOOOOOGGGGGDDDDDDSSSSSSSSSSSSSSSBBBO...',
-      '...........................ORRRRRRROOO.........OOOOOOGGGGGGOBBGGDOOOOODDDDDSSSSSSSSSSSBBBO..',
-      '...........................ORRRRRRRRRRO..OOOOOOGGGGGGOOOOOOBBGGDO.....OOOOODDDSSSSSSSSOSBBO.',
-      '...........................ORRRRRRRRRRKOOGGGGGGOOOOOO....OBBSGGDO..........OOODDSSSSSSOSSBO.',
-      '...........................ORRRRRRROOOKGGOOOOOO..........OBBSGGDO.............OODDDDDDDDDDO.',
-      '..........................OBRRRRRRRO..OOO...............OBBSSSDO................OOOOOOOOOO..',
-      '.........................OBGRRRRRRRBO...................OBBSSSDO............................',
-      '........................OBGLLRRLLLLGBO.................OBBSSSSDO............................',
-      '........................OGLLLRRLLLLLGBO................OBBSSSDO.............................',
-      '.......................OBLLLLDDDLLLGLGBO..............OBBSSSSDO.............................',
-      '.......................OGLLLLDDDDLLGGLGBO.............OBBSSSSDO.............................',
-      '......................OBLLLLLLLLLLLGGLLGBO...........OBBSSSSSDO.............................',
-      '.....................OBBLLLLLLLLLLLGGLLLGBOO.........OBBSSSSDO..............................',
-      '....................OBBSLLLLLLLLLLLGGLLLLGBBOOOOOOOOOBBSSSSSDO..............................',
-      '..................OOBBSSLLLLLLLLLLLGGLLLLLGGBBBBBBBBBBBSSSSSDO..............................',
-      '................OOBBBSSSLLLLLLLLLLLGGLLLLLLLGGGGBBBBBBBBBBBBOO..............................',
-      '..............OOBBBBSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSBBBBBBBO.............................',
-      '.............OBBBBSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSBBBO............................',
-      '.............OBBSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDBO............................',
-      '.............OSSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSSDO.............................',
-      '.............ODSSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSSDDO.............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSSDDO..............................',
-      '............OSDDSSSSSSSSLLLLLLLLLLLGGLLLLLLLLLLLSSSSSSSSSSDDDO..............................',
-      '............OSDDDSSSSSSSLLLLLLLLLLLGGLLLLLLSSSSSSSSSSSSSDDDDO...............................',
-      '............OSDODDSSSSSSSSSSSSSSSSSGGSSSSSSSSSSSSSSSSDDDDDDO................................',
-      '...........OSDOODDDDSSSSSSSSSSSSSSSGGSSSSSSDDDDDDDDDDDDDDDO.................................',
-      '...........OSDOOSDDDDDDDDDDDDDDDDDDGGDDDDDDDDDDDDDDDDDDDOO..................................',
-      '..........OOSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDDDDDDDDDDDBSSSDO.................................',
-      '.........OSOSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDOSDDDDOOOOBSSSDO.................................',
-      '........ODDDDDOOSDDDDOOOOBSSSDOOOOOOOOOOOOOOSDDDDO..OBSSSDO.................................',
-      '.......ODDDDDO.OSDDDO...OBSSSDO............OSDDDDO..OBSSSDO.................................',
-      '........ODDDDO.OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.........ODOO..OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '..........O....OSDDDO...OBSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO...OBSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSDSDO..................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSDSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSDO...................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSDO...................................',
-      '...............OSDDDO..OBSSSDO.............OSDDO...OBSSDO...................................',
-      '...............OSDDO...OBSSSDO.............OSDDO...OBSSDO...................................',
-      '...............OSDDO....OBSSDO.............OSDDO...OBSSDO...................................',
-      '...............OSDDO....OBSDO..............OSDDO...OBSSDO...................................',
-      '...............OSDDO....OBSDO..............OSDDO...OBSDO....................................',
-      '...............OSDDO....OOOOO..............OOOOO...OBSDO....................................',
-      '...............OOOOO....OOSOO..............OOSOO...OOOOO....................................',
-      '...............OOSOO....OOSOO..............OOSOO...OOSOO....................................',
-      '...............OOSOO......O..................O.....OOSOO....................................',
-    ],
+    [ // frame 4 - pass B (1 px bob, legs +1/-1)
+      '............................................................................',
+      '.................................................OOOOOOOOOOOOOOOO...........',
+      '.................................................ODDDDBBBBBBBBBBO...........',
+      '.................................................ODDDDBBBBBBBBBBOO..........',
+      '.................................................ODDDBBBBBBBBBBBBOOOOOOOOO..',
+      '.................................................ODDDBBBBBBBBBBBBBDDDDDDBO..',
+      '.................................................OOOOBBBBBBBBBBBBBDDDDDDBOO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSSOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSOOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSO...',
+      '....................................OOOOO...........OSSSSSSSSSSDDDDDOOOOO...',
+      '..................................OOOOOOOO..........OSSSSSSSSSSDDDDDO.......',
+      '...................OOOOOOOOOOOOOOOOOOWWWOOO.........OBBBBBBBBBBBBBOOO.......',
+      '...................OBBBBBBBBBBBBBOOWWWWWWOO........OOBBBBBBBBBBBBBO.........',
+      '.................OOOBBBBBBBBBBBBBOOWWWWWWOO........OBBBBBBBBBBBBBOO.........',
+      '.................OBBBBBBBBBBBBBBBBOKKKKKKOO.......OOBBBBBBBBBBBGBO..........',
+      '...............OOOBBBBBBBBBBBBBBBBOKKKKKKOO.......OBBBBBBBBBBBBGBO..........',
+      '...............OSSSSSSSSSSSSSSSSSSSOKKKKKOOO.....OOBBBBBBBBBBBBGBO..........',
+      '.............OOOSSSSSSSSSSSSSSSSSSSOKKKKKOOOOO...ODDBBBBBBBBBBGBOO..........',
+      '.............OSSSSSSSSSSSSSSSSSSSORRRRRRROOOOOOOOODDBBBBBBBBBBGBO...........',
+      '...........OODDDDDSSSSSSSSSSSSSSSORRRRRRRRRRKOSOODDBBBBBBBBBBGBOO...........',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRRROOOSOODDSSSSSSSSSSGSO............',
+      '...........OSDDDDDSSSSSSSSSSSSSSSORRRRRRRODDDSSSSDDSSSSSSSSSSGSO............',
+      '..........OOOBBBSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSDDSSSSSSSSSSGSO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSSSSSSSSSSSSSSSSOOOOO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSORRRRRRROSSGSSSSSSSSSSSSSSO................',
+      '........OOOBBBSSSSSSSSSSSSSSSSSSSORRRROOOOSSGSSSSSSSSSSSSSSOOO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSOOOOOOOOSSSGSSSSSSSSSSSSSSSBO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBO..............',
+      '.......OOSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBOO.............',
+      '.......OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......OODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '.....OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '.....ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '.....ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDOOO.............',
+      '....OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDO...............',
+      '....ODDDOOSSDDDOOOBSSSDOOOOOOOOOOOOOSSDDDOOOODDBSSSDDDDDDDDDO...............',
+      '....ODDDOOSSDDDO.OBSSSDO...........OSSDDDO..ODDBSSSDDDDDDDDDO...............',
+      '....ODDDOOSSDDDO.OBSSSDO...........OSSDDDO..OOOBSSSDOOOOOOOOO...............',
+      '....ODDDOOSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '....ODDDOOSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '....ODDDOOSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '...OODDDOOSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '...ODDDOOOSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '...ODDDO.OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '..OODDDO.OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '..ODDDOO.OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '..ODDDO..OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '..ODDDO..OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '..OOOOO..OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OSSDDDO.OBSSSDO...........OSSDDDO....OBSSSDO.......................',
+      '.........OOOOOOO.OOOOOOO...........OOOOOOO....OOOOOOO.......................',
+      '.........OOOSOOO.OOOSOOO...........OOOSOOO....OOOSOOO.......................',
+      '.........OOOSOOO.OOOSOOO...........OOOSOOO....OOOSOOO.......................'
+    ]
   ];
 ```
 
-### `DRAFT_A_BARE` — standing reference (92 wide × 70 tall)
+### `CAMEL_A_BARE` — standing reference (76 wide × 70 tall)
 
-Rider/blanket omitted. Not rendered by the game; the rider-less standing frame from
-[drafts v3](camel-drafts-v3.md), kept as the silhouette/anatomy source.
+Rider omitted. Not rendered by the game; the rider-less standing frame from
+[drafts v4](camel-drafts-v4.md), kept as the silhouette/anatomy source.
 
-```
-  const DRAFT_A_BARE = [
-    [ // frame 0
-      '............................................................................................',
-      '............................................................................................',
-      '....................................................................O.......................',
-      '...................................................................OBO......................',
-      '..................................................................OBSBO.....................',
-      '.................................................................OBSSSO.....................',
-      '.................................................................OSSSSBO....................',
-      '................................................................OBSSSSSBOOOO................',
-      '................................................................OSSSBBBBBBBBOOO.............',
-      '................................................................OSSBBBBDDDBBBBBOO...........',
-      '................................................................OSBBSSSSOOSSBBBBBO..........',
-      '...............................................................OOBBSSSSSOOSSSSSBBBO.........',
-      '..............................................................OBBBSSSSSSSSSSSSSSSBBO........',
-      '.............................................................OBBBSSSSSSSSSSSSSSSSSBBO.......',
-      '.............................................................OBBSSSSSSSSSSSSSSSSSSSBBO......',
-      '............................................................OBBSSSSSSSSSSSSSSSSSSSSSBBOO....',
-      '...........................................................OBBSSDDDDDDSSSSSSSSSSSSSSSBBBO...',
-      '...........................................................OBBSSDOOOOODDDDDSSSSSSSSSSSBBBO..',
-      '.............................OOO..........................OBBSSDO.....OOOOODDDSSSSSSSSOSBBO.',
-      '............................OBBBOO.......................OBBSSSDO..........OOODDSSSSSSOSSBO.',
-      '...........................OBBBBBBO......................OBBSSSDO.............OODDDDDDDDDDO.',
-      '..........................OBBSSSBBBO....................OBBSSSDO................OOOOOOOOOO..',
-      '.........................OBBSSSSSSBBO...................OBBSSSDO............................',
-      '........................OBBSSSSSSSSBBO.................OBBSSSSDO............................',
-      '........................OBSSSSSSSSSSBBO................OBBSSSDO.............................',
-      '.......................OBSSSSSSSSSSSSBBO..............OBBSSSSDO.............................',
-      '.......................OBSSSSSSSSSSSSSBBO.............OBBSSSSDO.............................',
-      '......................OBSSSSSSSSSSSSSSSBBO...........OBBSSSSSDO.............................',
-      '.....................OBBSSSSSSSSSSSSSSSSBBOO.........OBBSSSSDO..............................',
-      '....................OBBSSSSSSSSSSSSSSSSSSBBBOOOOOOOOOBBSSSSSDO..............................',
-      '..................OOBBSSSSSSSSSSSSSSSSSSSSBBBBBBBBBBBBBSSSSSDO..............................',
-      '................OOBBBSSSSSSSSSSSSSSSSSSSSSSSBBBBBBBBBBBBBBBBOO..............................',
-      '..............OOBBBBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSBBBBBBBO.............................',
-      '.............OBBBBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSBBBO............................',
-      '.............OBBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDBO............................',
-      '.............OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDO.............................',
-      '.............ODSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDO.............................',
-      '............OSDDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDO..............................',
-      '............OSDDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDO..............................',
-      '............OSDDDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDO...............................',
-      '...........OSDDODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDO................................',
-      '...........OSDOODDDDSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDO.................................',
-      '...........OSDOOSDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDOO..................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDDDDDDDDDDDBSSSDO.................................',
-      '...........OSDOOSDDDDDDDDBSSSDDDDDDDDDDDDDDOSDDDDOOOOBSSSDO.................................',
-      '..........OOSDOOSDDDDOOOOBSSSDOOOOOOOOOOOOOOSDDDDO..OBSSSDO.................................',
-      '.........OSSDO.OSDDDO...OBSSSDO............OSDDDDO..OBSSSDO.................................',
-      '........ODDDDO.OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.......ODDDDDO.OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '........ODDDO..OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '.........ODO...OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '..........O....OSDDDO...OBSSSDO............OSDDDO...OBSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSDSSDO.................................',
-      '...............OSDDDO..OBSSSSDO............OSDDDO..OBSSSSDO.................................',
-      '...............OSDDDO..OBSDSSDO............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDDO..OBSSSDO..................................',
-      '...............OSDDDO..OBSSSDO.............OSDDO....OBSSDO..................................',
-      '...............OSDDO...OBSSSDO.............OSDDO....OBSSDO..................................',
-      '...............OSDDO....OBSSDO.............OSDDO....OBSSDO..................................',
-      '...............OSDDO....OBSDO..............OSDDO....OBSDO...................................',
-      '...............OSDDO....OBSDO..............OSDDO....OBSDO...................................',
-      '...............OOOOO....OOOOO..............OOOOO....OOOOO...................................',
-      '...............OOSOO....OOSOO..............OOSOO....OOSOO...................................',
-      '...............OOSOO....OOSOO..............OOSOO....OOSOO...................................',
+```js
+  const CAMEL_A_BARE = [
+    [ // frame 0 - standing bare (no rider)
+      '............................................................................',
+      '............................................................................',
+      '.................................................OOOOOOOOOOOOOOOO...........',
+      '.................................................ODDDDBBBBBBBBBBO...........',
+      '.................................................ODDDDBBBBBBBBBBOO..........',
+      '.................................................ODDDBBBBBBBBBBBBOOOOOOOOO..',
+      '.................................................ODDDBBBBBBBBBBBBBDDDDDDBO..',
+      '.................................................OOOOBBBBBBBBBBBBBDDDDDDBOO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBOOOBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OBBBBBBBBBBBBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSBBBBBBBBBBO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSSOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSOOO.',
+      '....................................................OSSSSSSSSSSSSSSSSSSSO...',
+      '....................................................OSSSSSSSSSSDDDDDOOOOO...',
+      '....................................................OSSSSSSSSSSDDDDDO.......',
+      '...................OOOOOOOOOOOOOOO..................OBBBBBBBBBBBBBOOO.......',
+      '...................OBBBBBBBBBBBBBO.................OOBBBBBBBBBBBBBO.........',
+      '.................OOOBBBBBBBBBBBBBOOO...............OBBBBBBBBBBBBBOO.........',
+      '.................OBBBBBBBBBBBBBBBBBO..............OOBBBBBBBBBBBGBO..........',
+      '...............OOOBBBBBBBBBBBBBBBBBOOOO...........OBBBBBBBBBBBBGBO..........',
+      '...............OSSSSSSSSSSSSSSSSSSSSSSO..........OOBBBBBBBBBBBBGBO..........',
+      '.............OOOSSSSSSSSSSSSSSSSSSSSSSOOOOOOOO...ODDBBBBBBBBBBGBOO..........',
+      '.............OSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDOOOOODDBBBBBBBBBBGBO...........',
+      '...........OODDDDDSSSSSSSSSSSSSSSSSSSSSSSDDDDSSOODDBBBBBBBBBBGBOO...........',
+      '...........OSDDDDDSSSSSSSSSSSSSSSSSSSSSSSDDDDSSOODDSSSSSSSSSSGSO............',
+      '...........OSDDDDDSSSSSSSSSSSSSSSSSSSSSSSDDDDSSSSDDSSSSSSSSSSGSO............',
+      '..........OOOBBBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDSSSSSSSSSSGSO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSOOOOO............',
+      '..........OBBBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSO................',
+      '........OOOBBBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSOOO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBO..............',
+      '........OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBO..............',
+      '.......OOSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSBOO.............',
+      '.......OSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '.......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......OODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSGSSSSSSSSSSSSSSSSBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDDBO.............',
+      '......ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDOOO.............',
+      '.....OODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDGDDDDDDDDDDDDDDDO...............',
+      '.....ODDDSSDDDOOOOOBSSSDOOOOOOOOOOOOOSSDDDOOODBSSSDDDDDDDDDDO...............',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO.ODBSSSDDDDDDDDDDO...............',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO.OOBSSSDOOOOOOOOOO...............',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '.....ODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....OODDDSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....ODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '....ODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...OODDDOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...ODDDOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...ODDDOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...ODDDOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '...OOOOOOSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OSSDDDO...OBSSSDO...........OSSDDDO..OBSSSDO........................',
+      '........OOOOOOO...OOOOOOO...........OOOOOOO..OOOOOOO........................',
+      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................',
+      '........OOOSOOO...OOOSOOO...........OOOSOOO..OOOSOOO........................'
     ],
   ];
 ```
 
 ## Silhouette / anatomy (shared per frame)
 
-- **One prominent hump**: crest row 19 at x 28–31, soft body depth 19→44; lit `B`
-  over `S`/`D` bulk. In the dressed form the rider/saddle cover the crest; the bare
-  reference shows it whole.
-- **Long S-curved neck** rising right (back edge cols 53→63, front edge 60→66; 4–7 px
-  wide, tapering upward), into a **small wedge head** with a **drooping muzzle**
-  (bottom edge 16→20 toward the tip), 1 px nostril, 2×2 eye with brow shade and an
-  enlarged leaf ear (7 px wide, top row 3).
-- **Deep narrow chest**: chest front slopes 40→34; the front leg pair is only 9 px
-  apart.
-- **Harness** `G`: 2 px neck strap, 2 px girth strap, 1 px saddle edge row; a 1 px
-  **rein** runs from the rider's hand to the neck strap.
-- **Tail**: short 2 px line from the rump plus an r2 **tuft**; flicks **+2/−2 px** on
-  the pass frames.
-- **Legs**: long thin (hip 2.0 → knee 2.2 → ankle 1.3 half-width) with a 1 px knee
-  crease and wide **two-toe hooves** (5 px + 1 px notch); feet on row 69.
-- **Rider**: 17 rows tall (turban 3, face 4, torso 6, leg 2, boot 2): `W` turban,
-  `K` face/hands, lane-colour `R` robe with arms, dark `O` boots, `G` reins.
+- **Hump**: single, rows 20–29, crest 13 px wide (cols 20–32), base 33 px, 10 rows tall
+  (crest sits 7 rows above the body back line); `D` `hump_crease` seam where the hump's
+  front slope meets the saddle hollow and behind the rump.
+- **Body**: barrel rows 27–48, rump rear col 7, chest front col 61; `B` rim on the
+  rump's rear edge and the chest front, `S` bulk, `D` belly band + lee edge.
+- **Neck**: rows 17–30, 14 px wide at the base, 14 rows tall (short + thick, like the
+  reference); 1 px `G` strap down the neck front (rows 22–30).
+- **Head**: blocky skull rows 3–18 (cols 53–65) + drooping muzzle rows 6–18 to col 73;
+  `D` ear (cols 50–53, rows 3–6), `O` 3×2 eye (cols 58–60, rows 8–9), `D` muzzle bridge
+  band + `D` under-jaw, `O` nostril (col 73, row 14).
+- **Legs**: fill 5 px + outline each, 23 rows (47–69); **rear pair 17 px** wide (fill gap
+  5 px), **front pair 16 px** (gap 4 px); hooves `O` rows 67–69 with a 1 px `S` split;
+  far legs shaded (`S S D D D`), near legs lit (`B S S S D`).
+- **Tail**: `D` line + tuft, rows 44–59, flicking +1 / −1 px on the pass frames.
+- **Rider** (17 px tall, 19 px wide): turban 4 rows, face 4, tunic 8, boots `O` 2 — seat
+  row 31; boots land on the body's back band (**no blanket, no gap, no float**).
 
 ## High-detail rendering notes
 
-- **Four-tone body** — surfaces are painted `B` lit / `S` mid / `D` deep shade inside
-  the `O` ink, so hump, neck, legs and belly read with volume without extra chars.
-- **Knees/hooves** — long thin legs with a 1 px knee crease and wide two-toe hooves
-  (5 px + 1 px notch) on the bottom row.
-- **Eye** — a 2×2 eye with brow shade, readable at 1× on sand.
-- **Tail tuft** — an r2 tuft that flicks +2/−2 px on the pass frames.
+- **Four-tone body** — surfaces are painted `B` lit / `S` mid / `D` deep shade inside the
+  `O` ink, so hump, neck, legs and belly read with volume without extra chars.
+- **Hooves** — `O` blocks on rows 67–69 with a 1 px `S` split (two-toe read).
+- **Eye** — a 3×2 `O` block with a `D` brow, readable at 1× on sand.
+- **Tail tuft** — a short `D` tuft that flicks +1/−1 px on the pass frames.
 
 ## Gait & timing
 
@@ -599,126 +597,106 @@ contact A ──► pass A ──► contact B ──► pass B ──┐
 
 - Cycle = 4 walk frames × **320 ms** ≈ **1280 ms**; idle = frame 0, **no idle motion**.
 - Index while animating: `(Math.floor(now / 320) % 4) + 1`, else `0`.
-- **Contact** (1, 3): hooves stride — frame 1 has all four planted at max spread, frame
-  3 the mirrored spread; the tail tuft swings.
-- **Pass** (2, 4): body, neck, head, blanket and rider shift **1 px up** — the bob is
-  baked into the matrices; the planted hooves stay on row 69 while the swinging pair
-  lifts 1 px. A/B poses differ in hoof placement and tail flick (+2/−2), so no
-  duplicate frames.
-- Only **legs, head/neck, tail, blanket, rider and the baked 1 px bob** move; the hump
-  and body outline are otherwise identical across frames → no silhouette jitter.
+- **Contact A (1)**: rear pair spread wide (far leg −2, near leg +2), front pair at the
+  pass (far +2, near −2); tail neutral. **Contact B (3)** mirrors it.
+- **Pass A (2)**: legs back under the body; body + head + rider **1 px up** (bob); tail
+  +1 px. **Pass B (4)**: far legs +1/−1, bob 1 px up, tail −1 px.
+- The **bob is baked into the matrices**: rows shift up by 1 on frames 2/4 while the leg
+  fill starts 1 row higher, so the **hooves stay planted on row 69 in every frame** and
+  `drawSprite` applies no offset. A/B pass poses differ in leg placement and tail flick
+  → no duplicate frames.
+- Only **legs, the 1 px bob, head/neck and tail** move; the hump and body outline are
+  otherwise identical across frames → no silhouette jitter.
 
-## Saddle blanket
+## No saddle blanket (removed)
 
-- **Blanket** `L` = **276 px** on every dressed frame; bbox rows **23–39**, cols
-  **24–47** (frame 0). Because the bob is baked in, on the pass frames (2, 4) the whole
-  patch shifts **1 px up** (rows 22–38).
-- The patch is hole-free (no enclosed transparent cell inside its bbox) and carries the
-  `D` weave plus the 2 px `G` girth strap crossing at cols **35–36**. Note the
-  **doc-vs-code nuance**: `docs/art/camel-drafts-v3.md` reports one patch, but a strict
-  same-char 4-connected flood fill of the shipped frame 0 returns **three** `L`
-  components (170 + 1 + 105) because the strap and weave interrupt the run — verified
-  against `index.html`.
-- **No digit**: nothing is painted on the blanket — no reserved 6×10 digit area, no
-  `#123a44` ink anywhere (see [Team-name label](#team-name-label)).
-- Lane/team identity = the **canvas team-name label above the animal** (below) plus the
-  lane colour.
+- No `L` cell exists in any frame; `CAMEL_PAL` has **no `blanket` key** and `CHAR_KEY`
+  has **no `L` entry** (both removed, shared with the boar change). No `#bfe3ea` pixel is
+  painted anywhere on or around the camel.
+- Lane/team identity = the **canvas team-name label above the animal** plus the
+  **per-lane rider robe colour** `R`. The digit convention (`DIGIT_FONT`,
+  `drawBlanketNumber`, `CAMEL_ANCHOR`, ink `#123a44`) is retired; nothing is painted
+  after `drawSprite(...)`.
 
 ## Team-name label
 
-- **Retired (user request):** the per-lane digit (6×10 glyph, ink `#123a44`,
-  `DIGIT_FONT`/`drawBlanketNumber`/`CAMEL_ANCHOR`) is retired — nothing is drawn on the
-  blanket and no `#123a44` remains anywhere.
 - The team is identified by the canvas label **above** the animal: team name in
   **12 px monospace** `#e8e0d0` on a dark pill (16 px tall, `rgba(26,18,8,0.72)` + 1 px
   `rgba(0,0,0,0.55)` outline, **4 px above the sprite top**, 4 px text pad), tracking
   the animal's visual centre and **clamped to the canvas**; geometry is recomputed every
   frame, so a rename redraws on the same frame.
 - Verified in the current worktree (`index.html` `drawTeamLabels`): `TEAM_LABEL_GAP = 4`,
-  no digit draw call and no `CAMEL_ANCHOR`; the label anchor inherits the sprite size via
-  `camelTopY` (`SPRITE_H = 70`).
+  `TEAM_LABEL_H = 16`, no digit draw call and no `CAMEL_ANCHOR`; the label anchor
+  inherits the sprite size via `camelTopY` (`SPRITE_H = 70`).
 
 ## Implementer notes
 
-- **Constants**: `SPRITE_W = 92`, `SPRITE_H = 70`, buffer **1280×720**,
-  `HORIZON_Y = 120`, `LANE_BOTTOM = 712` (720 − 8), `LANE_MARGIN = 4`,
+- **Constants**: `SPRITE_W = 76`, `SPRITE_H = 70` (from the theme registry), buffer
+  **1280×720**, `HORIZON_Y = 120`, `LANE_BOTTOM = 712` (720 − 8), `LANE_MARGIN = 4`,
   `TERRAIN_FEET_OFFSET = 2`, `ANIM_FRAME_MS = 320` (walk cycle **1280 ms**;
   `ANIM_MS = 1400`).
-- **Palette factory** (shipped `index.html`):
+- **Palette factory** (shipped `index.html`, copy verbatim):
 
   ```js
   const CAMEL_PAL = (robe) => ({
-    outline: '#1c1208', body: '#d9a05b', shade: '#b4763a', shadeDeep: '#82521f',
+    outline: '#1c1208', body: '#de914d', shade: '#c37c3a', shadeDeep: '#b27035',
     harness: '#53565e', robe: robe, eyeWhite: '#f0ece0', skin: '#d8a878',
-    blanket: '#bfe3ea',
   });
   ```
-- **Registry entry** (theme `desert`): `animal: { id:'camel', sprite: CAMEL,
-  pal: CAMEL_PAL, w: 92, h: 70, rider: 'turban', bobOffset: 2 }` and
-  `laneFit: { spriteHMax: 70, laneMinPx: 74 }`. `rider` and `bobOffset` are
-  declarative-only (the bob is baked into the matrices; nothing reads `bobOffset`).
+- **Registry entry** (theme `desert`, shipped):
+
+  ```js
+  animal: {
+    id: 'camel', sprite: CAMEL, pal: CAMEL_PAL, w: 76, h: 70, rider: 'turban', // rider: declarative-only
+  },
+  laneFit: { spriteHMax: 70, laneMinPx: 74 },
+  ```
 - **`drawSprite` legend**: route *every* char through the sprite palette
-  (`O→outline, B→body, S→shade, D→shadeDeep, G→harness, R→robe, W→eyeWhite,
-  K→skin, L→blanket`; `.` skipped), falling back to `CHAR_KEY`/`COL` for decoration
-  sprites. `CHAR_KEY.D = 'shadeDeep'` is **new vs v5**.
-- **Boar ink unchanged**: `BOAR_PAL` aliases `shadeDeep: '#26221a'` (same value as its
-  `bristle`), so the shared `D → shadeDeep` key keeps the boar's `D` bristle tone
-  pixel-identical to before.
-- **Digit draw retired** (user request): no `drawBlanketNumber` call after
-  `drawSprite(...)`; `CAMEL_ANCHOR` and the 6×10 glyph convention go with it. Team
-  identity = the canvas team-name label (see [Team-name label](#team-name-label)).
-- **Lane math**: `camelTopY(i,n) = laneBottomY(i,n) - SPRITE_H - 2` keeps the feet 2 px
-  above the lane bottom. At `n = 8`, `laneHeight = 74.0 px`; the 70 px sprite + 2 px
-  feet offset = 72 px, so the slack is **2 px** — even at the dune crest `h = +2` the
-  sprite top lands exactly on the lane top and the clamp stays inert.
-- **`camelTargetLeft` clamp** uses `SPRITE_W = 92` (right limit `1280 − 92 − 4 = 1184`;
-  the wider camel narrows the left/right travel range vs the 66 px v5 sprite).
+  (`O→outline, B→body, S→shade, D→shadeDeep, G→harness, R→robe, W→eyeWhite, K→skin`;
+  `.` skipped), falling back to `CHAR_KEY`/`COL` for decoration sprites. `CHAR_KEY` has
+  **no `L`**; forest decor that uses `L` (leaf litter, mesa) keys it in its own palette.
+- **Shared `D → shadeDeep` key**: the boar palette carries `shadeDeep: '#26221a'` (its
+  bristle/reins/boots tone) and `harness: '#2e2918'` (its `G` legs tone), so the one
+  `CHAR_KEY` serves both animals.
+- **Digit + blanket draw retired**: no `drawBlanketNumber` call after `drawSprite(...)`;
+  `CAMEL_ANCHOR`, `blanket.anchor`, `blanket.digitColor` and the `blanket` palette key
+  do not exist in the shipped code. Team identity = the canvas team-name label
+  (see [Team-name label](#team-name-label)) + robe colour.
+- **Lane math**: `camelTopY(i,n) = clamp(laneTopY, laneBottomY − SPRITE_H, laneSurfaceY − SPRITE_H)`
+  keeps the feet 2 px above the surface. At `n = 8`, `laneHeight = 74.0 px`; the 70 px
+  sprite + 2 px feet offset = 72 px, so the slack is **2 px** — even at the dune crest
+  `h = +2` the sprite top lands exactly on the lane top and the clamp stays inert.
+- **`camelTargetLeft` clamp** uses `SPRITE_W = 76`: the sprite is centred on the mapped
+  score (`cx − SPRITE_W/2`) and clamped to
+  `LANE_MARGIN … CANVAS_W − SPRITE_W − LANE_MARGIN` = **4 … 1200** (v6 was `4 … 1184`;
+  the narrower v7 camel has 16 px more travel on each side). Team labels clamp to the
+  canvas (`x ∈ [0, CANVAS_W − w]`, defensive `y` clamps).
 
 ## Validation (run on the matrices above)
 
-A throwaway Python validator (`/tmp/art-gen/camel_v6_gen.py`, outside the repo) was run
-on the draft matrices, **all checks pass**; the shipped `const CAMEL` is byte-identical
-to the validated `CAMEL_A` (re-checked against `index.html` for this doc):
+Re-checked against the shipped `const CAMEL` extracted from `index.html` for this doc
+(the same matrices as the drafts v4 validator, which additionally measured the fill
+blob, holes and pairwise similarity):
 
 | Check | Result |
 |---|---|
-| exact 70 rows × 92 chars (all frames) | ✓ |
-| legend-only chars (`. O B S D G R W K L`) | ✓ |
-| outline encloses body (no fill 4-adjacent to exterior `.`) | ✓ |
-| single 4-connected blob (no isolated pixels) | ✓ |
-| no strays / no border fill | ✓ |
-| feet present on the bottom row (row 69) every frame | ✓ |
-| painted bbox within 92 × 70 | 84×68, 84×68, 84×69, 84×68, 84×69 |
-| all 5 poses pairwise distinct (IoU < 0.98) | ✓ (closest pair **pass A vs pass B = 0.954**) |
+| exact 70 rows × 76 chars (all frames) | ✓ |
+| legend-only chars (`. O B S D G R W K`) | ✓ (no `L`) |
+| outline encloses body (no fill 4-adjacent to exterior `.`) | ✓ (0 offenders, all frames) |
+| no interior holes (every `.` component touches the border) | ✓ (0 hole cells, all frames) |
+| single 4-connected blob (no strays / border fill) | ✓ (fill-only `B S D G` blob per drafts v4) |
+| hooves on the bottom row (row 69) every frame | ✓ (row 69 = `O`/`S` hoof blocks) |
+| painted bbox within 76 × 70 | 72×68 @ (3,2) · 72×68 @ (3,2) · 71×69 @ (4,1) · 72×68 @ (3,2) · 73×69 @ (2,1) (frames 0–4) |
+| painted px per frame (0–4) | 2584 / 2516 / 2597 / 2579 / 2634 |
+| all 5 poses pairwise distinct (similarity < 0.98) | ✓ (closest pair **frames 0 vs 2 = 0.8135**) |
+| no `L` px | 0 in every frame |
 
-Frame-similarity (IoU, dressed set; 1.000 = identical):
-
-```
-              stand  cA     pA     cB     pB
-standing      1.000  0.769  0.902  0.789  0.895
-contactA      0.769  1.000  0.714  0.672  0.713
-passA         0.902  0.714  1.000  0.716  0.954
-contactB      0.789  0.672  0.716  1.000  0.713
-passB         0.895  0.713  0.954  0.713  1.000
-```
-
-Closest pair is **pass A vs pass B = 0.954** (< 0.98): the two pass poses differ in
-hoof placement and tail flick. No pair reaches 0.98 → **no duplicate frames**. The 4
-walk frames loop `1→2→3→4→1`, alternating contact/pass with the baked 1 px bob on 2/4.
-
-Measured painted-pixel counts (shipped frame 0): total **2151** (`S` 612, `O` 500,
-`D` 388, `L` 276, `B` 204, `G` 87, `R` 52, `K` 17, `W` 15). `L` is exactly **276** on
-every frame.
-
-Enclosure method: fill (`B/S/D/G/R/W/K/L`) 4-adjacent to *exterior* `.` is recolored to
-`O` (concave notches and inter-leg gaps stay open; border fill banned outright).
-
-## v6 geometry (buffer 1280×720, sprite 92×70, 8 lanes)
+## v7 geometry (buffer 1280×720, sprite 76×70, 8 lanes)
 
 | Constant | Value | Derivation |
 |---|---|---|
 | Buffer | **1280 × 720** (16:9) | spec (2× the old 640×360) |
-| `SPRITE_W` / `SPRITE_H` | **92 / 70** | exact v6 matrix dims (painted bbox 84 × 68–69) |
+| `SPRITE_W` / `SPRITE_H` | **76 / 70** | v7 matrix dims (painted bbox 72 × 68 standing/contact) |
 | `HORIZON_Y` | **120** | spec |
 | `LANE_BOTTOM` | **712** | 720 − 8 |
 | Lane region | **592** | `712 − 120` |
@@ -726,12 +704,13 @@ Enclosure method: fill (`B/S/D/G/R/W/K/L`) 4-adjacent to *exterior* `.` is recol
 | Lane height (n=4) | **148.0 px** | `592 / 4` |
 | `LANE_MARGIN` | **4** | spec |
 | `TERRAIN_FEET_OFFSET` | **2** | unchanged |
-| Terrain amplitude | **±2 px** | unchanged (`A1=1.2, A2=0.8`) |
+| Terrain amplitude | **±2 px** | `TERRAIN { A1:1.2, L1:160, PH1:0, A2:0.8, L2:130, PH2:1.7 }` |
 | `ANIM_FRAME_MS` | **320** | gait cycle 1280 ms; frame order 1→2→3→4→1 |
 
 8-lane fit: `laneHeight(8) − SPRITE_H − TERRAIN_FEET_OFFSET = 74 − 70 − 2 = 2 px`
 slack; at the dune crest `h = +2` the sprite top lands exactly on the lane top and the
-`camelTopY` clamp stays inert.
+`camelTopY` clamp stays inert. Camera margins: `camelTargetLeft` clamp `4 … 1200`; team
+labels clamp to the canvas.
 
 ## Dune lane tokens (terrain feature, approved 1A)
 
@@ -747,7 +726,7 @@ ribbon under each lane so camels appear to run along rolling dunes.
 
 Contrast checks: `duneTop`↔`duneShade` 1.50, `duneTop`↔`duneEdge` 3.13,
 `duneTop`↔sky `#1a1030` 7.58, `duneRim`↔`duneTop` 4.44.
-The brown camel (`#d9a05b`) on `duneTop` is only **1.04** — acceptable because the
+The brown camel (`#de914d`) on `duneTop` is only **1.06** — acceptable because the
 camel's dark outline reads at **7.72** against the sand (see acceptance criteria).
 
 ### Shared terrain profile `h(x)`
@@ -774,31 +753,31 @@ ribbon bottom; clamp `h` to `[-2, +2]`.
 
 ## Palette-swap
 
-Only `R` changes per camel. `K`/`W`/`L`/`O`/`B`/`S`/`D`/`G` are fixed, so the
-silhouette, face, turban, blanket and harness stay identical and every robe colour
-reads clearly. The throwaway preview `/tmp/art-previews/camel-v6-drafts-contact.png`
-(outside the repo) renders the drafts dressed on sand `#c9a25a`.
+Only `R` changes per camel. `O`/`B`/`S`/`D`/`G`/`K`/`W` are fixed, so the silhouette,
+face, turban and harness stay identical and every robe colour reads clearly. The
+throwaway previews (outside the repo) render draft A dressed on sand `#c9a25a`.
 
 ## Acceptance criteria (Playwright-testable)
 
 1. **Sprite size** — for lane 0 with any score, the painted camel's bounding box is
-   ≤ 92 px wide and ≤ 70 px tall.
+   ≤ 76 px wide and ≤ 70 px tall (matrix uniform `76 × 70`).
 2. **Feet on the lane** — the camel's lowest painted row equals
    `laneBottomY(0, n) - 2` (± dune `h`, clamped inside the lane); feet on row 69 of the
-   sprite.
+   sprite (hoof `O` blocks never move with the bob).
 3. **Standing frame** — with no score change, sampling the lane returns frame 0 (the
    standing matrix); no idle motion between two rAF ticks.
 4. **Walk cycle** — after a score change, the frame index advances `1→2→3→4→1` at
    320 ms steps and returns to 0 after `ANIM_MS`.
-5. **Bob** — on frames 2/4 the body (neck, head, blanket, rider) sits **1 px higher**
-   than frame 0 (baked into the matrix); the planted hooves remain on row 69.
-6. **Palette-swap** — blanket pixels are `#bfe3ea` for every camel; rider-robe pixels
-   equal the camel's lane colour; harness pixels are `#53565e` in every lane.
+5. **Bob** — on frames 2/4 the body (neck, head, rider) sits **1 px higher** than
+   frame 0 (baked into the matrix); the planted hooves remain on row 69.
+6. **Palette-swap** — **no `#bfe3ea` blanket pixel is painted anywhere** (no `L` cell,
+   no `blanket` key); rider-robe pixels equal the camel's lane colour; harness pixels are
+   `#53565e` in every lane.
 7. **Team name** — the team name is drawn as a canvas label above the sprite (12 px
-   monospace `#e8e0d0` on a dark pill, clamped to the canvas); no digit is painted on
-   the blanket.
-8. **Fixed tones** — body pixels are `#d9a05b`, outline pixels `#1c1208` and deep-shade
-   pixels `#82521f` in every lane.
+   monospace `#e8e0d0` on a dark pill, clamped to the canvas); no digit and no blanket
+   patch are painted.
+8. **Fixed tones** — body pixels are `#de914d`, outline pixels `#1c1208` and deep-shade
+   pixels `#b27035` in every lane.
 9. **Dune profile** — sampling the crest line gives the same `h(x)` for every lane;
    `|h| ≤ 2` for all `x`; two samples `x` and `x+1` differ by ≤ 1.
 10. **Readability** — with the camel on `duneTop`, at least one outline pixel `#1c1208`
@@ -806,25 +785,28 @@ reads clearly. The throwaway preview `/tmp/art-previews/camel-v6-drafts-contact.
 
 ## Selection & history
 
-**Draft A (naturalistic dromedary)** was chosen from `docs/art/camel-drafts-v3.md` and
-shipped as **v6 (`92×70`)**, replacing the v5 two-hump Bactrian and using the full
-8-lane height budget. Before that, **T2 (two-hump Bactrian)** had been chosen from
-`docs/art/camel-drafts-v2.md` on **2026-10-04**, over the v3 single-hump design;
-**v5 (`66×62`)** promoted v4 to the 1280×720 buffer.
+**Draft A (stocky reference-matched dromedary)** was chosen from
+[`docs/art/camel-drafts-v4.md`](camel-drafts-v4.md) and shipped as **v7 (`76×70`)**,
+replacing the v6 `92×70` dromedary and dropping the saddle blanket from both animals
+(user request). Earlier rounds: **v6** promoted draft A of
+[camel-drafts-v3.md](camel-drafts-v3.md); **T2 (two-hump Bactrian)** was chosen from
+[drafts v2](camel-drafts-v2.md) on **2026-10-04**; **v5 (`66×62`)** promoted v4 to the
+1280×720 buffer.
 
 | Version | Size | Notes |
 |---|---|---|
 | v3 | 34×24 | single-hump draft (deleted after promotion) |
 | v4 | 33×31 | two-hump Bactrian, 640×360 buffer, 3×5 digit (retired) |
 | v5 | 66×62 | 1280×720 buffer, two-hump Bactrian, 6×10 digit (retired — team name is now a canvas label) |
-| **v6 (draft A)** | **92×70** | naturalistic dromedary, full lane budget, `D` = `shadeDeep`, bob baked into the matrices, no digit; shipped in `index.html` |
+| v6 | 92×70 | naturalistic dromedary + plain blue blanket, `D` = `shadeDeep`, bob baked, no digit |
+| **v7 (draft A)** | **76×70** | stocky reference-matched dromedary, **no blanket** (`L` + `blanket` key removed), cleaned reference tones, bob baked, hooves on row 69; shipped in `index.html` |
 
 v3 history: **Draft A** had been chosen from `docs/art/camel-drafts.md` on 2026-10-03
 (a 34×24 single-hump design; drafts doc deleted after promotion).
 
 ## Appendix A — v4 matrices (superseded, `33×31`)
 
-Kept for history/diff. Not rendered (v6 supersedes). 31 rows × 33 chars.
+Kept for history/diff. Not rendered (v7 supersedes). 31 rows × 33 chars.
 
 ```
   const CAMEL_V4 = [
@@ -995,3 +977,4 @@ Kept for history/diff. Not rendered (v6 supersedes). 31 rows × 33 chars.
     ],
   ];
 ```
+

@@ -1,5 +1,7 @@
 # Camel drafts v2 — reference-trace round (T0–T4)
 
+**Superseded by [`camel-drafts-v3.md`](camel-drafts-v3.md) → [`camel-drafts-v4.md`](camel-drafts-v4.md):** see [`camel-sprite.md`](camel-sprite.md) **v7** (`76 x 70`, shipped); this round is kept as history only.
+
 Standing pose + dressed variant each. Facing right, feet on bottom row.
 Legend: `.` transparent, `O` outline #1a1208, `B` body #c9803a, `S` shade #8a5220,
 `H` gloss highlight #e0a45f (T3 only), `R` robe per-lane, `W` turban #f0ece0,

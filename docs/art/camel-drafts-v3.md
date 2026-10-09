@@ -11,6 +11,10 @@ registry `w: 92, h: 70`). Drafts B/C/D were not promoted. The acceptance criteri
 shipped standard; criterion 5's blanket threshold was corrected from `>= 300 px` to the validated
 **276 px** (see the validation table: 276 L px, holes=0).
 
+**Superseded by [`camel-drafts-v4.md`](camel-drafts-v4.md) on 2026-10-09:** the v6 `92 x 70`
+camel + blanket was replaced by the blanket-free v7 (`76 x 70`, draft A of v4); this round is kept
+as history only.
+
 **Digit-area convention retired.** v5/boar reserved a 6x10 ink area on the blanket for a per-lane
 digit (ink `#123a44`, 3x5 font). That convention is **retired**: the team name is drawn as a canvas
 label above the animal (camel-sprite.md v5, team-label commit). None of these drafts carry a reserved

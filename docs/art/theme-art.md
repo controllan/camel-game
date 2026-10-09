@@ -5,7 +5,7 @@ drive the same `drawSprite` pixel loop as [`camel-sprite.md`](camel-sprite.md).
 This doc is the authoritative source for the **decor / sky** sprites;
 
 - Tasks 7–9 copy the matrices and constants below verbatim into `index.html`.
-- The camel (`92×70`) is owned by `camel-sprite.md`; the boar (`≤76×70`) by
+- The camel (`76×70`) is owned by `camel-sprite.md`; the boar (`60×42`) by
   `boar-sprite.md`. This doc does **not** redefine the animals.
 
 | Item | Value |
@@ -1033,7 +1033,7 @@ clutter guard at wide zoom: 15/lane).
 | tallest background decor | `SAGUARO 28×64` → top `y = 120 − 64 = 56` (inside the sky, no clipping) |
 | landed background decor | `DEAD_TREE 32×56` (top `y = 64`), `MESA 48×24` (top `y = 96`) |
 | midground landmark | `SAGUARO_TALL 32×72` = one 8-lane lane tall (slack `74 − 72 = 2` px) |
-| camel lane fit | `92×70` + bob `2` → `72` px in a `74` px lane (slack `2` px) |
+| camel lane fit | `76×70` + feet `2` → `72` px in a `74` px lane (slack `2` px) |
 | max decor sprites / frame | `14 + 10 + 180 = 204` (v2 worst case, §2.14.2; typical 40 at default zoom) |
 
 ---
@@ -1963,7 +1963,7 @@ window (§3.4).
 | tallest floor decor | `FERN 16×12` px (≪ 74, no lane overflow) |
 | tallest background decor | `FOREST_TREE_BROAD 44×60` px (base `120`, top `60`, inside sky) |
 | midground tree | `FOREST_TREE_TALL 48×72` px — ≈ one 8-lane lane tall, stands on the surface |
-| boar lane fit | `≤76×70` incl. bob; slack `74 − 70 = 4` px (unchanged) |
+| boar lane fit | `60×42` + feet `2` → `44` px in a `74` px lane (slack `30` px) |
 | max decor sprites / frame | `background 14 + midground 10 + floor 120 = 144` (worst case; typical ≈25) |
 | grass carpet | `≈128 × 2 × L` `fillRect` specks/frame (no sprite loop) |
 
@@ -2220,12 +2220,12 @@ Written to the gitignored `test-results/ux-tmp/`:
 |---|---|
 | `test-results/ux-tmp/theme-desert-2x.png` | all desert decor + sky bands + sun + milestone + finish at **8×** |
 | `test-results/ux-tmp/theme-forest-8x.png` | all forest decor variants at **8×** (conifer, deciduous, bush, both mushrooms, moss, both stones, pine needles) |
-| `test-results/ux-tmp/theme-forest-floor.png` | **1280×720** mock: dusk sky + moon, grass lanes, seeded decor placement, and a magenta **boar silhouette placeholder** rectangle (`76×70`, label `BOAR 76x70`) in lane 1 |
+| `test-results/ux-tmp/theme-forest-floor.png` | **1280×720** mock: dusk sky + moon, grass lanes, seeded decor placement, and a magenta **boar silhouette placeholder** rectangle (`76×70`, label `BOAR 76x70`; **historical mock row** — placeholder predates the shipped boar `60×42`, not a current spec value) in lane 1 |
 | `test-results/ux-tmp/forest-new-sprites.png` | the six new forest sprites (`GRASS_TUFT_A/B`, `FERN`, `LEAF_LITTER`, `FOREST_TREE_TALL`, `FOREST_TREE_BROAD`) at **8×** with grid + a **1×** strip on the grass floor `#4a7a3a` |
-| `test-results/ux-tmp/forest-floor-dense.png` | **1280×720** mock of the dense forest: dusk sky + moon, grass lanes + carpet, a dense floor-prop pass (per-lane spacing `20`), background trees (spacing `32`) and midground trees (spacing `48`) with magenta **boar placeholders** (`76×70`) drawn in front in lanes 0 and 2 |
-| `/tmp/art-previews/desert-floor-dense.png` | **1280×720** mock of the desert ambience (§2.8–§2.11) at `W = 250`: night-sky bands + sun, 2 distant dune bands, background palms/cacti/mesas/saguaros/shrubs at spacing `32`, **4 lanes** of sand carpet (spacing-`10` speckle) + floor props at spacing `20` + one midground `SAGUARO_TALL`, with **grey camel placeholder rectangles** (mock `66×62`; shipped camel `92×70`, `#9aa0a6`) drawn in front so midground-overpaint is visible |
+| `test-results/ux-tmp/forest-floor-dense.png` | **1280×720** mock of the dense forest: dusk sky + moon, grass lanes + carpet, a dense floor-prop pass (per-lane spacing `20`), background trees (spacing `32`) and midground trees (spacing `48`) with magenta **boar placeholders** (`76×70`; **historical mock row** — placeholder predates the shipped boar `60×42`, not a current spec value) drawn in front in lanes 0 and 2 |
+| `/tmp/art-previews/desert-floor-dense.png` | **1280×720** mock of the desert ambience (§2.8–§2.11) at `W = 250`: night-sky bands + sun, 2 distant dune bands, background palms/cacti/mesas/saguaros/shrubs at spacing `32`, **4 lanes** of sand carpet (spacing-`10` speckle) + floor props at spacing `20` + one midground `SAGUARO_TALL`, with **grey camel placeholder rectangles** (mock `66×62`; shipped camel `76×70`, `#9aa0a6`) drawn in front so midground-overpaint is visible |
 | `/tmp/art-previews/desert-sprites-sheet.png` | all **16** desert ambience sprites at **8×** with `NAME WxH` labels, plus a **1×** strip on the sand floor `#c9a25a` |
-| `/tmp/art-previews/desert-floor-v2.png` | **1280×720** before/after, same camera window (`W = 100`, 4 lanes, 1× height): **left** = shipped desert (flat fill, carpet `10 px` `#dcb87a`/`#b8935a`, floor spacing `20`/cap `120` = 21 marks on the lane bottom line), **right** = §2.12–§2.14 (4-zone ramp + 3 streak bands, carpet `7 px` + clusters, floor spacing `12`/cap `180` = 33 marks, 12 of them flat marks in the field); grey camel placeholders (mock `66×62`; shipped camel `92×70`) in both. Panels are half-width, so prop pitch is 1:1 while world-per-pixel is halved |
+| `/tmp/art-previews/desert-floor-v2.png` | **1280×720** before/after, same camera window (`W = 100`, 4 lanes, 1× height): **left** = shipped desert (flat fill, carpet `10 px` `#dcb87a`/`#b8935a`, floor spacing `20`/cap `120` = 21 marks on the lane bottom line), **right** = §2.12–§2.14 (4-zone ramp + 3 streak bands, carpet `7 px` + clusters, floor spacing `12`/cap `180` = 33 marks, 12 of them flat marks in the field); grey camel placeholders (mock `66×62`; shipped camel `76×70`) in both. Panels are half-width, so prop pitch is 1:1 while world-per-pixel is halved |
 
 > The two desert previews are regenerated by
 > `python3 /tmp/art-gen/gen-desert-art.py preview` (they live in `/tmp`, not
@@ -2355,12 +2355,16 @@ midground `dead_trees` (`DEAD_TREE` is the one sprite listed in two layers).
 (desert, 2×); `FOREST_TREE_CONIFER`, `FOREST_TREE_DECIDUOUS`, `FOREST_TREE_BROAD`,
 `FOREST_BUSH`, `FOREST_TREE_TALL`, `GRASS_TUFT_A`, `GRASS_TUFT_B`, `FERN`,
 `LEAF_LITTER`, `MUSHROOM_RED`, `MUSHROOM_BROWN`, `MOSS`, `STONE`, `STONE_ALT`,
-`PINE_NEEDLES` (forest) — paste matrices verbatim, register `T/S/B/R/C/W/G/H/L/M/N/P`
-in `CHAR_KEY` (per-sprite palettes win first, so shared letters are safe);
+`PINE_NEEDLES` (forest) — paste matrices verbatim; **no new `CHAR_KEY` entries**:
+`T/S/B/R/C/W/G/H/P` are already there, and `L` (`LEAF_LITTER_PAL`), `M`/`N` (`MOSS_PAL`)
+resolve **only** through their sprites' own palettes under the shipped order
+`palette[ch]` → `palette[CHAR_KEY[ch]]` → `COL[CHAR_KEY[ch]]` — per-sprite palettes
+win first, so shared letters are safe;
 desert ambience: `SAND_RIPPLE`, `PEBBLE_A`, `PEBBLE_B`, `SCRUB_A`, `SCRUB_B`,
 `TUMBLEWEED`, `BARREL_CACTUS`, `DEAD_BRANCH`, `BONES`, `HOOF_PRINTS`, `SAGUARO`,
 `SAGUARO_TALL`, `BARREL_CLUSTER`, `DESERT_SHRUB`, `MESA`, `DEAD_TREE` (16, §2.10) —
-no new legend letters needed (`T/S/B/R/W/L/D` are already in `CHAR_KEY`; per-sprite
+no new legend letters needed (`T/S/B/R/W/D` are already in `CHAR_KEY`; `L` — mesa lit
+top — ships only in `MESA_PAL`; per-sprite
 palettes win, so `T` is forest mushroom-stem **and** desert dry-olive).
 
 **Palette keys** (`THEMES[id].palette` / `ground`): `sky[]`, `sun`, `sunRim`,
@@ -2409,5 +2413,5 @@ basing at `HORIZON_Y`; midground tree `72` px (≈ one lane); worst-case
 `14 + 10 + 180 = 204` decor sprites/frame (desert v2; forest still `14 + 10 + 120 = 144`;
 typical 40 at default zoom) plus the carpet `fillRect` pass, the 4-zone ramp (`3 × L`
 rects) and the streak run-rects (≈1.2 k / 2.4 k, zoom-independent) — see §2.14.2;
-boar `≤76×70` unchanged. Art only — no game code,
+boar lane fit unchanged (`60×42`). Art only — no game code,
 tests, or commits in this task.
