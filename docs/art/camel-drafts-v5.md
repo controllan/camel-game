@@ -1,147 +1,165 @@
-# Camel sprite v8 - 84x70 decorated dromedary with rider
+# Camel drafts v5 - reference-traced decorated dromedary with rider
 
-Procedural pixel art for the Camel Race / Kamel Rennen racer. Facing **right**, one
-lane per camel. No image files: the matrices below drive the `drawSprite` pixel loop
-(legend - see [Legend](#legend-char--palette)). At the `1280x720` buffer the camel is
-drawn at **1:1** (no runtime scaling); the display scale is applied to the whole canvas.
+Pixel art for the **desert** theme racer. Faces **right**, one camel per lane. Traced from
+the user reference `camel-pixelart-new.png` (repo root, gitignored): 760x696 px, camel bbox
+**645x534 px** (x65..709, y118..651) - a **long-legged dromedary with one hump**, a high
+head on a thick neck, a long dark tail and a **decorated saddle blanket** (green cloth,
+cream + red stripes, white fringe). No image files at runtime: the matrices below drive
+`drawSprite`. Conventions follow [`docs/art/camel-sprite.md`](camel-sprite.md) (legend
+discipline, `O`-enclosure pass, single 4-connected blob, feet on the bottom row, 1 standing
++ 4 walk frames) and [`docs/art/boar-sprite.md`](boar-sprite.md).
 
-This is the shipped v8 from [`docs/art/camel-drafts-v5.md`](camel-drafts-v5.md): a
-reference-traced single-hump dromedary with longer legs, a high head on a thick neck, a
-long dark tail and a **decorated saddle blanket** (striped bands, green cloth, white
-fringe) - and the **v7 turban rider**, its glyph cells `W`/`K`/`R` byte-identical to v7
-(the window's cover/outline cells were removed by design), seated where the cream top
-cover was so the rider silhouettes against the background (review round 1). Supersedes
-v7 `76x70` (no saddle blanket); see [Selection](#selection--history).
+**User request driving this revision** - trace the new reference: one hump, longer legs,
+high head on a thick neck, long dark tail, and the decorated saddle blanket back on the
+camel (the boar stays blanket-free). Reuse the existing v7 turban rider glyph
+byte-identical, seated where the **cream top cover** of the saddle pack was (user-picked
+option 1): the cover cells around/behind the rider are removed, so the rider
+silhouettes against the background while the striped bands / green cloth / fringe stay
+visible around and below it (review round 1). No scaling of camel or rider.
 
-| Item | Value |
-|---|---|
-| Size | **84 x 70** buffer px (uniform matrix all frames); painted bbox **80 x 68** at matrix (col, row) **(2, 2)** on frames `0, 1, 3`; `79 x 68 @ (3, 2)` (pass A) and `81 x 68 @ (1, 2)` (pass B) |
-| Frames | 1 standing + 4-frame walk: `[stand, contact A, pass A, contact B, pass B]` (index 0 idle, 1-4 walk) |
-| Feet | hooves on the **bottom row** (row 69) in every frame |
-| Bob | baked into the matrices: upper body/head/saddle/rider **+1 px up** on pass frames `2, 4`; planted hooves stay on row 69, so `drawSprite` needs no bob offset |
-| Saddle | decorated **saddle blanket** (camel only): striped bands rows 19-35, white fringe rows 36-37, green collar/shoulder cloth; the rider replaces the cream top cover (cover cells removed around/behind it, review round 1) and sits silhouetted on the saddle top |
-| Height budget | 70 px sprite + **2 px** feet offset in a **74.0 px** lane (`1280x720`, 8 lanes) -> **2 px slack**; at the +-2 px dune crest (`h = +2`) the sprite top sits exactly on the lane top |
-| Team label | 12 px monospace `#e8e0d0` on a dark pill **4 px above the sprite top**; clamped to the canvas |
-| Previews | throwaway-rendered outside the repo: `/tmp/art-previews/camel-v8-walk.png` (stand + 4 walk frames, 8x strip on a light backdrop) |
-| Status | **v8**, shipped in `index.html` (`const CAMEL`, registry `w: 84, h: 70`); supersedes v7 `76x70` |
+**Status - shipped as v8 (`84 x 70`).** Implemented in `index.html`: `const CAMEL` = the
+5 frames below (byte-identical), registry `{ id: 'camel', sprite: CAMEL, pal: CAMEL_PAL,
+w: 84, h: 70, rider: 'turban' }`, `CAMEL_PAL` with `pad`/`padDark`/`stripeCream`/
+`stripeRed`/`fringe`/`shadeDeepest` (plus six single-letter aliases, see the legend note).
+Supersedes [`camel-drafts-v4.md`](camel-drafts-v4.md) (v7 `76x70`, no saddle blanket).
 
-Body is **brown** per the pixel-art reference. The **rider's robe** takes the lane
-colour (palette-swap). Lane/team identity = the **team-name label above the animal** plus
-the robe colour; the saddle blanket is fixed art (no per-lane patch, no digit). The boar
-stays animal + rider, blanket-free.
+**Review round 1** (visual review): the cream cover cells around/behind the rider were
+removed (only the green collar, the left shoulder pad corner and the saddle below stay);
+`F` is constrained to the hanging fringe teeth + the eye glint (the leg light trim became
+`C`); the pass-frame bob moves the rider +1 row with the body (paste before the bob); and
+every enclosed transparent pocket in the saddle/rider area is sealed with `O` ink.
 
-## Goal
+## Goals
 
-Match the reference art: a **single-hump dromedary** with longer legs, a high head on a
-thick neck, a long dark tail and the reference's **decorated saddle blanket**, with the
-**v7 rider** seated as the saddle seat. Five body/blanket tones (`B`/`S`/`D`/`Z` + dark
-`O`), fixed saddle tokens (`P`/`Q`/`C`/`X`/`F`), dark outline `O`, slate leg/hoof band
-`G`, and a
-fairground rider (turban, face, lane-colour robe, boots). The canvas team-name label above
-each animal makes each lane read as a distinct racer at a glance. The 1 px pass-frame bob
-is baked into the matrices instead of shifting at runtime.
-
-## Reference art
-
-Traced from the user-provided reference image `camel-pixelart-new.png` (repo root,
-760x696; camel bbox 645x534 px, native grid recovered at **82x68** cells, 7.866 px per
-cell - a long-legged single-hump dromedary with the decorated saddle). The file is
-**gitignored and never committed, never linked or embedded in docs, never loaded at
-runtime** - only the matrices below ship. Quantise/measure/trace ran in throwaway scripts
-outside the repo; [`camel-drafts-v5.md`](camel-drafts-v5.md) is the full round (trace
-mapping, cluster cleanup, walk invention), this file is the promoted, shipped form.
-
-## Dressed variant
-
-`const CAMEL` (below) is the **dressed** form the game renders: the reference camel plus
-its saddle blanket plus the rider (`W` turban, `K` face/hands, lane-colour `R` robe, `O`
-boots, `O` outline) pasted at art (27, 2). The rider's `W`/`K`/`R` cells are
-byte-identical to v7 rows 18-34 / cols 33-48 (asserted cell-by-cell); the surrounding
-cover cells were removed by design. The rider replaces the **cream top cover**: the cover
-cells around/behind it are removed, so the rider silhouettes against the background; the
-green collar, the left shoulder pad corner, the striped bands, green cloth and fringe
-stay visible around and below it. Seat contact is **8-connected**: the right hem
-overhangs the saddle edge diagonally by one pixel per frame; no float. On pass frames the
-rider rides the bob +1 row with the body. There is no separate bare const in the shipped
-code; the rider-less
-standing frame is a build-time intermediate documented in
-[`camel-drafts-v5.md`](camel-drafts-v5.md).
-
-## Palette
-
-Fixed tones; `robe` is the only per-lane token. Contrast ratios are WCAG.
-
-| Token | Hex | Use |
+| # | Goal | Met by |
 |---|---|---|
-| `outline` | `#1c1208` | silhouette outline, hooves, eye, nostril |
-| `body` | `#d8a662` | camel body light (lit surfaces) |
-| `shade` | `#b0786b` | body mid (mauve shadow) |
-| `shadeDeep` | `#6f473e` | body deep (belly, lee edges, seams) |
-| `shadeDeepest` | `#55312e` | body deepest (hoof soles, deep shadow) |
-| `harness` | `#53565e` | slate leg/hoof band (legend `G`; no `G` on the neck) |
-| `eyeWhite` | `#f0ece0` | rider turban (legend `W`) |
-| `skin` | `#d8a878` | rider face + hands (legend `K`) |
-| `robe` | **lane colour** | rider robe (legend `R`) - 8-colour game palette (below) |
-| `pad` | `#4a7f65` | saddle pad green (legend `P`) |
-| `padDark` | `#37634e` | saddle pad dark green (legend `Q`) |
-| `stripeCream` | `#efd39e` | blanket stripe cream (legend `C`) |
-| `stripeRed` | `#e18683` | blanket stripe red (legend `X`) |
-| `fringe` | `#e7e8ea` | hanging fringe teeth + eye glint (legend `F`) |
+| 1 | match the reference silhouette: one hump, longer legs, high head on a thick neck, long dark tail | the 82x68 trace below (painted bbox 80x68) |
+| 2 | decorated saddle blanket back on the camel (green cloth, cream + red stripes, white fringe) | `P`/`Q` skirt + `X`/`C` stripes + `F` fringe, rows 19-40 |
+| 3 | v7 rider glyph (W/K/R) byte-identical, seated as the saddle seat (replaces the cream top cover - removed around it) | rider glyph (W/K/R) byte-identical; the window's cover/outline cells were removed by design - rider pasted at art (27, 2) |
+| 4 | stay inside the lane budget (84x70, feet on the bottom row, faces right) | painted 80x68, hooves on the bottom matrix row 69 |
+| 5 | animation-ready: standing + 4 walk frames, 1 px bob baked in | `const CAMEL` below |
+| 6 | lane identity unchanged: team-name label + per-lane robe `R` | lane colour swap, 58 `R` px per frame |
 
-The five body tones model lit crest / mauve mid / deep shade / deepest sole inside the
-near-black ink; the saddle tokens dress the blanket. Every legend char routes through the
-sprite palette (see [Implementer notes](#implementer-notes)).
+## Where it renders
 
-Contrast checks (WCAG, computed): `outline` vs `body` **8.38:1**, vs `shade` **5.04:1**,
-vs dune sand `#c9a25a` **7.72:1**; `body` vs `shadeDeep` **3.61:1**. The reference's deep
-tones are dark (`outline` vs `shadeDeep` 2.32:1, vs `shadeDeepest` 1.64:1), so the
-silhouette is read from the outline against the sand (7.72:1) - the deep tones only shade
-the interior. Saddle tokens on the dark bands: `stripeCream` vs `shadeDeep` 5.47:1,
-`stripeRed` vs `shadeDeep` 3.00:1, `fringe` vs `shadeDeep` 6.47:1; `padDark` vs `pad`
-1.48:1 (decorative steps, the outline carries the shape).
+Race canvas **1280x720**; 8 lanes -> lane height **74 px** (`laneFit.laneMinPx`), terrain
+bob +-2 px, feet 2 px above the lane bottom -> usable sprite box **<= 84 x <= 70**
+(shipped camel matrix `84 x 70`; `laneFit.spriteHMax: 70`). The sprite is drawn at 1x by
+`drawSprite` (no scaling, no image load). Sprites are centred on the lane's `left` +
+`laneW/2 - w/2`; the painted content is horizontally centred (matrix cols 2..81, centre
+**41.5 of 84**), so the animal sits dead centre in its lane.
 
-Lane colours (robe only, in lane order):
+```mermaid
+flowchart LR
+  R["camel-pixelart-new.png<br/>760x696, gitignored, never committed"] --> T["recover native grid<br/>82x68 cells @ 7.866 px"]
+  T --> Q["quantise to 21 clusters<br/>ASCII cluster map (A..U)"]
+  Q --> M["map clusters to the v8 legend<br/>clean AA / orphans"]
+  M --> H["hand-clean: head/eye, fringe teeth,<br/>hooves, tail"]
+  H --> B["base standing frame 82x68"]
+  B --> W["walk invention: rigid leg shifts,<br/>1 px bob, tail flick"]
+  W --> P["paste v7 rider byte-identical<br/>(cover removed around it)"]
+  P --> V["validator: dims / legend / enclosure /<br/>blob / feet / bbox / boots / hump / no-L"]
+  V --> O["CAMEL (5 frames) + CAMEL_PAL"]
+```
+
+```mermaid
+sequenceDiagram
+  participant T as rAF loop (now)
+  participant A as camel.animUntil
+  participant D as drawSprite
+  A-->>T: walk active?
+  T->>D: frame = animUntil>now ? (floor(now/320)%4)+1 : 0
+  D->>D: paint matrix (R = lane colour, saddle blanket + rider baked in)
+  D->>D: canvas team-name label above the animal (12 px mono, clamped)
+```
+
+## Reference mapping - what was traced, what was adapted
+
+Measured on the reference at the recovered **82x68 grid** (1 cell = 7.866 reference px).
+"Traced" = the span was read off the reference and kept; "adapted" = changed for the game
+(blockiness, legend colours, lane budget, the rider seat, the walk cycle). Art coords below
+are the 82x68 art space; the shipped matrix = art offset by **(col +1, row +2)** inside
+84x70.
+
+| Feature | Reference (82x68 grid) | v8 (art coords) | |
+|---|---|---|---|
+| overall | bbox 645x534 px = 82x68 cells | painted 80x68, matrix cols 2..81 / rows 2..69 | traced (AA trimmed) |
+| head + muzzle | rows 1-18, cols 56-80; muzzle tip col 80 | rows 1-18, cols 56-80 (matrix 57-81) | traced |
+| ear | rows 1-4, cols 59-64, two dark blocks | rows 0-4 (top row added for the 68-row bbox), cols 59-64 | traced + trimmed |
+| eye | rows 9-10, cols 66-69: dark socket with a light glint | `O` socket rows 9-10, `F` glint at (67,10) | traced, glint emphasised |
+| muzzle markings | mauve bridge stripe cols 74-77, dark mouth rows 15-17 | `D`/`Z` muzzle marking (+ `C`/`S` highlights), `O` mouth line + nostril | traced |
+| neck | rows 5-27, cols 55-70, thick | rows 5-27; the reference's slate neck-strap cells sit on the silhouette edge and ship as `O` (no `G` on the neck) | traced |
+| hump + cream cover | cover rows 3-18, cols 22-49; `F` trim row 3; vertical stripes | cover cells removed around/behind the rider (review round 1); green collar `P`/`Q` + left shoulder pad corner kept; rider silhouettes against the background | adapted (user option 1) |
+| saddle striped bands | rows 19-35, cols 16-54: `X`/`C` herringbone row 20, `Z`/`Q`/`P` bands below | rows 19-35 (`X C Z Q P`), same spans | traced |
+| saddle fringe | rows 36-37, cols 22-41: seven light teeth | `F` teeth at cols 23/26/29/32/35/38/41 over `O` | cleaned (even spacing) |
+| green cloth | `P`/`Q` right shoulder cols 44-54 rows 15-31 + left corner cols 16-17 | `P`/`Q`, same spans | traced |
+| body | rows 25-45 barrel; rump rear col 10, chest front col 54 | `B` body, `S`/`D` shading | traced |
+| legs | rows 40-66; rear pair cols 9-26, front pair cols 34-54; near legs `B` + light trim, far legs `D`/`Z` | rows 40-67 (one row extension), same pair split; leg trim painted `C` (review round 1) | traced + 1 row |
+| hooves | rows 64-66, stepped right | art rows 65-67: `O` outline + `Z` soles | adapted colour (legend fixes hooves to `O`) |
+| tail | rows 28-46, cols 1-9, dark, tufted | rows 28-46; `O` silhouette / `Z` interior; flicks +-1 | traced |
+| rider seat | (no rider in the reference) | rider glyph (W/K/R) byte-identical, pasted at art (27, 2); the window's cover/outline cells were removed by design; boots on the saddle top trim (art row 19); moves +1 with the bob | adapted (user option 1) |
+| walk cycle | not in the reference (single standing pose) | 4 hand-authored frames: rigid leg shifts, 1 px bob, tail flick | invented |
+
+## Legend & palette
+
+Chars (**14**, no `L`): `.` transparent, `O` outline + hooves + eye + nostril, `B` body
+light, `S` body mid (mauve shadow), `D` body deep, `Z` body deepest (hoof soles / deep
+shadow), `G` slate leg/hoof band, `W` turban, `K` skin, `R` robe = lane colour, `P` saddle
+pad green, `Q` saddle pad dark green, `C` stripe cream, `X` stripe red, `F` fringe
+(hanging fringe teeth + eye glint only).
+
+| char | palette key | hex | notes |
+|---|---|---|---|
+| `.` | - | - | transparent |
+| `O` | `outline` | `#1c1208` | outline + hooves + eye + nostril |
+| `B` | `body` | `#d8a662` | body light (lit surfaces); reference-exact |
+| `S` | `shade` | `#b0786b` | body mid / mauve shadow; reference-exact |
+| `D` | `shadeDeep` | `#6f473e` | body deep; reference-exact |
+| `Z` | `shadeDeepest` | `#55312e` | body deepest (hoof soles, deep shadow); reference-exact |
+| `G` | `harness` | `#53565e` | slate leg/hoof band only: frame 0 has 3 cells at matrix (17, 66), (43, 66), (44, 66); the band shifts with the walk leg pairs (frame 4: 1 cell at (17, 66)); no `G` on the neck |
+| `W` | `eyeWhite` | `#f0ece0` | turban (shared v7 token) |
+| `K` | `skin` | `#d8a878` | rider skin (face/hands); v7 token |
+| `R` | `robe` | lane colour | rider robe; only per-lane token |
+| `P` | `pad` | `#4a7f65` | saddle pad green; reference-exact |
+| `Q` | `padDark` | `#37634e` | saddle pad dark green; reference-exact |
+| `C` | `stripeCream` | `#efd39e` | blanket stripe cream; reference-exact (cover + bands) |
+| `X` | `stripeRed` | `#e18683` | blanket stripe red; reference-exact |
+| `F` | `fringe` | `#e7e8ea` | hanging fringe teeth (rows 36-37) + eye glint only; the leg light trim uses `C` |
+
+`CAMEL_PAL` also carries six **single-letter aliases** (`Z Q P C X F`). `drawSprite`
+resolves `palette[ch]` first; the global `CHAR_KEY` tokens for `C`/`P`/`X`/`F`
+(`cap`/`pole`/`checkerDark`/`flag`) belong to the boar and the finish flag, and `Z`/`Q`
+have no `CHAR_KEY` token, so the aliases keep the camel self-contained. All semantic keys
+the user fixed exist; `L` and `blanket` do not.
+
+Lane robe colours (unchanged, shared with the boar):
 
 | Lane | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---|---|---|---|---|---|---|---|
 | | `#e84a3a` | `#3a6ae8` | `#3aa84a` | `#e8c83a` | `#9a4ae8` | `#e88a3a` | `#3ad8d8` | `#e85a9a` |
 
-## Legend (char -> palette)
+WCAG contrast (computed): `O` vs `B` **8.38**:1, `O` vs `S` **5.04**:1, `O` vs `D`
+**2.32**:1, `O` vs `Z` **1.64**:1, `O` vs dune sand `#c9a25a` **7.72**:1. The reference's
+deep tones are dark, so the outline-on-deep contrast is below 3:1; the silhouette is read
+from the outline against the sand (7.72:1), and the deep tones only ever shade the interior
+(`B` vs `D` 3.61:1). Stripe/fringe tokens sit on the dark bands: `C` vs `D` 5.47:1,
+`X` vs `D` 3.00:1, `F` vs `D` 6.47:1.
 
-Every char resolves through the sprite's palette object. Only **`R` is per-lane**; all
-others are fixed. Legend is **`. O B S D Z G R W K P Q C X F`** (validator whitelist).
-**`L` is not a camel char** and `CHAR_KEY` has no `L` key; forest decor sprites that use
-`L` (leaf litter, mesa) carry their own `L` palette key. `CAMEL_PAL` also carries the six
-single-letter aliases `Z Q P C X F`, because `drawSprite` resolves `palette[ch]` first and
-the global `CHAR_KEY` tokens for `C`/`P`/`X`/`F` (`cap`/`pole`/`checkerDark`/`flag`)
-belong to the boar and the finish flag; `Z`/`Q` have no `CHAR_KEY` token at all.
+## Geometry budget
 
-| char | meaning | colour | per-lane? |
-|---|---|---|---|
-| `.` | transparent | - | - |
-| `O` | outline / hooves / eye / nostril | `#1c1208` | no |
-| `B` | camel body light | `#d8a662` | no |
-| `S` | camel body mid | `#b0786b` | no |
-| `D` | body deep (`shadeDeep`) | `#6f473e` | no |
-| `Z` | body deepest (hoof soles, deep shadow) | `#55312e` | no |
-| `G` | slate leg/hoof band | `#53565e` | no |
-| `R` | rider robe | lane colour | **yes** |
-| `W` | turban | `#f0ece0` | no |
-| `K` | skin (face, hands) | `#d8a878` | no |
-| `P` | saddle pad green | `#4a7f65` | no |
-| `Q` | saddle pad dark green | `#37634e` | no |
-| `C` | blanket stripe cream (cover + bands) | `#efd39e` | no |
-| `X` | blanket stripe red | `#e18683` | no |
-| `F` | hanging fringe teeth (rows 36-37) / eye glint | `#e7e8ea` | no |
+| matrix | painted bbox | painted px (frame 0; camel + rider) | feet row | lane slack |
+|---|---|---|---|---|
+| 84 x 70 | 80 x 68 @ matrix (2, 2) | 2592 = 2424 + 168 | matrix row 69 (bottom) | 0 px (height budget exact) |
 
-## Matrices (v8 - authoritative)
+Per-frame painted px: 2592 / 2585 / 2622 / 2592 / 2593 (frames 0-4). Bob frames 2/4 keep
+the hooves on row 69, so the bbox bottom never moves.
 
-5 dressed frames, each **70 rows x 84 chars**. Frame 0 = standing; 1-4 = walk
+## Frames (v8 - authoritative)
+
+5 frames, each **70 rows x 84 chars**. Frame 0 = standing; 1-4 = walk
 (`contact A -> pass A -> contact B -> pass B`), i.e.
 `[stand, contactA, passA, contactB, passB]`. Bob (upper body +1 px up) is baked into
 frames 2/4. The block below is byte-identical to `const CAMEL` in `index.html`.
-
-### `const CAMEL` - 5 frames (84 wide x 70 tall)
 
 ```js
   const CAMEL = [
@@ -508,466 +526,68 @@ frames 2/4. The block below is byte-identical to `const CAMEL` in `index.html`.
   ];
 ```
 
-## Silhouette / anatomy (shared per frame)
+## Walk cycle
 
-- **Hump + saddle pack**: one hump under the saddle. The cream cover cells (art rows
-  3-18) around/behind the rider are removed (review round 1), so the rider silhouettes
-  against the background; only the green collar (cols 44-54, rows 11-31) and the left
-  shoulder pad corner (cols 16-19, rows 14-19) remain above the saddle bands, next to
-  the green saddle cloth `P`/`Q` on the shoulder.
-- **Saddle bands**: rows 19-35 between the body and the pack: `X`/`C` herringbone row 21,
-  alternating `Z` / `Q+P` bands, and a `Z`/`S`/`D` tie row 28-29; fringe rows 36-37 -
-  seven evenly spaced `F` teeth (cols 23, 26, 29, 32, 35, 38, 41) over `O`; skirt bottom
-  rows 38-40.
-- **Body**: barrel rows 25-45; rump rear col 10, chest front col 54; `B` fill with
-  `S`/`D`/`Z` shading.
-- **Neck**: rows 5-27, cols 55-70 (thick); the reference's slate neck-strap cells sit on
-  the silhouette edge and ship as `O`. The only `G` cells are the slate leg/hoof band:
-  frame 0 has 3 cells at matrix (17, 66), (43, 66), (44, 66); the band shifts with the
-  walk leg pairs (frame 4: 1 cell at (17, 66)); no `G` on the neck.
-- **Head**: rows 0-18 (ear tip row 0), cols 56-80; `O` ear blocks, `O` eye socket rows
-  9-10 with an `F` glint at (67, 10), `D`/`Z` muzzle marking (with `C`/`S` highlights),
-  `O` mouth line rows 15-17 and `O` nostril.
-- **Legs**: rows 40-67; rear pair cols 9-26 (near leg `B` cols 10-16 with a `C` light
-  trim, far leg `D`/`Z` cols 18-25), front pair cols 34-54 (near leg `B` cols 36-42,
-  far leg `D`/`Z` cols 44-54); far legs shaded, near legs lit.
-- **Hooves**: rows 65-67, `O` outline boxes with `Z` soles; row 67 is the bottom matrix
-  row 69.
-- **Tail**: `O` silhouette + `Z` tuft, rows 28-46, cols 1-9; transparent gap to the rump
-  (as in the reference); flicks +1 / -1 px on the pass frames.
-- **Rider**: v7 block (17 rows x 16 cols, rows 18-34 / cols 33-48 of v7 frame 0) pasted
-  at art (27, 2): turban cap outline, turban 3 rows, face 4, robe 8, forward arm + hand,
-  boots `O`. The `W`/`K`/`R` cells are byte-identical to v7 (the surrounding cover cells
-  were dropped by design); seat contact is 8-connected (the right hem overhangs the
-  saddle edge diagonally by 1 px per frame; no float); the rider rides the pass-frame bob
-  +1 row. Rider px: 168 per frame (58 `R`).
-
-## High-detail rendering notes
-
-- **Five-tone body** - surfaces are painted `B` lit / `S` mid / `D` deep / `Z` deepest
-  inside the `O` ink, so hump, neck, legs and belly read with volume without extra chars.
-- **Hooves** - `O` boxes on rows 65-67 with `Z` soles (reference hooves are slate; the
-  legend fixes hooves to `O` for consistency with v7).
-- **Eye** - an `O` socket (rows 9-10) with an `F` glint, readable at 1x on sand.
-- **Fringe teeth** - seven evenly spaced `F` teeth over `O` on rows 36-37, plus the eye
-  glint; nothing else uses `F` (the leg light trims use `C`, review round 1).
-- **Tail tuft** - `Z` interior in the `O` tail that flicks +1/-1 px on the pass frames.
-- **Rider seat** - the turban keeps the v7 top-outline row (v7 row 18), so the glyph
-  reads as one outlined shape on the saddle.
-
-## Gait & timing
-
-```
-contact A -> pass A -> contact B -> pass B -+
-    ^                                        |
-    +----------------------------------------+
-```
-
-- Cycle = 4 walk frames x **320 ms** ~= **1280 ms**; idle = frame 0, **no idle motion**.
-- Index while animating: `(Math.floor(now / 320) % 4) + 1`, else `0`.
-- **Contact A (1)**: the rear leg pair (near + far, rigid) slides **+2 px**, the front
-  pair **-2 px**; tail neutral. **Contact B (3)** mirrors it (rear -2, front +2).
-- **Pass A (2)**: legs under the body; upper body + head + saddle + rider **1 px up**
-  (bob); tail **+1 px**. **Pass B (4)**: far legs +-1 px (near legs stay), bob 1 px up,
-  tail **-1 px**.
-- The **bob is baked into the matrices**: rows shift up by 1 on frames 2/4 while the leg
-  fill is refilled one row down, so the **hooves stay planted on row 69 in every frame**
-  and `drawSprite` applies no offset. A/B pass poses differ in leg placement and tail
-  flick -> no duplicate frames.
-- The **rider rides the bob**: it sits 1 px higher on pass frames (matrix rows 4-20 on
-  stand/contact, 3-19 on pass) while staying byte-identical.
-- Only **legs, the 1 px bob and the tail** move; the saddle, rider and body outline are
+- Cycle = 4 x 320 ms = **1280 ms**; frame index `(floor(now/320) % 4) + 1`, idle = 0.
+- **Contact A (1)**: rear leg pair (near+far) slides **+2 px**, front pair **-2 px**;
+  tail neutral. The leg fill stays anchored under the belly, hooves stay on row 69.
+- **Pass A (2)**: legs under the body; upper body + head + saddle + rider shift **1 px
+  up** (bob); tail flicks **+1 px**; the leg fill is refilled one row down so the hooves
+  stay planted.
+- **Contact B (3)**: mirror of contact A (rear -2, front +2).
+- **Pass B (4)**: far legs +-1 px (near legs stay), bob 1 px, tail flicks **-1 px** -
+  distinct from pass A.
+- The rider rides the bob: it sits 1 px higher on pass frames (rider matrix rows 4-20
+  on stand/contact, 3-19 on pass) while staying byte-identical.
+- Only legs, the 1 px bob and the tail move; the saddle, rider and body outline are
   otherwise identical across frames -> no silhouette jitter.
-
-## Saddle blanket (decorated, camel only)
-
-- The camel carries the reference's **decorated saddle blanket**: `X`/`C` striped bands
-  (rows 19-35), green cloth `P`/`Q`, white fringe teeth (rows 36-37). The rider replaces
-  the cream top cover (cover cells removed around/behind it, review round 1) and sits
-  silhouetted on the saddle top.
-- The boar stays **blanket-free**: no `L` cell exists in any camel frame, `CAMEL_PAL` has
-  **no `blanket` key** and `CHAR_KEY` has **no `L` entry**. No per-lane blanket patch and
-  no digit: lane/team identity = the **canvas team-name label above the animal** plus the
-  **per-lane rider robe colour** `R`; nothing is painted after `drawSprite(...)`.
-
-## Team-name label
-
-- The team is identified by the canvas label **above** the animal: team name in
-  **12 px monospace** `#e8e0d0` on a dark pill (16 px tall, `rgba(26,18,8,0.72)` + 1 px
-  `rgba(0,0,0,0.55)` outline, **4 px above the sprite top**, 4 px text pad), tracking
-  the animal's visual centre and **clamped to the canvas**; geometry is recomputed every
-  frame, so a rename redraws on the same frame.
-- Verified in the current worktree (`index.html` `drawTeamLabels`): `TEAM_LABEL_GAP = 4`,
-  `TEAM_LABEL_H = 16`, no digit draw call and no `CAMEL_ANCHOR`; the label anchor
-  inherits the sprite size via `camelTopY` (`SPRITE_H = 70`).
-
-## Implementer notes
-
-- **Constants**: `SPRITE_W = 84`, `SPRITE_H = 70` (from the theme registry), buffer
-  **1280x720**, `HORIZON_Y = 120`, `LANE_BOTTOM = 712` (720 - 8), `LANE_MARGIN = 4`,
-  `TERRAIN_FEET_OFFSET = 2`, `ANIM_FRAME_MS = 320` (walk cycle **1280 ms**;
-  `ANIM_MS = 1400`).
-- **Palette factory** (shipped `index.html`, copy verbatim):
-
-  ```js
-  const CAMEL_PAL = (robe) => {
-    // Shared hexes defined once; the semantic keys below alias them by
-    // reference (explicit `key: const` form keeps the keys greppable), so
-    // editing a hex can never silently desync a key from its letter alias.
-    const shadeDeepest = '#55312e', pad = '#4a7f65', padDark = '#37634e',
-      stripeCream = '#efd39e', stripeRed = '#e18683', fringe = '#e7e8ea';
-    return {
-      outline: '#1c1208', body: '#d8a662', shade: '#b0786b', shadeDeep: '#6f473e',
-      shadeDeepest: shadeDeepest, harness: '#53565e', robe: robe, eyeWhite: '#f0ece0',
-      skin: '#d8a878', pad: pad, padDark: padDark, stripeCream: stripeCream,
-      stripeRed: stripeRed, fringe: fringe,
-      Z: shadeDeepest, Q: padDark, P: pad, C: stripeCream, X: stripeRed, F: fringe,
-    };
-  };
-  ```
-- **Registry entry** (theme `desert`, shipped):
-
-  ```js
-  animal: {
-    id: 'camel', sprite: CAMEL, pal: CAMEL_PAL, w: 84, h: 70, rider: 'turban', // rider: declarative-only
-  },
-  laneFit: { spriteHMax: 70, laneMinPx: 74 },
-  ```
-- **`drawSprite` legend**: route *every* char through the sprite palette
-  (`O->outline, B->body, S->shade, D->shadeDeep, Z->shadeDeepest, G->harness, R->robe,
-  W->eyeWhite, K->skin, P->pad, Q->padDark, C->stripeCream, X->stripeRed, F->fringe`;
-  `.` skipped). `drawSprite` resolves `palette[ch]` before `CHAR_KEY`, so the six
-  single-letter aliases keep the camel self-contained; `CHAR_KEY` has **no `L`**, and
-  forest decor that uses `L` (leaf litter, mesa) keys it in its own palette.
-- **Shared `D -> shadeDeep` key**: the boar palette carries `shadeDeep: '#26221a'` (its
-  bristle/reins/boots tone) and `harness: '#2e2918'` (its `G` legs tone), so the one
-  `CHAR_KEY` serves both animals.
-- **Digit + per-lane blanket patch retired**: no `drawBlanketNumber` call after
-  `drawSprite(...)`; `CAMEL_ANCHOR`, `blanket.anchor`, `blanket.digitColor` and the
-  `blanket` palette key do not exist in the shipped code. The camel's saddle blanket is
-  fixed art; team identity = the canvas team-name label
-  (see [Team-name label](#team-name-label)) + robe colour.
-- **Lane math**: `camelTopY(i,n) = clamp(laneTopY, laneBottomY - SPRITE_H, laneSurfaceY - SPRITE_H)`
-  keeps the feet 2 px above the surface. At `n = 8`, `laneHeight = 74.0 px`; the 70 px
-  sprite + 2 px feet offset = 72 px, so the slack is **2 px** - even at the dune crest
-  `h = +2` the sprite top lands exactly on the lane top and the clamp stays inert.
-- **`camelTargetLeft` clamp** uses `SPRITE_W = 84`: the sprite is centred on the mapped
-  score (`cx - SPRITE_W/2`) and clamped to
-  `LANE_MARGIN ... CANVAS_W - SPRITE_W - LANE_MARGIN` = **4 ... 1280 - 84 - 4 = 1192**
-  (v7 was `4 ... 1200`; the wider v8 camel has 8 px less travel on each side). Team
-  labels clamp to the canvas (`x in [0, CANVAS_W - w]`, defensive `y` clamps).
 
 ## Validation (run on the matrices above)
 
-Re-checked with a throwaway validator against the shipped `const CAMEL` extracted from
-`index.html` for this doc (damaged checks name row/col):
+Throwaway validator over all five frames (failed checks would name row/col):
 
 | Check | Result |
 |---|---|
-| exact 70 rows x 84 chars (all frames) | ok |
-| legend-only chars (`. O B S D Z G R W K P Q C X F`) | ok, no `L` |
+| every row exactly 84 chars / 70 rows per frame | ok, all 5 frames |
+| legend-only chars, no `L` | ok (`.` `O` `B` `S` `D` `Z` `G` `W` `K` `R` `P` `Q` `C` `X` `F`) |
 | O-enclosure (camel body only; rider cells silhouette against the background by design) | 0 camel-body offenders, all frames |
 | no transparent cell enclosed by the camel/rider silhouette | 0 pockets, all 5 frames |
-| no interior holes (every `.` component touches the border) | 0 hole cells, all frames |
-| 4-connected blob over non-`.` non-rider pixels | 1 component per frame (camel px 2424 / 2417 / 2454 / 2424 / 2425) |
+| 4-connected blob over non-`.` non-rider pixels | 1 component per frame |
 | rider cells 8-connected to the saddle | ok, all frames |
 | rider seat: 8-connected contact (the right hem overhangs the saddle edge diagonally by 1 px per frame), no float | ok, all frames |
 | rider rides the pass-frame bob (+1 row, byte-identical glyph) | ok, frames 2/4 |
 | rider top row at or below the camel head top row | rider matrix rows 4-20 (3-19 on bob frames) >= head top matrix row 2 |
-| exactly one hump crest left of the rider | 1 crest, matrix cols 2-27 (peak row 16 on stand/contact, row 15 on bob frames) |
+| exactly one hump crest left of the rider | 1 crest (matrix cols 2-27; peak row 16 on stand/contact, row 15 on bob frames) |
 | robe lane-colour px per frame | 58 (`R`) |
-| hooves on the bottom row (row 69) every frame | ok; row 69 is all `O` |
-| painted bbox <= 82 x 68 and centred | 80x68 / 80x68 / 79x68 / 80x68 / 81x68 @ matrix rows 2..69; centre 41.5 of 84 on stand/contact, 42 and 41 on the pass frames |
-| painted px per frame (0-4) | 2592 / 2585 / 2622 / 2592 / 2593 |
-| all 5 poses pairwise distinct (similarity < 0.98) | ok (closest pair **frames 2 vs 4 = 0.954**) |
-| no `L` px | 0 in every frame |
+| painted bbox <= 82 x 68 and centred | 80x68 / 80x68 / 79x68 / 80x68 / 81x68; centre 41.5 of 84 on stand/contact, 42 and 41 on the pass frames |
+| feet/hooves on the bottom row 69 | ok; row 69 is all `O` |
+| all 5 poses pairwise distinct | closest pair frames 2 vs 4 = 0.954 similarity |
 
-## v8 geometry (buffer 1280x720, sprite 84x70, 8 lanes)
+## Process note
 
-| Constant | Value | Derivation |
-|---|---|---|
-| Buffer | **1280 x 720** (16:9) | spec |
-| `SPRITE_W` / `SPRITE_H` | **84 / 70** | v8 matrix dims (painted bbox 80 x 68 standing/contact) |
-| `HORIZON_Y` | **120** | spec |
-| `LANE_BOTTOM` | **712** | 720 - 8 |
-| Lane region | **592** | `712 - 120` |
-| Lane height (n=8) | **74.0 px** | `592 / 8` |
-| Lane height (n=4) | **148.0 px** | `592 / 4` |
-| `LANE_MARGIN` | **4** | spec |
-| `TERRAIN_FEET_OFFSET` | **2** | unchanged |
-| Terrain amplitude | **+-2 px** | `TERRAIN { A1:1.2, L1:160, PH1:0, A2:0.8, L2:130, PH2:1.7 }` |
-| `ANIM_FRAME_MS` | **320** | gait cycle 1280 ms; frame order 1->2->3->4->1 |
-
-8-lane fit: `laneHeight(8) - SPRITE_H - TERRAIN_FEET_OFFSET = 74 - 70 - 2 = 2 px`
-slack; at the dune crest `h = +2` the sprite top lands exactly on the lane top and the
-`camelTopY` clamp stays inert. Camera margins: `camelTargetLeft` clamp `4 ... 1192`; team
-labels clamp to the canvas.
-
-## Dune lane tokens (terrain feature, approved 1A)
-
-Palette for the sand-dune lane ribbons under the dark night sky. Adds one shared
-ribbon under each lane so camels appear to run along rolling dunes.
-
-| Token | Hex | Use |
-|---|---|---|
-| `duneTop` | `#c9a25a` | lit sand (ribbon fill) |
-| `duneShade` | `#a8813f` | shaded sand / lee side |
-| `duneEdge` | `#6e4f2a` | dark crease between ribbons |
-| `duneRim` | `#523a1e` | thin darker rim under the lit crest |
-
-Contrast checks: `duneTop`<->`duneShade` 1.50, `duneTop`<->`duneEdge` 3.13,
-`duneTop`<->sky `#1a1030` 7.58, `duneRim`<->`duneTop` 4.44.
-The brown camel (`#d8a662`) on `duneTop` is only **1.09** - acceptable because the
-camel's dark outline reads at **7.72** against the sand (see acceptance criteria).
-
-### Shared terrain profile `h(x)`
-
-One deterministic height field reused by every lane (lane-y offset only):
-
-```
-h(x) = A1*sin(2pi*x/L1 + p1) + A2*sin(2pi*x/L2 + p2)
-A1 = 1.2 px,  L1 = 160 px,  p1 = 0
-A2 = 0.8 px,  L2 = 130 px,  p2 = 1.7
-```
-
-| Requirement | Value |
-|---|---|
-| Amplitude | `A1 + A2 <= 2 px` (kept; amplitude not doubled at 1280x720 so the 8-lane fit holds) |
-| Wavelength | `L in [120, 200] px` -> reads as rolling dunes, not noise |
-| Deterministic | pure `Math.sin`, **no `Math.random`**, stable across frames |
-| Smooth | max slope `2pi(A1/L1 + A2/L2) ~= 0.09 px/px` -> `|h(x+1)-h(x)| <= 1 px` |
-| Same for all lanes | identical `h(x)`; lanes differ only by their vertical offset |
-
-Draw per lane *before* the camel: fill `laneTopY..laneBottomY` with `duneTop`, offset the
-crest line by `h(worldX)`, stroke `duneRim` 1 px under the crest and `duneEdge` along the
-ribbon bottom; clamp `h` to `[-2, +2]`.
-
-## Palette-swap
-
-Only `R` changes per camel. `O`/`B`/`S`/`D`/`Z`/`G`/`K`/`W`/`P`/`Q`/`C`/`X`/`F` are fixed,
-so the silhouette, face, turban, harness and saddle blanket stay identical and every robe
-colour reads clearly. The throwaway previews (outside the repo) render v8 on sand
-`#c9a25a`.
-
-## Acceptance criteria (Playwright-testable)
-
-1. **Sprite size** - for lane 0 with any score, the painted camel's bounding box is
-   <= 84 px wide and <= 70 px tall (matrix uniform `84 x 70`).
-2. **Feet on the lane** - the camel's lowest painted row equals
-   `laneBottomY(0, n) - 2` (+- dune `h`, clamped inside the lane); feet on row 69 of the
-   sprite (hoof `O` blocks never move with the bob).
-3. **Standing frame** - with no score change, sampling the lane returns frame 0 (the
-   standing matrix); no idle motion between two rAF ticks.
-4. **Walk cycle** - after a score change, the frame index advances `1->2->3->4->1` at
-   320 ms steps and returns to 0 after `ANIM_MS`.
-5. **Bob** - on frames 2/4 the body (neck, head, saddle, rider) sits **1 px higher**
-   than frame 0 (baked into the matrix); the planted hooves remain on row 69.
-6. **Palette-swap** - rider-robe pixels equal the camel's lane colour; saddle blanket
-   pixels are the fixed hexes in every lane (`pad` `#4a7f65`, `stripeCream` `#efd39e`,
-   `stripeRed` `#e18683`, `fringe` `#e7e8ea`); no `L` cell and no `blanket` key exist.
-7. **Team name** - the team name is drawn as a canvas label above the sprite (12 px
-   monospace `#e8e0d0` on a dark pill, clamped to the canvas); no digit and no per-lane
-   blanket patch are painted.
-8. **Fixed tones** - body pixels are `#d8a662`, outline pixels `#1c1208` and deep-shade
-   pixels `#6f473e` in every lane.
-9. **Dune profile** - sampling the crest line gives the same `h(x)` for every lane;
-   `|h| <= 2` for all `x`; two samples `x` and `x+1` differ by <= 1.
-10. **Readability** - with the camel on `duneTop`, at least one outline pixel `#1c1208`
-    stays adjacent to the camel in x so the silhouette reads (contrast 7.72).
-
-## Selection & history
-
-**v8** was traced from the second user reference (`camel-pixelart-new.png`) and shipped
-as `84x70` with the decorated saddle blanket and the v7 rider seated on the saddle
-([drafts v5](camel-drafts-v5.md)), superseding **v7 (draft A of
-[drafts v4](camel-drafts-v4.md), `76x70`, no saddle blanket)**. Earlier: **v6** promoted
-draft A of [camel-drafts-v3.md](camel-drafts-v3.md); **T2 (two-hump Bactrian)** was
-chosen from [drafts v2](camel-drafts-v2.md) on **2026-10-04**; **v5 (`66x62`)** promoted
-v4 to the 1280x720 buffer.
-
-| Version | Size | Notes |
-|---|---|---|
-| v3 | 34x24 | single-hump draft (deleted after promotion) |
-| v4 | 33x31 | two-hump Bactrian, 640x360 buffer, 3x5 digit (retired) |
-| v5 | 66x62 | 1280x720 buffer, two-hump Bactrian, 6x10 digit (retired - team name is now a canvas label) |
-| v6 | 92x70 | naturalistic dromedary + plain blue blanket, `D` = `shadeDeep`, bob baked, no digit |
-| v7 (draft A) | 76x70 | stocky reference-matched dromedary, no blanket (`L` + `blanket` key removed), cleaned tones, bob baked, hooves on row 69 (retired) |
-| **v8** | **84x70** | reference-traced long-legged dromedary, decorated saddle blanket back, v7 rider byte-identical on the saddle (replaces the cream cover), 5-tone body, bob baked, hooves on row 69; shipped in `index.html` |
-
-v3 history: **Draft A** had been chosen from `docs/art/camel-drafts.md` on 2026-10-03
-(a 34x24 single-hump design; drafts doc deleted after promotion).
-
-## Appendix A — v4 matrices (superseded, `33×31`)
-
-Kept for history/diff. Not rendered (v8 supersedes). 31 rows × 33 chars.
-
-```
-  const CAMEL_V4 = [
-    [ // frame 0 — standing (idle)
-      '......................OOO........',
-      '..........OOOOOO......OSSOO......',
-      '..........OWWWWO....OOSBBBBO.....',
-      '..........OWWWWO....OSBSSSBBOOO..',
-      '..........OWWWWO....OBBBBBBBGBBO.',
-      '..........OOKKOO.....OBBBBBGBBBO.',
-      '........OOORRRRO.....OSBSSSGOSSO.',
-      '.......OOBORRRROOO...OSBBBSGOOOO.',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOSSSSSSO....OSSSSO...........',
-      '..O.SSSSSSO.....OSSSO............',
-      '...OSSSSSSO.....OSSSO............',
-      '....OSSSSO.....OSSSO.............',
-      '.....OSSSO......OSSO.............',
-      '......OSO........OSO.............',
-      '......OSO........OSO.............',
-      '......OSO........OSO.............',
-      '......OSO........OSO.............',
-      '.....OOOOO......OOOOO............',
-    ],
-    [ // frame 1 — contact A
-      '.......................OOO.......',
-      '..........OOOOOO.......OSSOO.....',
-      '..........OWWWWO.....OOSBBBBO....',
-      '..........OWWWWO.....OSBSSSBBOOO.',
-      '..........OWWWWO.....OBBBBBBBGBBO',
-      '..........OOKKOO......OBBBBBGBBBO',
-      '........OOORRRRO......OSBSSSGOSSO',
-      '.......OOBORRRROOO....OSBBBSGOOOO',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOSSSSSSO....OSSSSO...........',
-      '..O.OOSSSOO.....OOOSO............',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '.....OSO............OSO..........',
-      '.....OSO............OSO..........',
-      '....OSO..............OSO.........',
-      '...OSO................OSO........',
-      '..OOOOO..............OOOOO.......',
-    ],
-    [ // frame 2 — pass A (bob)
-      '.................................',
-      '......................OOO........',
-      '..........OOOOOO......OSSOO......',
-      '..........OWWWWO....OOSBBBBO.....',
-      '..........OWWWWO....OSBSSSBBOOO..',
-      '..........OWWWWO....OBBBBBBBGBBO.',
-      '..........OOKKOO.....OBBBBBGBBBO.',
-      '........OOORRRRO.....OSBSSSGOSSO.',
-      '.......OOBORRRROOO...OSBBBSGOOOO.',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '..OOO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOOSSSOOO....OOOSSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '.....OSO............OSO..........',
-      '.....OSO............OSO..........',
-      '....OOOOO..........OOOOO.........',
-    ],
-    [ // frame 3 — contact B
-      '.....................OOO.........',
-      '..........OOOOOO.....OSSOO.......',
-      '..........OWWWWO...OOSBBBBO......',
-      '..........OWWWWO...OSBSSSBBOOO...',
-      '..........OWWWWO...OBBBBBBBGBBO..',
-      '..........OOKKOO....OBBBBBGBBBO..',
-      '........OOORRRRO....OSBSSSGOSSO..',
-      '.......OOBORRRROOO..OOBBBSGOOOO..',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OO.OSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOSSSSSSO....OSSSSO...........',
-      '..O.OOSSSOO.....OOOSO............',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '......OSO..........OSO...........',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '........OSO......OSO.............',
-      '.........OSO....OSO..............',
-      '........OOOOO..OOOOO.............',
-    ],
-    [ // frame 4 — pass B (bob)
-      '.................................',
-      '......................OOO........',
-      '..........OOOOOO......OSSOO......',
-      '..........OWWWWO....OOSBBBBO.....',
-      '..........OWWWWO....OSBSSSBBOOO..',
-      '..........OWWWWO....OBBBBBBBGBBO.',
-      '..........OOKKOO.....OBBBBBGBBBO.',
-      '........OOORRRRO.....OSBSSSGOSSO.',
-      '.......OOBORRRROOO...OSBBBSGOOOO.',
-      '........OOORRRROBBO...OSBBBGO....',
-      '.......OBBORRRROBBBO..OSBBBGO....',
-      '.......OBSORRRROSSBO..OSBBBO.....',
-      '......OBSSORRRROSSBBOOSBBBGO.....',
-      '.....OOBSSOLLLLOSSSBBBBBSGGO.....',
-      '....OOBBSSOLLLLOSSSSSSSSGGO......',
-      '...O.OBSSSOLLLLOGGGGGGGSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSSO.......',
-      '...O.OBSSSOLLLLOSSSSSSSSO........',
-      '...O..OSSSOOOOOOSSSSSSSOO........',
-      '...OOOOSSSSSSSSSSSSSSSO..........',
-      '..O.OOSSSSSSSOOOSSSSSO...........',
-      '..O.OSSSSSSSO...OSSSSO...........',
-      '..OOOOOSSSOO....OOSSSO...........',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '.......OSO........OSO............',
-      '........OSO......OSO.............',
-      '........OSO......OSO.............',
-      '.......OOOOO....OOOOO............',
-    ],
-  ];
-```
-
+1. **82x68 recovery**: the reference was quantised with a throwaway PIL script to **21
+   colour clusters** (letters `A..U`; `A` = background) on the recovered 7.866 px grid,
+   giving an 82x68 ASCII cluster map.
+2. **Mapping**: clusters were mapped to the v8 legend (exact hexes; `#d8a662` -> `B`,
+   `#b0786b` -> `S`, `#6f473e` -> `D`, `#55312e` -> `Z`, `#efd39e` -> `C`, `#e18683` ->
+   `X`, `#4a7f65` -> `P`, `#37634e` -> `Q`, `#e7e8ea` -> `F`, near-blacks -> `O`), then
+   rule-cleaned: despeckle, fill enclosed background pockets, enforce the `O` outline.
+3. **Hand cleaning**: the head (ear trim, eye socket + glint, muzzle band, jaw), the
+   fringe band (seven evenly spaced `F` teeth over `O`), the hooves (`O` boxes with `Z`
+   soles) and the tail (transparent gap to the rump, `Z` tuft interior) were authored by
+   hand against the reference crops.
+4. **Walk invention**: the reference is a single standing pose, so the 4 walk frames were
+   hand-authored: rigid leg-pair shifts (+-2 / +-1), a 1 px bob on the pass frames, and a
+   +-1 px tail flick - the same grammar as the v7 walk set.
+5. **Rider transplant**: the rider's `W`/`K`/`R` cells (v7 rows 18-34, cols 33-48) are
+   pasted byte-identical (asserted cell-by-cell against the v7 `CAMEL` frame 0) at art
+   (27, 2); the surrounding cover cells were dropped by design and the turban keeps its
+   v7 top-outline row. Seat contact is 8-connected: the right hem overhangs the saddle
+   edge diagonally by one pixel per frame; no float.
+6. **Iteration**: matrices were rendered at 8x/14x to PNGs in a temp dir (outside the
+   repo) after every change and compared against the reference before the final
+   validator run.
+7. **Review round 1** (post-review fixes): the cream cover cells around/behind the rider
+   were removed (green collar + left shoulder pad corner kept), `F` was constrained to the
+   hanging fringe + eye glint (the leg light trim became `C`), and the rider paste moved
+   before the bob so the rider rides the +1 row pass-frame bob.

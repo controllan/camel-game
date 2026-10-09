@@ -16,7 +16,11 @@ No image files at runtime: the matrices below drive `drawSprite`. Conventions fo
    `CAMEL_PAL` drops the `blanket` key. Lane/team identity = the **canvas team-name label**
    above the animal + the **rider robe colour** `R` (per-lane palette swap), never a patch.
 
-**Status - draft A is chosen and shipped as v7 (`76 x 70`).** Implemented in `index.html`:
+**Status - superseded by v8.** [`camel-drafts-v5.md`](camel-drafts-v5.md) (`84 x 70`,
+reference-traced decorated dromedary with the rider on the saddle) replaced this round;
+`index.html` now ships v8, and the matrices below stay as the v7 history.
+**Status (this round) - draft A was chosen and shipped as v7 (`76 x 70`).** It was
+implemented in `index.html` at the time:
 `const CAMEL` = `CAMEL_A_STAND[0]` + `CAMEL_A_WALK` (byte-identical), registry
 `{ id: 'camel', sprite: CAMEL, pal: CAMEL_PAL, w: 76, h: 70, rider: 'turban' }`, `CAMEL_PAL`
 without the `blanket` key. Draft **B** (84 x 70, ~15 % longer legs) and draft **C** (64 x 62,

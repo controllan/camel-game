@@ -19,7 +19,7 @@ Open `index.html` in a browser — double-click it or drag it into a tab. No ser
 - **Language** — the `EN` / `DE` toggle in the header switches every string. Default EN.
 - **Theme** — the `Desert` / `Forest` toggle in the header, next to the language toggle, swaps the art instantly. Default Forest.
 
-All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride grass lanes under a treeline. Each animal carries a colored rider and its team name is drawn on a canvas label above it (no saddle blanket).
+All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride grass lanes under a treeline. Each animal carries a colored rider and its team name is drawn on a canvas label above it. The camel carries its decorated saddle blanket (green cloth, cream + red stripes, white fringe); the wild boar stays animal + rider, blanket-free.
 
 Out of scope: sound, cross-device sync, multiplayer, betting.
 
