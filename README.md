@@ -19,7 +19,7 @@ Open `index.html` in a browser — double-click it or drag it into a tab. No ser
 - **Language** — the `EN` / `DE` toggle in the header switches every string. Default EN.
 - **Theme** — the `Desert` / `Forest` toggle in the header, next to the language toggle, swaps the art instantly. Default Forest.
 
-All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride dense grass lanes under a dusk treeline with distant violet ridges. Each animal carries a colored rider and its team name is drawn on a canvas label above it. The camel carries its decorated saddle blanket (green cloth, cream + red stripes, white fringe); the wild boar stays animal + rider, blanket-free.
+All animals always stay visible on the canvas, even at large score spreads or in infinite mode. The canvas renders a `1280×720` pixel-art buffer scaled to fit. In the desert theme camels ride the undulating sand dune lanes; in the forest theme wild boars with hunter riders ride dense grass lanes under a dusk sky with layered violet mountains, a two-tier treeline and distant ridges, between denser background trees (conifers, broad/deciduous, autumn, birch, snag and deep-shadow spruce). Each animal carries a colored rider and its team name is drawn on a canvas label above it. The camel carries its decorated saddle blanket (green cloth, cream + red stripes, white fringe); the wild boar stays animal + rider, blanket-free.
 
 Out of scope: sound, cross-device sync, multiplayer, betting.
 
@@ -40,8 +40,10 @@ errors.
 
 Two themes: **Desert** (camel + dunes) and **Forest** (wild boar with visible tusks and
 eye detail + hunter rider, dense grass floor cover — tufts, ferns, leaf drifts, grass
-waves, twigs, mushrooms, moss, stones and pine needles — plus dusk ridges and a treeline,
-moon).
+waves, twigs, mushrooms, moss, stones and pine needles — plus a dusk sky with two
+layered mountain silhouettes, a two-tier treeline, distant ridges, moon, and 9
+background tree kinds: conifer, deciduous, broad, bush, autumn, birch, snag,
+tall spruce and deep-shadow spruce).
 Switch with the theme toggle in the header next to the language toggle — the swap is
 instant, does not reset scores, and the selection is persisted. **Forest is the
 default**: a fresh game (or one with no saved theme) opens as `BOAR RACE` /

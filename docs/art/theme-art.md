@@ -1314,9 +1314,11 @@ suite is the baseline, and the game must not be touched here).
 
 ## 3. Forest theme (new)
 
-Dusk sky + moon over grass lanes with a distant-ridge horizon and treeline jag,
-midground trees standing in the track, and dense procedural floor cover (grass
-carpet + sprites + v2 flat marks — see §3.8 for the ambience v2 additions).
+Dusk sky + moon over grass lanes with a two-layer procedural mountain range, a
+two-tier conifer treeline, distant-ridge horizon, denser background trees (9
+kinds, including autumn/birch/deep-shadow palette variants and a tall spruce +
+snag), midground trees standing in the track, and dense procedural floor cover
+(grass carpet + sprites + v2 flat marks — §3.8 covers the v2/v3 additions).
 
 ### 3.1 Dusk sky bands + moon
 
@@ -1357,14 +1359,33 @@ identical, so lane geometry / fit are untouched.
 | `ground.carpetSpacing` | `7` | carpet pitch in screen px, v2 (was 10) |
 | `ground.clusterShare` | `0.14` | grain-cluster chance per column, v2 (opt-in token) |
 | `ground.streaks` | 2 bands (§3.8) | grass wind-ripple bands (desert ships `DUNE_STREAKS`) |
-| `palette.distant[0]` | `#241634` | far dusk ridge (darkest) — also the treeline-jag tone |
-| `palette.distant[1]` | `#33204a` | front dusk ridge |
-| `palette.treeline` | `true` | treeline-jag gate (desert ships no token) |
+| `palette.distant[0]` | `#241634` | far dusk ridge (darkest) — also the front treeline-jag tone |
+| `palette.distant[1]` | `#33204a` | front dusk ridge — also the back treeline-jag tone |
+| `palette.treeline` | `true` | treeline-jag gate (desert ships no token); v3 draws two tiers |
+| `palette.mountains.back` | `#3b2a56` | far mountain silhouette (v3, §3.8f) |
+| `palette.mountains.backRim` | `#4d3a6d` | far mountain 1 px upper rim |
+| `palette.mountains.body` | `#140b26` | near mountain silhouette (v3) |
+| `palette.mountains.rim` | `#2e1f52` | near mountain 1 px upper rim |
 
 `#1a1208` outline on `#4a7a3a` = **3.65** ≥ 3:1 (non-text UI / silhouettes) ✓.
 `ground.top` vs `ground.shade`, `ground.edge`, `ground.rim` all separate cleanly
 (darker greens); grass reads as a continuous band with a `#1c3018` crest line. The v2
 tokens (speckle/cluster/carpet/streaks/ridges/treeline) are detailed in §3.8.
+
+**Mountain tones (v3, §3.8f).** Both silhouettes are darker than every sky band
+they overlap; the far layer tops span 30–58 px above `HORIZON_Y` (top y ≥ 62 →
+sky bands 2–3), the near layer tops span 42–70 px (top y ≥ 50 → bands 1–2):
+
+| Tone | vs `sky[0]` | vs `sky[1]` | vs `sky[2]` | vs `sky[3]` | vs ridge tones |
+|---|---|---|---|---|---|
+| back `#3b2a56` | 1.29 (not overlapped) | 1.07 (not overlapped) | **1.19** | **1.60** | far `#241634` 1.33 / front `#33204a` 1.14 |
+| body `#140b26` | 1.16 (not overlapped) | **1.40** | **1.78** | **2.39** | far `#241634` 1.12 / front `#33204a` 1.31 |
+
+Rims read at **1.30** over their own body (backRim over back, rim over body); the
+near rim `#2e1f52` is 1.38 over `sky[2]`. The near/far bodies are ~1.12–1.33 from
+the ridge tones with a hue split (near body is a deep indigo-violet, the ridges
+are warmer purple), so the jagged peaks separate from the sine ridges while the
+whole range stays atmospheric.
 
 ### 3.3 Decor set — inventory, sizes, legends
 
@@ -1379,6 +1400,8 @@ lane's `terrainSurfaceY` (negative = up).
 | `tree-deciduous` | `FOREST_TREE_DECIDUOUS` | `40 × 56` | `O T S B` | background | −56 |
 | `tree-broad` | `FOREST_TREE_BROAD` | `44 × 60` | `O T S B R` | background **and** midground | −60 |
 | `bush` | `FOREST_BUSH` | `28 × 20` | `O T S` | background | −20 |
+| `tree-spruce-tall` | `FOREST_TREE_SPRUCE_TALL` | `40 × 64` | `O T S B` | background | −64 |
+| `tree-snag` | `FOREST_TREE_SNAG` | `24 × 48` | `O B S` | background | −48 |
 | `tree-tall` | `FOREST_TREE_TALL` | `48 × 72` | `O T S B R` | midground | −72 |
 | `grass-tuft-a` | `GRASS_TUFT_A` | `10 × 8` | `O G H` | floor | −8 |
 | `grass-tuft-b` | `GRASS_TUFT_B` | `12 × 8` | `O G H` | floor | −8 |
@@ -1399,6 +1422,12 @@ kinds from `HORIZON_Y`, midground/floor kinds from the lane `terrainSurfaceY`
 (negative = up); the v2 flat marks carry no `yOffset` — they roam the lane field
 (§3.8). **Weights are per placement stream** (background / midground /
 floor), not global — see §3.4.1.
+
+**v3 palette variants** (§3.8g) reuse the existing matrices with different ink:
+`FOREST_TREE_PAL_AUTUMN` (warm canopy on the deciduous matrix),
+`FOREST_TREE_PAL_BIRCH` (pale `B` trunk on the deciduous matrix) and
+`FOREST_TREE_PAL_SPRUCE_DARK` (deep-shadow canopy on the conifer matrix). They are
+registered as background `trees` kinds, like their base sprites.
 
 Legend chars (forest): `.` transparent, `O` outline; `T` canopy light,
 `S` canopy/stone shade, `B` trunk / stone body, `R` root/base dark; `C` mushroom
@@ -1427,7 +1456,21 @@ const TWIG_PAL        = { O:'#3a6030', B:'#4a3320' };
 // --- new trees (R = dark root/base tone so the trunk reads as standing) ---
 const FOREST_TREE_TALL_PAL  = { outline:'#1a1208', T:'#2f6b3a', S:'#1f4a2a', B:'#4a3320', R:'#2a1c10' };
 const FOREST_TREE_BROAD_PAL = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', B:'#4a3320', R:'#2a1c10' };
+// --- v3 palette variants (§3.8g): share the existing matrices ---
+const FOREST_TREE_PAL_AUTUMN      = { outline:'#1a1208', T:'#c9803a', S:'#8f4f22', B:'#4a3320' };
+const FOREST_TREE_PAL_BIRCH       = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', B:'#d8d2c2' };
+const FOREST_TREE_PAL_SPRUCE_DARK = { outline:'#1a1208', T:'#1f4a2a', S:'#14301c', B:'#33241a' };
+// --- v3 new sprites (§3.3) ---
+const FOREST_TREE_PAL_SPRUCE_TALL = { outline:'#1a1208', T:'#2a6234', S:'#1b4024', B:'#4a3320' };
+const FOREST_TREE_PAL_SNAG        = { outline:'#1a1208', B:'#6b5a42', S:'#3f3222' };
 ```
+
+V3 variant contrast vs the overlapped dusk bands: autumn `T #c9803a` on `sky[2]`
+**3.36** / on `sky[3]` **2.51**, autumn `S #8f4f22` 1.68 / 1.25; birch trunk
+`B #d8d2c2` on `sky[3]` **5.28**; deep-shadow spruce `T #1f4a2a` is a low-contrast
+back-row silhouette (**1.05** on `sky[2]`, separated by its `#1a1208` outline),
+its `S #14301c` 1.34. `FOREST_TREE_SPRUCE_TALL` `T #2a6234` **1.47** on `sky[2]`
+(1.10 on `sky[3]`); snag `B #6b5a42` **1.60** on `sky[2]` / 1.20 on `sky[3]`.
 
 **`FOREST_TREE_CONIFER` — `const FOREST_TREE_CONIFER` (`40 × 56`)**
 
@@ -1897,6 +1940,128 @@ const FOREST_TREE_BROAD_PAL = { outline:'#1a1208', T:'#3a8a4a', S:'#2a6234', B:'
 ............................................
 ```
 
+**`FOREST_TREE_SPRUCE_TALL` — `const FOREST_TREE_SPRUCE_TALL` (`40 × 64`)** — forest v3 background spruce (v3, §3.8g): narrow conical silhouette in five stacked tiers with horizontal `O` breaks, `T`/`S` canopy, a 6 px `B` trunk.
+
+```
+........................................
+..................OOOO..................
+..................OTSO..................
+..................OTSO..................
+..................OTSO..................
+..................OTSO..................
+..................OTSO..................
+.................OTTSSO.................
+.................OTTSSO.................
+.................OTTSSO.................
+.................OTTSSO.................
+................OTTTSSSO................
+...............OOOOOOOOOO...............
+................OTTTSSSO................
+................OTTTSSSO................
+...............OTTTTTSSSO...............
+...............OTTTTTSSSO...............
+...............OTTTTTSSSO...............
+...............OTTTTTSSSO...............
+..............OTTTTTTSSSSO..............
+..............OTTTTTTSSSSO..............
+..............OTTTTTTSSSSO..............
+..............OTTTTTTSSSSO..............
+.............OTTTTTTTSSSSSO.............
+............OOOOOOOOOOOOOOOO............
+.............OTTTTTTTSSSSSO.............
+.............OTTTTTTTSSSSSO.............
+............OTTTTTTTTSSSSSSO............
+............OTTTTTTTTSSSSSSO............
+............OTTTTTTTTSSSSSSO............
+............OTTTTTTTTSSSSSSO............
+............OTTTTTTTTSSSSSSO............
+...........OTTTTTTTTTSSSSSSSO...........
+...........OTTTTTTTTTSSSSSSSO...........
+...........OTTTTTTTTTSSSSSSSO...........
+...........OTTTTTTTTTSSSSSSSO...........
+.........OOOOOOOOOOOOOOOOOOOOOO.........
+..........OTTTTTTTTTTSSSSSSSSO..........
+..........OTTTTTTTTTTSSSSSSSSO..........
+..........OTTTTTTTTTTSSSSSSSSO..........
+.........OTTTTTTTTTTTSSSSSSSSSO.........
+.........OTTTTTTTTTTTSSSSSSSSSO.........
+.........OTTTTTTTTTTTSSSSSSSSSO.........
+.........OTTTTTTTTTTTSSSSSSSSSO.........
+........OTTTTTTTTTTTTSSSSSSSSSSO........
+........OTTTTTTTTTTTTSSSSSSSSSSO........
+........OTTTTTTTTTTTTSSSSSSSSSSO........
+........OTTTTTTTTTTTTSSSSSSSSSSO........
+......OOOOOOOOOOOOOOOOOOOOOOOOOOOO......
+.......OTTTTTTTTTTTTTSSSSSSSSSSSO.......
+.......OTTTTTTTTTTTTTSSSSSSSSSSSO.......
+.......OTTTTTTTTTTTTTSSSSSSSSSSSO.......
+......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......
+......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......
+......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......
+......OTTTTTTTTTTTTTTSSSSSSSSSSSSO......
+....OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO....
+.................OBBBBO.................
+.................OBBBBO.................
+.................OBBBBO.................
+.................OBBBBO.................
+.................OBBBBO.................
+................OOOOOOOO................
+........................................
+```
+
+**`FOREST_TREE_SNAG` — `const FOREST_TREE_SNAG` (`24 × 48`)** — forest v3 background snag (v3, §3.8g): bare dead trunk (`B` body, `S` shade) with four outlined branch stubs and no canopy.
+
+```
+........................
+..........OOOO..........
+..........OBSO..........
+..........OBSO..........
+..........OBSO..........
+..........OBSO..........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+....OOOOOOBBSSO.........
+....OBBBBOBBSSO.........
+....OOOOOOBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSOOOOO.....
+.........OBBSSOBBBO.....
+.........OBBSSOOOOO.....
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+...OOOOOOOBBSSO.........
+...OBBBBBOBBSSO.........
+...OOOOOOOBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSOOOOOO....
+.........OBBSSOBBBBO....
+.........OBBSSOOOOOO....
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+.........OBBSSO.........
+........OOOOOOOO........
+........................
+```
+
 ### 3.4 Deterministic placement — per-layer streams
 
 Each layer draws from its **own** seeded candidate stream
@@ -1908,8 +2073,8 @@ densities independent:
 ```js
 const SEED = 1337, DECOR_MAX_SPAN = 1500, FLOOR_LANES = 8;
 const DECOR_STREAM  = { background: 0x11, midground: 0x22, floor: 0x33 };
-const DECOR_SPACING = { background: 32,      midground: 48,      floor: 12 };  // v2 §3.8 (was 20)
-const DECOR_CAP     = { background: 14,      midground: 10,      floor: 180 }; // v2 §3.8 (was 120)
+const DECOR_SPACING = { background: 20,      midground: 48,      floor: 12 };  // v3 bg §3.8h (was 32; floor v2 §3.8)
+const DECOR_CAP     = { background: 24,      midground: 10,      floor: 180 }; // v3 bg §3.8h (was 14; floor v2 §3.8)
 
 function streamRng(layer, key) { return mulberry32(hash2(SEED ^ DECOR_STREAM[layer], key)); }
 ```
@@ -1919,7 +2084,7 @@ to `endK = ⌈(win.max + spacing)/spacing⌉` **inclusive** (the loop reaches on
 beyond each window edge, so it spans `⌊W/spacing⌋` interior cells **plus edge cells**):
 
 - **background / midground:** `key = k`; `point = k*spacing + ⌊rng()*(spacing/2) − spacing/4⌋`
-  (jitter ±8 / ±12 world points).
+  (jitter ±5 world points background (v3), ±12 midground).
 - **floor:** one stream **per lane** `L` (`0 ≤ L < laneCount ≤ 8`); `key = k*8 + L`;
   `point = k*12 + ⌊rng()*6 − 3⌋` (±3, v2) in lane `L`.
 
@@ -1932,7 +2097,7 @@ margin]`, `margin = (win.max − win.min)*(16/CANVAS_W)`. The floor cap is sprea
 lane (`perLaneCap = ⌊180/L⌋` = `22` at `L=8`, v2); each lane keeps at most `perLaneCap`
 props and samples every `step = max(1, ⌈cells/perLaneCap⌉)`-th cell, so capped props
 spread across the whole window instead of bunching at the left edge, and
-`background / midground` stop at their cap (14 / 10). `perLaneCap * lanes ≤ cap`, so the
+`background / midground` stop at their cap (24 / 10). `perLaneCap * lanes ≤ cap`, so the
 total stays `≤ 180`. Past `DECOR_MAX_SPAN` all world decor is culled (sky, ground and
 the carpet stay).
 
@@ -1943,27 +2108,38 @@ floor kinds (§3.8) ignore `yOffset` and seed their top edge inside
 
 #### 3.4.1 Stream weights (each column sums to 1.00)
 
-| layer | kind | weight |
-|---|---|---|
-| background | `FOREST_TREE_CONIFER` | 0.30 |
-| background | `FOREST_TREE_DECIDUOUS` | 0.26 |
-| background | `FOREST_TREE_BROAD` | 0.22 |
-| background | `FOREST_BUSH` | 0.22 |
-| midground | `FOREST_TREE_TALL` | 0.65 |
-| midground | `FOREST_TREE_BROAD` | 0.35 |
-| floor | `LEAF_DRIFT` (flat, §3.8) | 0.10 |
-| floor | `GRASS_WAVE` (flat, §3.8) | 0.10 |
-| floor | `TWIG` (flat, §3.8) | 0.04 |
-| floor | `GRASS_TUFT_A` | 0.16 |
-| floor | `GRASS_TUFT_B` | 0.14 |
-| floor | `FERN` | 0.10 |
-| floor | `MOSS` | 0.10 |
-| floor | `PINE_NEEDLES` | 0.08 |
-| floor | `LEAF_LITTER` | 0.06 |
-| floor | `MUSHROOM_RED` | 0.06 |
-| floor | `MUSHROOM_BROWN` | 0.02 |
-| floor | `STONE` | 0.03 |
-| floor | `STONE_ALT` | 0.01 |
+| layer | kind | sprite / palette | weight |
+|---|---|---|---|
+| background | `trees` | `FOREST_TREE_CONIFER` | 0.16 |
+| background | `trees` | `FOREST_TREE_DECIDUOUS` | 0.14 |
+| background | `trees` | `FOREST_TREE_BROAD` | 0.13 |
+| background | `trees` | `FOREST_BUSH` | 0.10 |
+| background | `trees` | `FOREST_TREE_DECIDUOUS` + `FOREST_TREE_PAL_AUTUMN` | 0.12 |
+| background | `trees` | `FOREST_TREE_DECIDUOUS` + `FOREST_TREE_PAL_BIRCH` | 0.10 |
+| background | `trees` | `FOREST_TREE_CONIFER` + `FOREST_TREE_PAL_SPRUCE_DARK` | 0.10 |
+| background | `trees` | `FOREST_TREE_SPRUCE_TALL` | 0.09 |
+| background | `trees` | `FOREST_TREE_SNAG` | 0.06 |
+| midground | `FOREST_TREE_TALL` | — | 0.65 |
+| midground | `FOREST_TREE_BROAD` | — | 0.35 |
+| floor | `LEAF_DRIFT` (flat, §3.8) | — | 0.10 |
+| floor | `GRASS_WAVE` (flat, §3.8) | — | 0.10 |
+| floor | `TWIG` (flat, §3.8) | — | 0.04 |
+| floor | `GRASS_TUFT_A` | — | 0.16 |
+| floor | `GRASS_TUFT_B` | — | 0.14 |
+| floor | `FERN` | — | 0.10 |
+| floor | `MOSS` | — | 0.10 |
+| floor | `PINE_NEEDLES` | — | 0.08 |
+| floor | `LEAF_LITTER` | — | 0.06 |
+| floor | `MUSHROOM_RED` | — | 0.06 |
+| floor | `MUSHROOM_BROWN` | — | 0.02 |
+| floor | `STONE` | — | 0.03 |
+| floor | `STONE_ALT` | — | 0.01 |
+
+**v3 background** (9 kinds) sums to **exactly `1`**: conifer 0.16, deciduous 0.14,
+broad 0.13, bush 0.10, autumn 0.12, birch 0.10, deep-shadow spruce 0.10, tall
+spruce 0.09, snag 0.06 (v2 was conifer 0.30 / deciduous 0.26 / broad 0.22 / bush
+0.22). The three palette variants share the base matrices (no new art) and are
+separate kinds, so each can be weighted.
 
 Floor weights sum to **1.00**: v2 flat marks **0.24** (wide leaf drift + grass
 wave + rare twig), grass tufts **0.30**, moss/fern/needles **0.28**,
@@ -1998,11 +2174,12 @@ pitch/width/cluster change is intentional: forest carpet pixels differ from v1
 #### 3.4.3 Renderer pass order
 
 ```
-drawSky → drawCelestial → drawDunes → drawTreeline  // treeline jag §3.8 (forest only)
-→ drawDecor('background') → drawMilestones        // behind the lanes
+drawSky → drawCelestial → drawMountains               // v3 range §3.8f (forest only)
+→ drawDunes → drawTreeline                             // ridges + two-tier jag §3.8b/g
+→ drawDecor('background') → drawMilestones             // behind the lanes
 → drawLanes → drawGroundCarpet
-→ drawDecor('floor') → drawDecor('midground')     // on the lanes
-→ drawCamels → drawTeamLabels                      // boars pass IN FRONT; labels over animals
+→ drawDecor('floor') → drawDecor('midground')          // on the lanes
+→ drawCamels → drawTeamLabels                          // boars pass IN FRONT; labels over animals
 → drawFinish → drawConfetti → drawBanner
 ```
 
@@ -2018,21 +2195,24 @@ top, clamped to the canvas.
 #### 3.4.4 Expected on-screen counts (per frame)
 
 Let `W = win.max − win.min`, `L` = lane count (default 4, max 8). Counts below are
-measured in the shipped renderer (`SEED 1337`, forest salts, v2 §3.8):
+measured in the shipped renderer (`SEED 1337`, forest salts, v2/v3 §3.8):
 
 | layer | candidates | cap | at `W=100` | at `W=250` |
 |---|---|---|---|---|
-| background | `⌊W/32⌋` + edge | 14 | 3 (L-independent) | 8 |
+| background | `⌊W/20⌋` + edge | 24 | 5 (L-independent; 6 candidates, 1 margin-culled) | 13 |
 | midground | `⌊W/48⌋` + edge | 10 | 2 | 5 |
 | floor | `(⌊W/12⌋ + edge) × L` | 180 (`22`/lane at `L=8`) | **35 (L4) / 67 (L8)** | **85 (L4) / 88 (L8)** |
 | floor, `flat:true` | subset of the row above | — | 5 (L4) / 10 (L8) | 15 (L4) / 20 (L8) |
 | carpet specks | `≈183 × 2 × L` rects | — | 1464 (L4) | 1464 (L4, W-independent) |
 
-At the default camera (`MIN_WINDOW = 100`, 4 lanes) expect **3 background trees,
-2 midground trees, 35 floor props** (5 of them v2 flat marks) — **40 props total,
-parity with desert v2**. At `W = 1400`, 8 lanes: 11 / 7 / 159 (44 flat), 177 total.
-The carpet is always present. The old world-point spacing of `90` (≈1 item per
-screen) is **superseded** by this per-layer model.
+At the default camera (`MIN_WINDOW = 100`, 4 lanes) expect **5 background trees
+(≈6 candidates), 2 midground trees, 35 floor props** (5 of them v2 flat marks) —
+**42 props total**. At `W = 250`: **13 / 5 / 85 (L4) and 13 / 5 / 88 (L8)**. At
+`W = 1400`, 8 lanes: **18 / 7 / 159 (44 flat), 184 total**; the shipped perf
+window (spread 1400 → `W = 1440`): 18 / 7 / 168 (44 flat), **193 total** — under
+the `24 + 10 + 180 = 214` static bound. The carpet is always present. The old
+world-point spacing of `90` (≈1 item per screen) is **superseded** by this
+per-layer model.
 
 Candidate counts iterate the inclusive `k` range `⌊(win.min − spacing)/spacing⌋ …
 ⌈(win.max + spacing)/spacing⌉` (`+edge`, one spacing past each window edge). Floor
@@ -2047,19 +2227,21 @@ window (§3.4).
 | `laneHeight(8)` | `74.0` px |
 | tallest floor decor | `FERN 16×12` px (≪ 74, no lane overflow); v2 flat marks ≤ `8` px tall |
 | widest floor decor | `GRASS_WAVE 40×8` px |
-| tallest background decor | `FOREST_TREE_BROAD 44×60` px (base `120`, top `60`, inside sky) |
+| tallest background decor | `FOREST_TREE_SPRUCE_TALL 40×64` px (base `120`, top `56`, inside sky) |
 | midground tree | `FOREST_TREE_TALL 48×72` px — ≈ one 8-lane lane tall, stands on the surface |
 | boar lane fit | `60×42` + feet `2` → `44` px in a `74` px lane (slack `30` px) |
-| max decor sprites / frame | `background 14 + midground 10 + floor 180 = 204` (v2 worst case; typical 40) |
+| max decor sprites / frame | `background 24 + midground 10 + floor 180 = 214` (v3 worst case; typical 42; measured worst 193 at `W=1440`, 8 lanes) |
 | grass carpet | `≈183 × 2 × L` `fillRect` specks/frame (no sprite loop) |
-| dusk ridges + jag (§3.8) | 2 ridge bands ≈ `2 × 1280` 1 px `fillRect`s + jag ≈ `1 100–1 200` run-rects, zoom-independent |
-| grass ripple bands (§3.8) | 2 bands ≈ `730` run-rects at 4 lanes / ≈ `1 465` at 8 (zoom-independent) |
+| dusk ridges + jag (§3.8b/g) | 2 ridge bands ≈ `2 × 1280` 1 px `fillRect`s + 2 jag tiers ≈ `2 180–2 380` run-rects, zoom-independent |
+| mountains (§3.8f) | 2 layers, run-coalesced screen-px peaks: ≈`3 840` rects (body + 1 px rim per run) at every zoom (`3 858` at `W=100`, `3 832` at `W=250`, `3 842` at `W=1440`), zoom-independent |
+| grass ripple bands (§3.8c) | 2 bands ≈ `730` run-rects at 4 lanes / ≈ `1 465` at 8 (zoom-independent) |
 
-**Perf (measured, M1 Max + ANGLE/Metal):** the v2 forest dense-decor path (8 lanes,
-spread 1400, 186 sprites / 12 kinds) runs at **60.0 fps** after the change — identical
-to the v1 forest (132 sprites) and to desert v2; the `≥55 fps` gate keeps headroom,
-and the added rect work (ridges + jag + 2 ripple bands) is well under one desert dune
-band pair. Rects are plain `fillRect`s — no PRNG, no allocation.
+**Perf (measured, M1 Max + ANGLE/Metal):** the v3 forest dense-decor path (8 lanes,
+spread 1400 → `W=1440`) runs at **60.0 fps** with **193 sprites / 12 kinds** — the
+same 60.0 fps as desert v2 (186 sprites / 19 kinds) and as the v2 forest
+(186 sprites) before this change; the `≥55 fps` gate keeps headroom even with the
+mountains (≈3 840 screen-space rects at any zoom) + two jag tiers on screen. Rects
+are plain `fillRect`s — no PRNG, no allocation.
 
 ### 3.6 Forest palette table (every token)
 
@@ -2079,6 +2261,11 @@ band pair. Rects are plain `fillRect`s — no PRNG, no allocation.
 | tree canopy light | `#2f6b3a` (conifer) / `#3a8a4a` (deciduous) | `T` |
 | tree canopy dark | `#1f4a2a` (conifer) / `#2a6234` (deciduous) | `S` |
 | tree trunk | `#4a3320` | `B` |
+| autumn canopy light / dark | `#c9803a` / `#8f4f22` | `T` / `S` (`FOREST_TREE_PAL_AUTUMN`, v3) |
+| birch trunk | `#d8d2c2` | `B` (`FOREST_TREE_PAL_BIRCH`, v3; canopy = deciduous) |
+| deep-shadow canopy light / dark | `#1f4a2a` / `#14301c` | `T` / `S` (`FOREST_TREE_PAL_SPRUCE_DARK`, v3) |
+| tall-spruce canopy light / dark | `#2a6234` / `#1b4024` | `T` / `S` (`FOREST_TREE_PAL_SPRUCE_TALL`, v3) |
+| snag body / shade | `#6b5a42` / `#3f3222` | `B` / `S` (`FOREST_TREE_PAL_SNAG`, v3) |
 | mushroom red cap | `#c0392b` | `C` |
 | mushroom spot | `#f0ece0` | `W` |
 | mushroom brown cap | `#8a5a3a` | `C` |
@@ -2094,9 +2281,11 @@ band pair. Rects are plain `fillRect`s — no PRNG, no allocation.
 | leaf light | `#b07a4a` | `H` (leaf litter) |
 | tree base dark | `#2a1c10` | `R` (root flare / base grounding) |
 | carpet speckle | `#5a8a48` | grass-carpet light speck (dark speck = `ground.shade`); `speckleShare 0.5`, `speckleWidth 2`, `carpetSpacing 7`, `clusterShare 0.14` |
-| far dusk ridge | `#241634` | `palette.distant[0]` — also the treeline-jag tone |
-| front dusk ridge | `#33204a` | `palette.distant[1]` |
-| treeline gate | `true` | `palette.treeline` (desert ships none) |
+| far dusk ridge | `#241634` | `palette.distant[0]` — also the front treeline-jag tone (teeth 10–16 px) |
+| front dusk ridge | `#33204a` | `palette.distant[1]` — also the back treeline-jag tone (teeth 8–12 px, half-tooth offset) |
+| treeline gate | `true` | `palette.treeline` (desert ships none); v3 draws two tiers |
+| mountain back / backRim | `#3b2a56` / `#4d3a6d` | far range silhouette + 1 px upper rim (v3 §3.8f) |
+| mountain body / rim | `#140b26` / `#2e1f52` | near range silhouette + 1 px upper rim (v3) |
 | grass ripples | `#3a6030` | `ground.streaks` bands (`ground.shade`) |
 | leaf-drift body | `#8a5a3a` | `L` (`LEAF_DRIFT_PAL`) |
 | leaf-drift light | `#b07a4a` | `H` (`LEAF_DRIFT_PAL`) |
@@ -2112,33 +2301,45 @@ blade light `#7ac25a` on grass `#4a7a3a` = **1.83**, blade mid `#2f6b3a` on gras
 contrast). `moss`/`pine-needles`/carpet are intentionally low-contrast floor texture.
 V2 atmospheric checks: far ridge `#241634` vs horizon sky `#7a3f4a` = **2.13** (dark
 silhouette on dusk glow) and vs conifer canopy `#2f6b3a` = **2.65** + violet/green hue
-separation; the treeline jag (`distant[0]`) sits above the front ridge (`distant[1]`;
-far vs front **1.17**) and reads as one darker atmospheric layer. Flat-mark `O
+separation; the v3 treeline draws two tiers (back `distant[1]` 8–12 px, half-tooth
+offset; front `distant[0]` 10–16 px) and reads as one denser atmospheric layer.
+Flat-mark `O
 #3a6030` on grass `#4a7a3a` = **1.43** (soft edge, not a ring); the v2 marks read
 through their lit tones — leaf `H` 1.39, grass-wave `H` **2.34**, twig `B` **2.32**
-(leaf body `L` 1.15) — the same surface-mark rule as desert §2.13.
+(leaf body `L` 1.15) — the same surface-mark rule as desert §2.13. V3 atmospheric
+checks: mountain tones and their contrasts are tabulated in §3.2 (near body
+`#140b26` vs far ridge **1.12** / front ridge **1.31**; back `#3b2a56` vs far ridge
+**1.33** / front ridge 1.14); the v3 variant canopies/trunks vs the dusk bands are
+listed under §3.3.
 
 ### 3.7 Forest `THEMES.forest` wiring (excerpt)
 
 ```js
 palette: { sky:['#241a3a','#3a2450','#5a3050','#7a3f4a'], sun:'#f0e8c0', sunRim:'#d8c890',
-           accent:'#e8c83a', distant:['#241634','#33204a'], treeline:true },  // v2 §3.8
+           accent:'#e8c83a', distant:['#241634','#33204a'], treeline:true,
+           mountains:{ back:'#3b2a56', backRim:'#4d3a6d',
+                       body:'#140b26', rim:'#2e1f52' } },                  // v3 §3.8f
 ground:  { top:'#4a7a3a', shade:'#3a6030', edge:'#26401f', rim:'#1c3018', speckle:'#5a8a48',
            speckleShare:0.5, speckleWidth:2, carpetSpacing:7, clusterShare:0.14,
            streaks: FOREST_STREAKS },                                     // v2 §3.8
 decor: {
   maxSpan: 1500,
   streams: {
-    background: { spacing: 32, cap: 14 },
+    background: { spacing: 20, cap: 24 },                                 // v3 §3.8h
     midground:  { spacing: 48, cap: 10 },
     floor:      { spacing: 12, cap: 180 },                                // v2 §3.8
   },
   kinds: [
-    // background (base on HORIZON_Y + yOffset)
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,   pal:FOREST_TREE_PAL_CONIFER,   yOffset:-56, weight:0.30 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS, pal:FOREST_TREE_PAL_DECIDUOUS, yOffset:-56, weight:0.26 },
-    { kind:'trees',        layer:'background', sprite:FOREST_TREE_BROAD,     pal:FOREST_TREE_BROAD_PAL,     yOffset:-60, weight:0.22 },
-    { kind:'trees',        layer:'background', sprite:FOREST_BUSH,           pal:FOREST_BUSH_PAL,           yOffset:-20, weight:0.22 },
+    // background (base on HORIZON_Y + yOffset); v3: 9 kinds, weights sum exactly 1
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,       pal:FOREST_TREE_PAL_CONIFER,       yOffset:-56, weight:0.16 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_DECIDUOUS,     yOffset:-56, weight:0.14 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_BROAD,         pal:FOREST_TREE_BROAD_PAL,         yOffset:-60, weight:0.13 },
+    { kind:'trees',        layer:'background', sprite:FOREST_BUSH,               pal:FOREST_BUSH_PAL,               yOffset:-20, weight:0.10 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_AUTUMN,        yOffset:-56, weight:0.12 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_DECIDUOUS,     pal:FOREST_TREE_PAL_BIRCH,         yOffset:-56, weight:0.10 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_CONIFER,       pal:FOREST_TREE_PAL_SPRUCE_DARK,   yOffset:-56, weight:0.10 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_SPRUCE_TALL,   pal:FOREST_TREE_PAL_SPRUCE_TALL,   yOffset:-64, weight:0.09 },
+    { kind:'trees',        layer:'background', sprite:FOREST_TREE_SNAG,          pal:FOREST_TREE_PAL_SNAG,          yOffset:-48, weight:0.06 },
     // midground (base on lane terrainSurfaceY + yOffset)
     { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_TALL,      pal:FOREST_TREE_TALL_PAL,      yOffset:-72, weight:0.65 },
     { kind:'midground',    layer:'midground',  sprite:FOREST_TREE_BROAD,     pal:FOREST_TREE_BROAD_PAL,     yOffset:-60, weight:0.35 },
@@ -2164,15 +2365,16 @@ decor: {
 **Kind names are family-level.** The `kind` field uses the family names above
 (not the per-sprite labels in §3.3); `weight` is resolved **within its own layer's
 stream** (§3.4.1). Mapping: `trees` → `tree-conifer` / `tree-deciduous` / `tree-broad`
-/ `bush`; `midground` → `tree-tall` / `tree-broad`; `grass_tufts` → `grass-tuft-a` /
-`grass-tuft-b`; `fern` → `fern`; `mushrooms` → `mushroom-red` / `mushroom-brown`;
-`moss` → `moss`; `stones` → `stone` / `stone-alt`; `pine_needles` → `pine-needles`;
-`leaf_litter` → `leaf-litter`; `leaf_drift` / `grass_wave` / `twig` → the three v2
-flat marks (`flat:true`, §3.8).
+/ `bush` + the v3 variants (autumn, birch, deep-shadow spruce) and the v3
+`tree-spruce-tall` / `tree-snag`; `midground` → `tree-tall` / `tree-broad`;
+`grass_tufts` → `grass-tuft-a` / `grass-tuft-b`; `fern` → `fern`; `mushrooms` →
+`mushroom-red` / `mushroom-brown`; `moss` → `moss`; `stones` → `stone` /
+`stone-alt`; `pine_needles` → `pine-needles`; `leaf_litter` → `leaf-litter`;
+`leaf_drift` / `grass_wave` / `twig` → the three v2 flat marks (`flat:true`, §3.8).
 
 ---
 
-### 3.8 Forest ambience v2 — dusk ridges, treeline jag, ripple bands + dense cover
+### 3.8 Forest ambience v2/v3 — mountains, treeline tiers, ridges, ripple bands + dense cover
 
 The forest (default theme, boar) catches up with the desert v2 ambience (§2.12–§2.14):
 same renderer paths, own theme data. No new render pass, no new dependency; every
@@ -2186,25 +2388,65 @@ is one 1 px-wide `fillRect` per canvas column (two sine terms, band height `0–
 and is drawn before the background decor and the lanes. Themes without `distant` (or
 with fewer than 2 entries) skip both bands.
 
-**(b) Treeline jag (new, forest-only)** — a conifer triangle-tooth silhouette standing on
-`HORIZON_Y`, drawn **after** the ridges (so the teeth read against the ridge/sky) and
-**before** the lanes. Token-gated on `palette.treeline`; the tone is the darkest
-ridge tone `distant[0]` `#241634`:
+**(b) Treeline jag — two tiers (v2, back tier v3)** — conifer triangle-tooth
+silhouettes standing on `HORIZON_Y`, drawn **after** the ridges (so the teeth read
+against the ridge/sky) and **before** the lanes. Token-gated on `palette.treeline`;
+the back tier is the front-ridge tone `distant[1]` `#33204a` (lighter/farther,
+half-tooth offset), the front tier the darkest ridge tone `distant[0]` `#241634`:
 
-| Parameter | Value |
-|---|---|
-| gate | `palette.treeline` (`true`; desert ships no token → skipped, 0 rects) |
-| tone | `palette.distant[0]` `#241634` |
-| on-screen period | `20 px` (window-derived: `toothWorld = span/CANVAS_W × 20`) |
-| tooth height | `8 + hash2(0x54, tooth) % 7` → `8–14 px` |
-| profile | symmetric triangle `round(peak·(1 − |2·frac − 1|))`, base on `HORIZON_Y` |
-| technique | run-coalesced 1 px columns (equal-height height-runs merge), no PRNG |
-| cost | **≈1 100–1 200 `fillRect`s/frame at 1×**, zoom-independent, never culled |
+| Parameter | Back tier (v3) | Front tier |
+|---|---|---|
+| gate | `palette.treeline` (`true`; desert ships no token → both skipped, 0 rects) | same |
+| tone | `palette.distant[1]` `#33204a` | `palette.distant[0]` `#241634` |
+| on-screen period | `20 px` (`toothWorld = span/CANVAS_W × 20`) | same |
+| phase | `+0.5` tooth (offset half a period) | `0` |
+| tooth height | `8 + hash2(0x9c, tooth) % 5` → `8–12 px` | `10 + hash2(0x54, tooth) % 7` → `10–16 px` |
+| profile | symmetric triangle `round(peak·(1 − |2·frac − 1|))`, base on `HORIZON_Y` | same |
+| technique | run-coalesced 1 px columns (equal-height height-runs merge), no PRNG | same |
+| cost | ≈`1 090` rects at `W=100` | ≈`1 090` rects at `W=100` |
 
-The tooth index is a pure function of the world x (`floor(world / toothWorld)`) and
-the height comes from `hash2` — deterministic, world-anchored, draw-order-independent
-(no shared PRNG stream to perturb). Past `maxSpan` the jag still draws (it is painted
-with the sky/ridges, not with culled world decor), like the carpet and the lanes.
+The tooth index is a pure function of the world x (`floor(world / toothWorld + phase)`)
+and the height comes from `hash2` — deterministic, world-anchored, draw-order-independent
+(no shared PRNG stream to perturb). Past `maxSpan` both tiers still draw (they are painted
+with the sky/ridges, not with culled world decor), like the carpet and the lanes. The
+back tier is drawn first, so where a back tooth and a front tooth overlap, the front
+(darker) tone wins.
+
+**(f) Procedural mountains (v3, new)** — the farthest layer, `drawMountains(win)`
+runs right after `drawCelestial` and **before** `drawDunes`, so ridges + treeline
+cover the range's base. Presence-gated on `palette.mountains` (all four tones
+required; desert ships no token → 0 rects). Two seeded peak layers laid out in
+**on-screen px**, per-column max over the two nearby triangular peaks,
+run-coalesced 1 px columns with a 1 px lighter rim on each run's upper edge:
+
+| Parameter | Back layer | Near layer |
+|---|---|---|
+| tone body / rim | `#3b2a56` / `#4d3a6d` | `#140b26` / `#2e1f52` |
+| layout space | **on-screen px** (`hash2` peak index from `px = x + screenShift`, `screenShift = win.min·0.15 / (span/CANVAS_W)`) | same |
+| pitch | `115 px` ± `12` jitter → adjacent peak spacing `91–139 px` at every zoom | same |
+| peak width | `80–160 px` (world-anchored via the screen shift) | `80–160 px` |
+| peak height | `30–58 px` above `HORIZON_Y` (top y ≥ 62 → tops in sky bands 2–3) | `42–70 px` (top y ≥ 50 → tops in bands 1–2) |
+| parallax | panning scrolls the range at `0.15×` ground speed | same |
+| technique | `hash2` per peak (salt `0x6d` / `0xb3`), no PRNG, no allocation, never culled | same |
+| cost | ≈`1 920` runs = ≈`3 840` rects (body + 1 px rim per run); `W=100`: `1 929`/`3 858`, `W=250`: `1 916`/`3 832`, `W=1440`: `1 921`/`3 842` | included |
+
+Tones are darker than every overlapped sky band (full contrast table in §3.2) and
+separate from the ridge tones by `1.12–1.33` with a hue split (near body deep
+indigo-violet, ridges warmer purple). No snow caps ship: the 1 px rim is the only
+highlight. Because the horizontal pitch/width/heights are screen px, peaks hold
+their `91–139 px` spacing at every zoom (~12 peaks per layer × 2 layers across
+`1280 px`); `screenShift` keeps the pattern world-anchored while panning scrolls
+it at `0.15×` the ground speed.
+
+**(g) Background density + tree variety (v3, new)** — the forest background stream
+goes `spacing 32 → 20`, `cap 14 → 24` (counts in §3.4.4; ~6 candidates at the
+default camera). Three palette variants reuse the existing matrices as separate
+background kinds (autumn deciduous, birch, deep-shadow spruce; hexes in §3.3), two
+new backgrounds sprites (`FOREST_TREE_SPRUCE_TALL 40×64`, `FOREST_TREE_SNAG
+24×48`; matrices in §3.3) enter the stream. The background stream now has **9
+kinds whose weights sum exactly `1`** (table in §3.4.1: conifer 0.16, deciduous
+0.14, broad 0.13, bush 0.10, autumn 0.12, birch 0.10, deep-shadow spruce 0.10,
+tall spruce 0.09, snag 0.06). Midground and floor streams are untouched by v3.
 
 **(c) Grass ripple bands (new)** — `ground.streaks: FOREST_STREAKS`, the §2.12(b)
 renderer path with forest data and `ground.shade #3a6030` as the tone:
@@ -2232,15 +2474,18 @@ the old forest never set `flat`). Weights in §3.4.1; counts in §3.4.4. `LEAF_D
 `GRASS_WAVE` and `TWIG` use soft grass-shade `O` and read as surface marks, matching
 the desert §2.13 rule.
 
-**Desert-unchanged guarantee.** All four new paths are theme-gated and desert keeps
-its exact data: `drawDunes` code is untouched; `drawTreeline` returns immediately
-without `palette.treeline`; `drawLanes` reads `ground.streaks`, and desert ships
-`DUNE_STREAKS` verbatim; the carpet cluster gate is now
+**Desert-unchanged guarantee.** All new paths are theme-gated and desert keeps
+its exact data: `drawDunes` code is untouched; `drawMountains` returns immediately
+without `palette.mountains`; `drawTreeline` returns immediately without
+`palette.treeline` (both v2/v3 tiers); `drawLanes` reads `ground.streaks`, and
+desert ships `DUNE_STREAKS` verbatim; the carpet cluster gate is
 `ground.clusterShare !== undefined` (true for desert before and after, same
-`0.18` and same draw order); no desert sprite/palette/stream/weight changed.
-**Verified:** a desert frame (4 lanes, scores 0, default camera) hashes
-**byte-identical** before/after this change (`sha256 0df0239f…`, canvas PNG), and the
-whole desert test group stays green.
+`0.18` and same draw order); no desert sprite/palette/stream/weight changed; the
+forest v3 stream/weights/kinds edits live only in `THEMES.forest`.
+**Verified:** v2→v3 desert frames hash **byte-identical** (`sha256` canvas raw
+pixels: idle 4 lanes `ce6dac5f…`, spread 8 lanes `89baca40…`, culled 8 lanes
+`90b7b509…`; §5), and the whole desert test group stays green. The v1→v2 check
+was `sha256 0df0239f…` (§3.8).
 
 ---
 
@@ -2249,7 +2494,7 @@ whole desert test group stays green.
 ```mermaid
 flowchart TD
   T{"THEMES[state.theme]"} -->|desert| D["Dune ribbon + 3 bands<br/>sun r=32 @ (1020,76)"]
-  T -->|forest| F["Grass ribbon + 4 bands<br/>moon r=32 @ (1020,76)<br/>2 dusk ridges + treeline jag (v2 §3.8)"]
+  T -->|forest| F["Grass ribbon + 4 bands<br/>moon r=32 @ (1020,76)<br/>2 mountains (v3) + 2 dusk ridges<br/>+ 2-tier treeline jag (§3.8)"]
   D --> DB["background (base on HORIZON_Y)"]
   D --> DM["midground (base on lane surface; before the camels)"]
   D --> DF["floor (per lane, base on lane surface)"]
@@ -2268,6 +2513,7 @@ flowchart TD
   F --> CARP["grass carpet (procedural fillRect speckle, 7 px/lane, clusters)"]
   F --> FRIP["grass ripple bands (2 bands, ground.shade, §3.8)"]
   FB --> FC["tree-conifer 40×56"] & FD["tree-deciduous 40×56"] & FBRO["tree-broad 44×60"] & FBU["bush 28×20"]
+  FB --> FVS["tree-spruce-tall 40×64"] & FSN["tree-snag 24×48"] & FVAR["+ 3 palette variants (autumn / birch / deep-shadow spruce, v3 §3.8g)"]
   FM --> FT["tree-tall 48×72"] & FBRO
   FF --> FLD["leaf-drift 36×8"] & FGW["grass-wave 40×8"] & FTW["twig 18×6"]
   FF --> FGA["grass-tuft-a 10×8"] & FGB["grass-tuft-b 12×8"] & FFN["fern 16×12"] & FLL["leaf-litter 14×6"]
@@ -2427,6 +2673,43 @@ The desert hash check is the byte-identity proof required by §3.8: the same cap
 script (`capture-frames.js`, temp) froze a 4-lane desert frame before and after the
 `index.html` edits and compared the PNG digests; only the forest digest changed.
 
+The forest v3 pass (§3.8f–g) was authored/validated by temp harnesses in
+`${TMPDIR:-/tmp}/opencode/` (not committed): `gen-forest-v3-sprites.js` builds the
+two new matrices and re-runs the structural rules (rectangular, legend-only,
+1 px clean border, single 4-connected blob, `O`-enclosure, no isolated fill);
+`v3-rects.js` counts the procedural pass rects; `v3-desert-bytes.js` freezes the
+desert frames before/after; `v3-treeline-probe.js` measures the two-tier teeth;
+`v3-previews.js` writes the §6 previews. Run with plain `node`.
+
+```
+FOREST_TREE_SPRUCE_TALL: 40x64 cells=934 blobs=1 OK
+FOREST_TREE_SNAG: 24x48 cells=328 blobs=1 OK
+forest background kinds=9 sum=1 (0.16+0.14+0.13+0.10+0.12+0.10+0.10+0.09+0.06)
+mountains screen-px: win[-20,80] rects=3858 | win[0,250] rects=3832 | win[-20,1420] rects=3842
+treeline rects: 2198 (W=100) | 2180 (W=250) | 2378 (W=1440)
+teeth probe: ridge1=22052 ridge2=6617 toothCols=974 maxDepth=15 (front tier 10-16)
+counts: W=100 bg=5 mid=2 floor=35 flat=5 (L4) | W=250 bg=13 mid=5 floor=85 (L4)
+desert pixels: idle ce6dac5f... / spread 89baca40... / culled 90b7b509... identical=true
+VERIFY OK
+```
+
+| Check | forest v3 scope |
+|---|---|
+| exact dims | `FOREST_TREE_SPRUCE_TALL 40×64`, `FOREST_TREE_SNAG 24×48` |
+| legend-only chars | `O T S B` / `O B S` (all chars resolve through the sprite's own palette; no new `CHAR_KEY` letters) |
+| single 4-connected blob | both 1 blob, `O`-enclosed, 1 px transparent margin |
+| weights | 9 background kinds, sum **exactly `1`** (`=== 1`) |
+| mountains | 2 `hash2`-seeded screen-px layers, no PRNG/allocation, `3 832`–`3 858` rects (body+rim) at every zoom, never culled, desert 0 rects |
+| treeline | back 8–12 px half-offset + front 10–16 px, `≈2 200` run-rects, desert 0 rects |
+| counts (§3.4.4) | shipped renderer: 5 / 2 / 35 (5 flat) at `W=100` L4; 13 / 5 / 85 at `W=250` L4 |
+| desert untouched | v2→v3 desert raw-pixel `sha256` identical in all 3 setups (§3.8); all desert tests green |
+| forest performance | 8-lane spread-1400 dense path **60.0 fps**, 193 sprites / 12 kinds (M1 Max/ANGLE), `≥55` gate holds (§3.5) |
+
+The v2→v3 desert byte-identity proof: `v3-desert-bytes.js` snapshots three setups
+(idle 4 lanes, mixed 8-lane spread, 8-lane culled spread) in the pre-change
+`forest-v3-before.html` and the shipped `index.html`, hashes the raw 1280×720
+RGBA canvas, and compares — all three identical.
+
 Outline/enclosure method: every fill (`B/S/G/F/C/X/W/T/M/N/P`) 4-adjacent to *exterior*
 `.` is recolored `O`; sprite shapes are drawn inset so the `O` ring fits and the outer
 1 px frame stays transparent. Placement determinism is by construction (seeded PRNG,
@@ -2452,6 +2735,10 @@ Written to the gitignored `test-results/ux-tmp/`:
 | `/tmp/art-previews/forest-after.png` | same capture after v2 (§3.8): 2 dusk ridges + treeline jag, `7 px` carpet + clusters, 2 ripple bands, **40 props (3 / 2 / 35, 5 flat)**; desert capture (`desert-before/after.png`) hashed byte-identical across the change |
 | `/tmp/art-previews/forest-v2-lane0.png` (+ `forest-v2-before-lane0.png`) | lane-0 crop (`1280×148`, `y 120–268`) of the after (and before) frame — ripple bands, flat marks, midground tree at 1× |
 | `/tmp/art-previews/forest-v2-sprites.png` | the 3 v2 flat marks (`LEAF_DRIFT`/`GRASS_WAVE`/`TWIG`) at **8×** on a checkerboard + a **1×** strip on the grass floor `#4a7a3a` |
+| `/tmp/art-previews/forest-v3-default.png` | shipped-renderer capture (4 lanes, scores 0 ⇒ `W = 100`, default 1×): v3 forest — mountains + 2-tier treeline + 42 props (5 background / 2 midground / 35 floor, 5 flat) |
+| `/tmp/art-previews/forest-v3-wide250.png` | same capture at `W = 250` (score spread 210): 13 background / 5 midground / 85 floor, mountains peeking over the ridges |
+| `/tmp/art-previews/forest-v3-mountains-crop.png` | sky crop (`y 0–140`) at **2×**: both mountain layers + rims, ridges, two treeline tiers, moon |
+| `/tmp/art-previews/forest-v3-sprites.png` | the 2 v3 sprites + 3 palette variants at **8×** with labels + a **1×** strip on the grass floor `#4a7a3a` (`SPRUCE_TALL`, `SNAG`, autumn, birch, deep-shadow conifer) |
 
 > The two desert previews are regenerated by
 > `python3 /tmp/art-gen/gen-desert-art.py preview` (they live in `/tmp`, not
@@ -2491,16 +2778,18 @@ Written to the gitignored `test-results/ux-tmp/`:
    `mushroom*`, `moss`, `stones`, `pine_needles`, plus the v2 `leaf_drift` /
    `grass_wave` / `twig`) and a tree can appear across a run.
 7. **Forest sizes** — conifer/deciduous bbox `40×56`, broad `44×60`, tall `48×72`,
-   bush `28×20`, grass tufts `10×8`/`12×8`, fern `16×12`, leaf litter `14×6`,
-   mushrooms `12×12`, moss `20×8`, stones `16×10`/`12×8`, needles `24×8`, v2 flat
-   marks `36×8`/`40×8`/`18×6`; each fits its layer budget (floor ≤ lane height,
-   background inside the sky, tall ≈ one lane, flat marks inside one lane field).
+   bush `28×20`, v3 spruce tall `40×64`, v3 snag `24×48`, grass tufts `10×8`/`12×8`,
+   fern `16×12`, leaf litter `14×6`, mushrooms `12×12`, moss `20×8`, stones
+   `16×10`/`12×8`, needles `24×8`, v2 flat marks `36×8`/`40×8`/`18×6`; each fits
+   its layer budget (floor ≤ lane height, background inside the sky, tall ≈ one
+   lane, flat marks inside one lane field).
 8. **Placement determinism** — two identical runs produce identical decor positions;
    `Math.random` is never called for decor; past `maxSpan 1500` world decor is culled
-   while sky + ground + carpet + treeline jag still render.
-9. **Density** — at a 4-lane, `W ≈ 100` window expect 3 background trees, 2
-   midground trees and **35 floor props (5 flat, 40 total** — desert v2 parity;
-   §3.4.4); caps respected (background ≤14, midground ≤10, floor ≤180).
+   while sky + ground + carpet + treeline jag + mountains still render.
+9. **Density** — at a 4-lane, `W ≈ 100` window expect 5 background trees (≈6
+   candidates, one margin-culled), 2 midground trees and **35 floor props (5 flat,
+   42 total**; §3.4.4); caps respected (background ≤24, midground ≤10,
+   floor ≤180).
 10. **Midground layering** — a midground `FOREST_TREE_TALL` on a lane is over-painted
     by a boar at the same screen x (boar passes in front).
 11. **Grass carpet (v2)** — grass lanes carry procedural speckle (`#5a8a48`/`#3a6030`
@@ -2557,16 +2846,35 @@ Written to the gitignored `test-results/ux-tmp/`:
     line), while every rooted floor kind still bottoms out on `laneSurfaceY`; two
     runs produce identical y values.
 23. **Desert untouched** — switching to desert renders byte-identical lane, carpet and
-    decor pixels to the shipped v2 build (canvas PNG `sha256 0df0239f…` before/after
-    §3.8): `drawDunes` is unchanged, `drawTreeline` returns without
-    `palette.treeline`, `ground.streaks` carries the same `DUNE_STREAKS` values and
-    the cluster gate is logically identical at `clusterShare 0.18`.
-24. **Forest dusk ambience v2** — forest draws 2 `palette.distant` ridge bands plus a
-    `palette.treeline` conifer triangle-tooth jag on `HORIZON_Y` (world-anchored 20 px tooth
-    period, `hash2` height `8–14 px`, darkest ridge tone `#241634`, never culled)
-    and 2 `ground.shade` grass ripple bands per lane (thick `2/1`, amp `±6/±4`,
-    wavelength `320/240 px`, phase `+ i·0.17`); switching to desert renders none of
-    them and desert keeps zero new pixels.
+    decor pixels to the shipped v2 build (raw RGBA `sha256 ce6dac5f…` idle /
+    `89baca40…` spread / `90b7b509…` culled, before/after §3.8): `drawDunes` is
+    unchanged, `drawMountains` returns without `palette.mountains`, `drawTreeline`
+    returns without `palette.treeline`, `ground.streaks` carries the same
+    `DUNE_STREAKS` values and the cluster gate is logically identical at
+    `clusterShare 0.18`.
+24. **Forest dusk ambience v2/v3** — forest draws 2 `palette.distant` ridge bands
+    plus a `palette.treeline` **two-tier** conifer triangle-tooth jag on `HORIZON_Y`
+    (world-anchored 20 px tooth period; back tier `distant[1]` `#33204a` teeth
+    `8–12 px` offset half a tooth; front tier `distant[0]` `#241634` teeth
+    `10–16 px`; both `hash2`-seeded, never culled) and 2 `ground.shade` grass ripple
+    bands per lane (thick `2/1`, amp `±6/±4`, wavelength `320/240 px`, phase
+    `+ i·0.17`); switching to desert renders none of them and desert keeps zero new
+    pixels.
+25. **Forest mountains (v3)** — when `palette.mountains` is present (all four
+    tones), `drawMountains` paints 2 `hash2`-seeded layers before `drawDunes`:
+    back `#3b2a56` `30–58 px` (rim `#4d3a6d`) and near `#140b26` `42–70 px` (rim
+    `#2e1f52`), pitch `115 px ± 12` jitter (adjacent spacing `91–139 px`),
+    widths `80–160 px`, all in on-screen px (`px = x + win.min·0.15 /
+    (span/CANVAS_W)`), run-coalesced 1 px columns with a 1 px upper rim, ≈`3 840`
+    rects and ≈12 peaks/layer at every zoom, never culled, no
+    `Math.random`/allocation; desert renders zero mountain-tone pixels.
+26. **Forest background variety (v3)** — background stream `spacing 20 / cap 24`
+    places 5 trees at the default camera (13 at `W ≈ 250`); the 9 background kinds
+    (conifer, deciduous, broad, bush, autumn, birch, deep-shadow spruce, spruce
+    tall, snag) share the same `trees` family and their weights sum exactly `1`;
+    autumn/birch map to `FOREST_TREE_DECIDUOUS` + variant palettes, deep-shadow
+    spruce to `FOREST_TREE_CONIFER` + variant palette; midground/floor streams
+    unchanged.
 
 ---
 
@@ -2575,9 +2883,9 @@ Written to the gitignored `test-results/ux-tmp/`:
 **Constants to add / change in `index.html`** (`#app` art section):
 `SKY_BANDS` (desert, unchanged) + `FOREST_SKY`; `HORIZON_Y = 120`,
 `LANE_BOTTOM = 712`, `DECOR_MAX_SPAN = 1500`; per-layer
-`DECOR_SPACING = { background:32, midground:48, floor:20 }` (both themes **v2: floor 12**,
-§3.8), `DECOR_CAP = { background:14, midground:10, floor:120 }` (both themes **v2: floor
-180**), `DECOR_STREAM = { background:0x11, midground:0x22, floor:0x33 }`;
+`DECOR_SPACING = { background:20, midground:48, floor:20 }` (forest **v3: bg 20**,
+floor **v2: 12**, §3.8), `DECOR_CAP = { background:24, midground:10, floor:120 }`
+(forest **v3: bg 24**, floor **v2: 180**), `DECOR_STREAM = { background:0x11, midground:0x22, floor:0x33 }`;
 sun/moon `cx 1020, cy 76, r 32`; milestone font `12px`, finish stripe `8×8`,
 confetti `4×4`, banner `16px`.
 
@@ -2664,13 +2972,28 @@ cluster block is now opt-in (`ground.clusterShare !== undefined`). The desert to
 values are untouched and a frozen desert frame hashes byte-identical before/after
 (§3.8/§5).
 
+**Forest v3 (§3.8f–g)** — theme data: `palette.mountains: { back:'#3b2a56',
+backRim:'#4d3a6d', body:'#140b26', rim:'#2e1f52' }`; background stream
+`spacing 20 / cap 24`; 3 palette variants (autumn/birch on `FOREST_TREE_DECIDUOUS`,
+deep-shadow spruce on `FOREST_TREE_CONIFER`) + 2 new matrices
+(`FOREST_TREE_SPRUCE_TALL 40×64`, `FOREST_TREE_SNAG 24×48`) as background kinds,
+weights summing exactly `1`. Renderer: `drawMountains(win)` before `drawDunes`
+(presence-gated on `palette.mountains`, 2 `hash2`-seeded triangular-peak layers,
+pitch `115 ± 12`, widths `80–160`, heights `30–58`/`42–70`, screen-px layout with
+parallax `win.min·0.15` (`px = x + screenShift`),
+run-coalesced body + 1 px rim, never culled); `drawTreeline` now draws two tiers
+(back `distant[1]` 8–12 px half-offset, front `distant[0]` 10–16 px). Desert keeps
+0 mountain/treeline rects and its frozen frames hash byte-identical v2→v3 (§3.8/§5).
+
 **Size budgets:** floor decor ≤ `12` px tall (lane `74` px at 8 lanes) — v2 flat marks
-≤ `10` px tall / `64` px wide and stay inside one lane; background trees ≤ `60` px
-basing at `HORIZON_Y`; midground tree `72` px (≈ one lane); worst-case
-`14 + 10 + 180 = 204` decor sprites/frame (both themes in v2; typical 40 at default
-zoom) plus the carpet `fillRect` pass, the desert 4-zone ramp (`3 × L` rects), the streak
+≤ `10` px tall / `64` px wide and stay inside one lane; background trees ≤ `64` px
+(v3 spruce tall) basing at `HORIZON_Y`; midground tree `72` px (≈ one lane);
+worst-case forest `24 + 10 + 180 = 214` decor sprites/frame (v3; measured 193 at the
+shipped perf window, typical 42 at default zoom; desert stays
+`14 + 10 + 180 = 204`) plus the carpet `fillRect` pass, the desert 4-zone ramp
+(`3 × L` rects), the streak
 run-rects (desert ≈1.2 k / 2.4 k, forest ≈0.73 k / 1.47 k, zoom-independent —
-§2.14.2 / §3.5) and the forest ridge/jag rects (§3.8); boar lane fit unchanged
+§2.14.2 / §3.5) and the forest mountains/ridge/jag rects (§3.8); boar lane fit unchanged
 (`60×42`). The original desert art pass was art-only; the v2 rounds (desert
-§2.12–§2.14, forest §3.8) also touched the renderer, and `tests/**` is owned by the
-test-engineer.
+§2.12–§2.14, forest §3.8) and the v3 round (forest §3.8f–g) also touched the
+renderer, and `tests/**` is owned by the test-engineer.
